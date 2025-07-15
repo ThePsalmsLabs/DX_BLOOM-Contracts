@@ -9,7 +9,7 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./CreatorRegistry.sol";
 import "./ContentRegistry.sol";
 
-**
+/**
  * @title SubscriptionManager
  * @dev Manages time-based subscriptions to creators with automatic access control
  * @notice This contract handles monthly subscriptions giving users access to all creator content
