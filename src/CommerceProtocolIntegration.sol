@@ -8,7 +8,7 @@ import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
 import {CreatorRegistry} from "./CreatorRegistry.sol";
 import {ContentRegistry} from "./ContentRegistry.sol";
-import {PlatformInterfaces} from "./interfaces/PlatformInterfaces.sol";
+import {ICommercePaymentsProtocol} from "./interfaces/PlatformInterfaces.sol";
 
 /**
  * @title CommerceProtocolIntegration
@@ -151,8 +151,7 @@ contract CommerceProtocolIntegration is Ownable, ReentrancyGuard, Pausable, EIP7
      * @return context Payment context for tracking
      */
     function createPaymentIntent(PlatformPaymentRequest memory request) 
-        external 
-        view 
+        external  
         returns (
             ICommercePaymentsProtocol.TransferIntent memory intent,
             PaymentContext memory context

@@ -9,7 +9,7 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {CreatorRegistry} from "./CreatorRegistry.sol";
 import {ContentRegistry} from "./ContentRegistry.sol";
 import {CommerceProtocolIntegration} from "./CommerceProtocolIntegration.sol";
-import {PlatformInterfaces} from "./interfaces/PlatformInterfaces.sol";
+import {ICommercePaymentsProtocol} from "./interfaces/PlatformInterfaces.sol";
 
 /**
  * @title PayPerViewWithCommerce
