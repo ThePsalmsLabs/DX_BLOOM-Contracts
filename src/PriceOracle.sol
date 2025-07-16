@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import {IQuoterV2} from "./interfaces/PlatformInterfaces.sol";
+import {IQuoterV2} from "./interfaces/IPlatformInterfaces.sol";
 
 /**
  * @title PriceOracle
@@ -53,7 +53,7 @@ contract PriceOracle is Ownable {
         address tokenOut,
         uint256 amountIn,
         uint24 poolFee
-    ) external view returns (uint256 amountOut) {
+    ) external returns (uint256 amountOut) {
         if (poolFee == 0) {
             poolFee = _getOptimalPoolFee(tokenIn, tokenOut);
         }
@@ -78,7 +78,7 @@ contract PriceOracle is Ownable {
      * @param usdcAmount USDC amount (6 decimals)
      * @return ethAmount ETH amount needed (18 decimals)
      */
-    function getETHPrice(uint256 usdcAmount) external view returns (uint256 ethAmount) {
+    function getETHPrice(uint256 usdcAmount) external returns (uint256 ethAmount) {
         uint24 poolFee = _getOptimalPoolFee(WETH, USDC);
         
         try QUOTER_V2.quoteExactInputSingle(
@@ -108,7 +108,7 @@ contract PriceOracle is Ownable {
         address token,
         uint256 usdcAmount,
         uint24 poolFee
-    ) external view returns (uint256 tokenAmount) {
+    ) external returns (uint256 tokenAmount) {
         if (token == USDC) {
             return usdcAmount;
         }
@@ -143,7 +143,7 @@ contract PriceOracle is Ownable {
     function _getTokenAmountViaWETH(
         address token,
         uint256 usdcAmount
-    ) internal view returns (uint256 tokenAmount) {
+    ) internal returns (uint256 tokenAmount) {
         // Get WETH amount needed for USDC
         uint256 wethNeeded = this.getETHPrice(usdcAmount);
         
@@ -190,7 +190,7 @@ contract PriceOracle is Ownable {
         address tokenIn,
         address tokenOut,
         uint256 amountIn
-    ) external view returns (uint256[3] memory quotes) {
+    ) external returns (uint256[3] memory quotes) {
         uint24[3] memory fees = [STABLE_POOL_FEE, DEFAULT_POOL_FEE, HIGH_FEE];
         
         for (uint i = 0; i < 3; i++) {
@@ -221,7 +221,7 @@ contract PriceOracle is Ownable {
     function _getOptimalPoolFee(
         address tokenA,
         address tokenB
-    ) internal view returns (uint24 poolFee) {
+    ) internal returns (uint24 poolFee) {
         // Check for custom pool fee
         poolFee = customPoolFees[tokenA][tokenB];
         if (poolFee != 0) return poolFee;

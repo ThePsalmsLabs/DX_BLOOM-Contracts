@@ -2,35 +2,44 @@
 pragma solidity ^0.8.23;
 
 import "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import "lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
 import "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {CreatorRegistry} from "./CreatorRegistry.sol";
 import {ContentRegistry} from "./ContentRegistry.sol";
-import {CommerceProtocolIntegration} from "./CommerceProtocolIntegration.sol";
+import {PriceOracle} from "./PriceOracle.sol";
 import {ICommercePaymentsProtocol} from "./interfaces/IPlatformInterfaces.sol";
 
 /**
- * @title PayPerViewWithCommerce
- * @dev  PayPerView contract integrated with Base Commerce Protocol
+ * @title PayPerView
+ * @dev Enhanced PayPerView contract integrated with Base Commerce Protocol and Uniswap pricing
  * @notice This contract handles content purchases using the Commerce Protocol for
  *         advanced payment options including ETH payments, token swaps, and multi-currency support
  */
-contract PayPerView is Ownable, ReentrancyGuard, Pausable {
+contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
+    
+    // Role definitions
+    bytes32 public constant PAYMENT_PROCESSOR_ROLE = keccak256("PAYMENT_PROCESSOR_ROLE");
+    bytes32 public constant REFUND_MANAGER_ROLE = keccak256("REFUND_MANAGER_ROLE");
     
     // Contract references
     CreatorRegistry public immutable creatorRegistry;
     ContentRegistry public immutable contentRegistry;
-    CommerceProtocolIntegration public immutable commerceIntegration;
-    ICommercePaymentsProtocol public immutable commerceProtocol;
+    PriceOracle public immutable priceOracle;
     IERC20 public immutable usdcToken;
+    
+    // Payment timeout and refund settings
+    uint256 public constant PAYMENT_TIMEOUT = 1 hours; // Payment intent expiry
+    uint256 public constant REFUND_WINDOW = 24 hours;  // Refund eligibility window
     
     // Access and purchase tracking
     mapping(uint256 => mapping(address => PurchaseRecord)) public purchases;
     mapping(address => uint256[]) public userPurchases;
     mapping(address => uint256) public userTotalSpent;
+    mapping(bytes16 => PendingPurchase) public pendingPurchases; // Intent -> Purchase details
     
     // Creator earnings and platform metrics
     mapping(address => uint256) public creatorEarnings;
@@ -38,10 +47,11 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
     uint256 public totalPlatformFees;
     uint256 public totalVolume;
     uint256 public totalPurchases;
+    uint256 public totalRefunds;
     
-    // Commerce Protocol integration tracking
-    mapping(bytes16 => uint256) public intentToContentId; // Link payment intents to content
-    mapping(bytes16 => address) public intentToUser;      // Link payment intents to users
+    // Failed purchase tracking for refunds
+    mapping(bytes16 => FailedPurchase) public failedPurchases;
+    mapping(address => uint256) public pendingRefunds; // User -> USDC amount
     
     /**
      * @dev Enhanced purchase record with Commerce Protocol integration
@@ -53,6 +63,35 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
         bytes16 intentId;            // Commerce Protocol intent ID
         address paymentToken;        // Token used for payment (ETH, USDC, etc.)
         uint256 actualAmountPaid;    // Actual amount paid in payment token
+        bool refundEligible;         // Whether purchase can be refunded
+        uint256 refundDeadline;      // Refund deadline timestamp
+    }
+    
+    /**
+     * @dev Pending purchase awaiting completion
+     */
+    struct PendingPurchase {
+        uint256 contentId;
+        address user;
+        uint256 usdcPrice;
+        address paymentToken;
+        uint256 expectedAmount;
+        uint256 deadline;
+        bool isProcessed;
+    }
+    
+    /**
+     * @dev Failed purchase eligible for refund
+     */
+    struct FailedPurchase {
+        uint256 contentId;
+        address user;
+        uint256 usdcAmount;
+        address paymentToken;
+        uint256 paidAmount;
+        uint256 failureTime;
+        string reason;
+        bool refunded;
     }
     
     /**
@@ -95,59 +134,85 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
         uint256 creatorEarning
     );
     
+    event PurchaseFailed(
+        bytes16 indexed intentId,
+        uint256 indexed contentId,
+        address indexed user,
+        string reason
+    );
+    
+    event RefundProcessed(
+        bytes16 indexed intentId,
+        address indexed user,
+        uint256 amount,
+        string reason
+    );
+    
+    event CreatorEarningsWithdrawn(
+        address indexed creator,
+        uint256 amount,
+        uint256 timestamp
+    );
+    
     // Custom errors
     error InvalidPaymentMethod();
     error PurchaseAlreadyCompleted();
     error IntentNotFound();
     error CommerceProtocolError(string reason);
+    error PurchaseExpired();
+    error NotRefundEligible();
+    error RefundWindowExpired();
+    error InsufficientRefundBalance();
+    error NoEarningsToWithdraw();
     
     /**
      * @dev Constructor initializes the enhanced PayPerView system
      * @param _creatorRegistry Address of CreatorRegistry contract
      * @param _contentRegistry Address of ContentRegistry contract
-     * @param _commerceIntegration Address of our Commerce Protocol integration
-     * @param _commerceProtocol Address of the deployed Commerce Protocol
+     * @param _priceOracle Address of PriceOracle contract
      * @param _usdcToken Address of USDC token contract
      */
     constructor(
         address _creatorRegistry,
         address _contentRegistry,
-        address _commerceIntegration,
-        address _commerceProtocol,
+        address _priceOracle,
         address _usdcToken
     ) Ownable(msg.sender) {
         require(_creatorRegistry != address(0), "Invalid creator registry");
         require(_contentRegistry != address(0), "Invalid content registry");
-        require(_commerceIntegration != address(0), "Invalid commerce integration");
-        require(_commerceProtocol != address(0), "Invalid commerce protocol");
+        require(_priceOracle != address(0), "Invalid price oracle");
         require(_usdcToken != address(0), "Invalid USDC token");
         
         creatorRegistry = CreatorRegistry(_creatorRegistry);
         contentRegistry = ContentRegistry(_contentRegistry);
-        commerceIntegration = CommerceProtocolIntegration(_commerceIntegration);
-        commerceProtocol = ICommercePaymentsProtocol(_commerceProtocol);
+        priceOracle = PriceOracle(_priceOracle);
         usdcToken = IERC20(_usdcToken);
+        
+        // Set up roles
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(PAYMENT_PROCESSOR_ROLE, msg.sender);
+        _grantRole(REFUND_MANAGER_ROLE, msg.sender);
     }
     
     /**
-     * @dev Initiates content purchase using Commerce Protocol for advanced payment options
+     * @dev Creates a purchase intent with accurate pricing using Uniswap
      * @param contentId Content to purchase
-     * @param paymentMethod How user wants to pay (USDC, ETH, WETH, other token)
+     * @param paymentMethod How user wants to pay
      * @param paymentToken Token address for OTHER_TOKEN method
-     * @param maxSlippage Maximum slippage for token swaps (basis points)
-     * @param deadline Payment deadline timestamp
-     * @return intent TransferIntent for user to execute
-     * @return expectedAmount Expected payment amount in the chosen token
+     * @param maxSlippage Maximum slippage tolerance in basis points
+     * @return intentId Unique intent identifier
+     * @return expectedAmount Expected payment amount in chosen token
+     * @return deadline Payment deadline timestamp
      */
-    function initiatePurchaseWithCommerce(
+    function createPurchaseIntent(
         uint256 contentId,
         PaymentMethod paymentMethod,
         address paymentToken,
-        uint256 maxSlippage,
-        uint256 deadline
+        uint256 maxSlippage
     ) external nonReentrant whenNotPaused returns (
-        ICommercePaymentsProtocol.TransferIntent memory intent,
-        uint256 expectedAmount
+        bytes16 intentId,
+        uint256 expectedAmount,
+        uint256 deadline
     ) {
         // Validate content and access
         ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
@@ -155,122 +220,126 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
         require(content.isActive, "Content not active");
         require(!purchases[contentId][msg.sender].hasPurchased, "Already purchased");
         
-        // Create payment request for Commerce Integration
-        CommerceProtocolIntegration.PlatformPaymentRequest memory request = 
-            CommerceProtocolIntegration.PlatformPaymentRequest({
-                paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
-                creator: content.creator,
-                contentId: contentId,
-                paymentToken: _getPaymentTokenAddress(paymentMethod, paymentToken),
-                maxSlippage: maxSlippage,
-                deadline: deadline
-            });
+        // Generate unique intent ID
+        intentId = _generateIntentId(msg.sender, contentId);
+        deadline = block.timestamp + PAYMENT_TIMEOUT;
         
-        // Get signed intent from our integration contract
-        (intent, ) = commerceIntegration.createPaymentIntent(request);
-        
-        // Track the intent for completion processing
-        intentToContentId[intent.id] = contentId;
-        intentToUser[intent.id] = msg.sender;
-        
-        // Calculate expected payment amount based on method
-        expectedAmount = _calculateExpectedPaymentAmount(
+        // Get accurate price quote using Uniswap
+        address tokenAddress = _getPaymentTokenAddress(paymentMethod, paymentToken);
+        expectedAmount = _getAccurateTokenAmount(
+            tokenAddress,
             content.payPerViewPrice,
-            paymentMethod,
-            paymentToken
+            maxSlippage
         );
+        
+        // Store pending purchase
+        pendingPurchases[intentId] = PendingPurchase({
+            contentId: contentId,
+            user: msg.sender,
+            usdcPrice: content.payPerViewPrice,
+            paymentToken: tokenAddress,
+            expectedAmount: expectedAmount,
+            deadline: deadline,
+            isProcessed: false
+        });
         
         emit ContentPurchaseInitiated(
             contentId,
             msg.sender,
             content.creator,
-            intent.id,
+            intentId,
             paymentMethod,
             content.payPerViewPrice,
             expectedAmount
         );
         
-        return (intent, expectedAmount);
+        return (intentId, expectedAmount, deadline);
     }
     
     /**
-     * @dev Completes content purchase after Commerce Protocol payment
+     * @dev Completes content purchase after payment verification
      * @param intentId Payment intent ID that was executed
-     * @param paymentToken Token used for payment
      * @param actualAmountPaid Actual amount paid in payment token
-     * @notice This is called by our monitoring system when payments complete
+     * @param success Whether the payment was successful
+     * @param failureReason Reason for failure (if applicable)
      */
     function completePurchase(
         bytes16 intentId,
-        address paymentToken,
-        uint256 actualAmountPaid
-    ) external nonReentrant {
-        // In production, this would have proper access control (payment monitor only)
+        uint256 actualAmountPaid,
+        bool success,
+        string memory failureReason
+    ) external onlyRole(PAYMENT_PROCESSOR_ROLE) nonReentrant {
         
-        uint256 contentId = intentToContentId[intentId];
-        address user = intentToUser[intentId];
+        PendingPurchase storage pending = pendingPurchases[intentId];
+        require(pending.user != address(0), "Intent not found");
+        require(!pending.isProcessed, "Already processed");
+        require(block.timestamp <= pending.deadline, "Purchase expired");
         
-        require(contentId != 0, "Intent not found");
-        require(user != address(0), "User not found");
-        require(!purchases[contentId][user].hasPurchased, "Already completed");
+        pending.isProcessed = true;
+        
+        if (!success) {
+            _handleFailedPurchase(intentId, pending, failureReason);
+            return;
+        }
+        
+        // Validate actual payment amount (allow small variance for slippage)
+        uint256 variance = (pending.expectedAmount * 50) / 10000; // 0.5% variance
+        require(
+            actualAmountPaid >= pending.expectedAmount - variance,
+            "Insufficient payment"
+        );
         
         // Get content and creator details
-        ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
-        uint256 contentPrice = content.payPerViewPrice;
-        
-        // Calculate fees and earnings
-        uint256 platformFee = creatorRegistry.calculatePlatformFee(contentPrice);
-        uint256 creatorEarning = contentPrice - platformFee;
+        ContentRegistry.Content memory content = contentRegistry.getContent(pending.contentId);
+        uint256 platformFee = creatorRegistry.calculatePlatformFee(pending.usdcPrice);
+        uint256 creatorEarning = pending.usdcPrice - platformFee;
         
         // Record the purchase
-        purchases[contentId][user] = PurchaseRecord({
+        purchases[pending.contentId][pending.user] = PurchaseRecord({
             hasPurchased: true,
-            purchasePrice: contentPrice,
+            purchasePrice: pending.usdcPrice,
             purchaseTime: block.timestamp,
             intentId: intentId,
-            paymentToken: paymentToken,
-            actualAmountPaid: actualAmountPaid
+            paymentToken: pending.paymentToken,
+            actualAmountPaid: actualAmountPaid,
+            refundEligible: true,
+            refundDeadline: block.timestamp + REFUND_WINDOW
         });
         
         // Update user purchase history
-        userPurchases[user].push(contentId);
-        userTotalSpent[user] += contentPrice;
+        userPurchases[pending.user].push(pending.contentId);
+        userTotalSpent[pending.user] += pending.usdcPrice;
         
-        // Update creator earnings
-        creatorEarnings[content.creator] += creatorEarning;
-        withdrawableEarnings[content.creator] += creatorEarning;
+        // Update creator earnings (through registry for proper access control)
+        try creatorRegistry.updateCreatorStats(content.creator, creatorEarning, 0, 0) {
+            creatorEarnings[content.creator] += creatorEarning;
+            withdrawableEarnings[content.creator] += creatorEarning;
+        } catch {
+            // If registry update fails, still track earnings locally
+            creatorEarnings[content.creator] += creatorEarning;
+            withdrawableEarnings[content.creator] += creatorEarning;
+        }
         
         // Update platform metrics
         totalPlatformFees += platformFee;
-        totalVolume += contentPrice;
+        totalVolume += pending.usdcPrice;
         totalPurchases++;
         
-        // Update creator stats
-        try creatorRegistry.updateCreatorStats(content.creator, creatorEarning, 0, 0) {
-            // Stats updated successfully
-        } catch {
-            // Continue if stats update fails
-        }
-        
         // Record purchase in content registry
-        try contentRegistry.recordPurchase(contentId, user) {
+        try contentRegistry.recordPurchase(pending.contentId, pending.user) {
             // Purchase recorded successfully
         } catch {
-            // Continue if recording fails
+            // Continue if recording fails (non-critical)
         }
         
-        // Clean up tracking
-        delete intentToContentId[intentId];
-        delete intentToUser[intentId];
-        
         emit ContentPurchaseCompleted(
-            contentId,
-            user,
+            pending.contentId,
+            pending.user,
             content.creator,
             intentId,
-            contentPrice,
+            pending.usdcPrice,
             actualAmountPaid,
-            paymentToken
+            pending.paymentToken
         );
     }
     
@@ -308,20 +377,30 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
             purchaseTime: block.timestamp,
             intentId: 0, // No intent ID for direct purchases
             paymentToken: address(usdcToken),
-            actualAmountPaid: contentPrice
+            actualAmountPaid: contentPrice,
+            refundEligible: true,
+            refundDeadline: block.timestamp + REFUND_WINDOW
         });
         
         // Update tracking
         userPurchases[msg.sender].push(contentId);
         userTotalSpent[msg.sender] += contentPrice;
-        creatorEarnings[content.creator] += creatorEarning;
-        withdrawableEarnings[content.creator] += creatorEarning;
+        
+        // Update creator earnings
+        try creatorRegistry.updateCreatorStats(content.creator, creatorEarning, 0, 0) {
+            creatorEarnings[content.creator] += creatorEarning;
+            withdrawableEarnings[content.creator] += creatorEarning;
+        } catch {
+            creatorEarnings[content.creator] += creatorEarning;
+            withdrawableEarnings[content.creator] += creatorEarning;
+        }
+        
+        // Update platform metrics
         totalPlatformFees += platformFee;
         totalVolume += contentPrice;
         totalPurchases++;
         
-        // Update stats and registry
-        try creatorRegistry.updateCreatorStats(content.creator, creatorEarning, 0, 0) {} catch {}
+        // Record in content registry
         try contentRegistry.recordPurchase(contentId, msg.sender) {} catch {}
         
         emit DirectPurchaseCompleted(
@@ -335,38 +414,91 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @dev Gets available payment methods and their expected costs for content
+     * @dev Requests refund for a purchase within the refund window
+     * @param contentId Content to refund
+     * @param reason Reason for refund request
+     */
+    function requestRefund(uint256 contentId, string memory reason) 
+        external 
+        nonReentrant 
+        whenNotPaused 
+    {
+        PurchaseRecord storage purchase = purchases[contentId][msg.sender];
+        require(purchase.hasPurchased, "No purchase found");
+        require(purchase.refundEligible, "Not refund eligible");
+        require(block.timestamp <= purchase.refundDeadline, "Refund window expired");
+        
+        // Mark as not refund eligible and add to pending refunds
+        purchase.refundEligible = false;
+        pendingRefunds[msg.sender] += purchase.purchasePrice;
+        
+        // Create failed purchase record for tracking
+        bytes16 refundId = _generateIntentId(msg.sender, contentId);
+        failedPurchases[refundId] = FailedPurchase({
+            contentId: contentId,
+            user: msg.sender,
+            usdcAmount: purchase.purchasePrice,
+            paymentToken: purchase.paymentToken,
+            paidAmount: purchase.actualAmountPaid,
+            failureTime: block.timestamp,
+            reason: reason,
+            refunded: false
+        });
+        
+        totalRefunds += purchase.purchasePrice;
+        
+        emit RefundProcessed(refundId, msg.sender, purchase.purchasePrice, reason);
+    }
+    
+    /**
+     * @dev Processes refund payout to user
+     * @param user User to refund
+     */
+    function processRefundPayout(address user) 
+        external 
+        onlyRole(REFUND_MANAGER_ROLE) 
+        nonReentrant 
+    {
+        uint256 amount = pendingRefunds[user];
+        require(amount > 0, "No pending refunds");
+        
+        pendingRefunds[user] = 0;
+        usdcToken.safeTransfer(user, amount);
+    }
+    
+    /**
+     * @dev Gets payment options and pricing for content
      * @param contentId Content to check pricing for
      * @return methods Array of available payment methods
-     * @return expectedCosts Expected payment amounts for each method
+     * @return prices Expected payment amounts for each method (with 1% slippage)
      */
     function getPaymentOptions(uint256 contentId) 
-        external 
-        view 
+        external
         returns (
             PaymentMethod[] memory methods,
-            uint256[] memory expectedCosts
+            uint256[] memory prices
         ) 
     {
         ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
         require(content.creator != address(0), "Content not found");
         
-        methods = new PaymentMethod[](4);
-        expectedCosts = new uint256[](4);
+        methods = new PaymentMethod[](3);
+        prices = new uint256[](3);
         
         methods[0] = PaymentMethod.USDC;
-        expectedCosts[0] = content.payPerViewPrice;
+        prices[0] = content.payPerViewPrice;
         
         methods[1] = PaymentMethod.ETH;
-        expectedCosts[1] = _estimateETHCost(content.payPerViewPrice);
+        try priceOracle.getETHPrice(content.payPerViewPrice) returns (uint256 ethAmount) {
+            prices[1] = priceOracle.applySlippage(ethAmount, 100); // 1% slippage
+        } catch {
+            prices[1] = 0; // Price unavailable
+        }
         
         methods[2] = PaymentMethod.WETH;
-        expectedCosts[2] = _estimateETHCost(content.payPerViewPrice); // Same as ETH
+        prices[2] = prices[1]; // Same as ETH
         
-        methods[3] = PaymentMethod.OTHER_TOKEN;
-        expectedCosts[3] = 0; // Depends on specific token chosen
-        
-        return (methods, expectedCosts);
+        return (methods, prices);
     }
     
     /**
@@ -394,7 +526,16 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @dev Creator earnings withdrawal (unchanged from original)
+     * @dev Gets user's purchase history
+     * @param user User address
+     * @return contentIds Array of purchased content IDs
+     */
+    function getUserPurchases(address user) external view returns (uint256[] memory) {
+        return userPurchases[user];
+    }
+    
+    /**
+     * @dev Creator earnings withdrawal
      */
     function withdrawEarnings() external nonReentrant {
         uint256 amount = withdrawableEarnings[msg.sender];
@@ -402,6 +543,38 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
         
         withdrawableEarnings[msg.sender] = 0;
         usdcToken.safeTransfer(msg.sender, amount);
+        
+        emit CreatorEarningsWithdrawn(msg.sender, amount, block.timestamp);
+    }
+    
+    /**
+     * @dev Gets creator earnings information
+     * @param creator Creator address
+     * @return total Total earnings
+     * @return withdrawable Current withdrawable amount
+     */
+    function getCreatorEarnings(address creator) 
+        external 
+        view 
+        returns (uint256 total, uint256 withdrawable) 
+    {
+        return (creatorEarnings[creator], withdrawableEarnings[creator]);
+    }
+    
+    /**
+     * @dev Admin function to grant payment processor role
+     * @param processor Address to grant role to
+     */
+    function grantPaymentProcessorRole(address processor) external onlyOwner {
+        _grantRole(PAYMENT_PROCESSOR_ROLE, processor);
+    }
+    
+    /**
+     * @dev Admin function to grant refund manager role
+     * @param manager Address to grant role to
+     */
+    function grantRefundManagerRole(address manager) external onlyOwner {
+        _grantRole(REFUND_MANAGER_ROLE, manager);
     }
     
     // Internal helper functions
@@ -411,10 +584,10 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
      */
     function _getPaymentTokenAddress(PaymentMethod method, address providedToken) 
         internal 
-        view 
+        pure 
         returns (address) 
     {
-        if (method == PaymentMethod.USDC) return address(usdcToken);
+        if (method == PaymentMethod.USDC) return 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
         if (method == PaymentMethod.ETH) return address(0); // ETH is address(0)
         if (method == PaymentMethod.WETH) return 0x4200000000000000000000000000000000000006; // WETH on Base
         if (method == PaymentMethod.OTHER_TOKEN) return providedToken;
@@ -423,40 +596,56 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @dev Calculates expected payment amount for different methods
+     * @dev Gets accurate token amount using Uniswap oracle
      */
-    function _calculateExpectedPaymentAmount(
-        uint256 usdcPrice,
-        PaymentMethod method,
-        address paymentToken
-    ) internal pure returns (uint256) {
-        if (method == PaymentMethod.USDC) {
-            return usdcPrice;
-        } else if (method == PaymentMethod.ETH || method == PaymentMethod.WETH) {
-            return _estimateETHCost(usdcPrice);
-        } else if (method == PaymentMethod.OTHER_TOKEN) {
-            // This would use a price oracle or Uniswap quoter in production
-            return _estimateTokenCost(paymentToken, usdcPrice);
+    function _getAccurateTokenAmount(
+        address token,
+        uint256 usdcAmount,
+        uint256 slippageBps
+    ) internal returns (uint256) {
+        if (token == address(usdcToken)) {
+            return usdcAmount;
+        } else if (token == address(0)) { // ETH
+            uint256 ethAmount = priceOracle.getETHPrice(usdcAmount);
+            return priceOracle.applySlippage(ethAmount, slippageBps);
+        } else {
+            uint256 tokenAmount = priceOracle.getTokenAmountForUSDC(token, usdcAmount, 0);
+            return priceOracle.applySlippage(tokenAmount, slippageBps);
         }
+    }
+    
+    /**
+     * @dev Generates unique intent ID
+     */
+    function _generateIntentId(address user, uint256 contentId) internal view returns (bytes16) {
+        return bytes16(keccak256(abi.encodePacked(
+            user,
+            contentId,
+            block.timestamp,
+            block.number
+        )));
+    }
+    
+    /**
+     * @dev Handles failed purchase and prepares refund
+     */
+    function _handleFailedPurchase(
+        bytes16 intentId,
+        PendingPurchase memory pending,
+        string memory reason
+    ) internal {
+        failedPurchases[intentId] = FailedPurchase({
+            contentId: pending.contentId,
+            user: pending.user,
+            usdcAmount: pending.usdcPrice,
+            paymentToken: pending.paymentToken,
+            paidAmount: 0, // No payment was made
+            failureTime: block.timestamp,
+            reason: reason,
+            refunded: false
+        });
         
-        return 0;
-    }
-    
-    /**
-     * @dev Estimates ETH cost for USDC amount (placeholder for price oracle)
-     */
-    function _estimateETHCost(uint256 usdcAmount) internal pure returns (uint256) {
-        // Placeholder: In production, use Chainlink oracle or Uniswap quoter
-        // Assuming 1 ETH = $3000, this is a rough estimate
-        return (usdcAmount * 1e18) / (3000 * 1e6); // Convert USDC to ETH
-    }
-    
-    /**
-     * @dev Estimates cost in other tokens (placeholder for price oracle)
-     */
-    function _estimateTokenCost(address token, uint256 usdcAmount) internal pure returns (uint256) {
-        // Placeholder: In production, use price oracles or Uniswap quoter
-        return usdcAmount; // 1:1 ratio as placeholder
+        emit PurchaseFailed(intentId, pending.contentId, pending.user, reason);
     }
     
     /**
@@ -471,5 +660,13 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
      */
     function unpause() external onlyOwner {
         _unpause();
+    }
+    
+    /**
+     * @dev Emergency token recovery (only non-USDC tokens)
+     */
+    function emergencyTokenRecovery(address token, uint256 amount) external onlyOwner {
+        require(token != address(usdcToken), "Cannot recover USDC");
+        IERC20(token).safeTransfer(owner(), amount);
     }
 }

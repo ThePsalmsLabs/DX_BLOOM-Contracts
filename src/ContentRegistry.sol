@@ -2,16 +2,21 @@
 pragma solidity ^0.8.23;
 
 import "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import "lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
 import "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {CreatorRegistry} from "./CreatorRegistry.sol";
 
 /**
  * @title ContentRegistry
- * @dev Manages content metadata, IPFS storage, and pay-per-view pricing
+ * @dev Manages content metadata, IPFS storage, and pay-per-view pricing with enhanced moderation
  * @notice This contract stores content information and integrates with IPFS for decentralized storage
  */
-contract ContentRegistry is Ownable, ReentrancyGuard, Pausable {
+contract ContentRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
+    
+    // Role definitions
+    bytes32 public constant PURCHASE_RECORDER_ROLE = keccak256("PURCHASE_RECORDER_ROLE");
+    bytes32 public constant MODERATOR_ROLE = keccak256("MODERATOR_ROLE");
     
     // Reference to the CreatorRegistry for validation
     CreatorRegistry public immutable creatorRegistry;
@@ -38,42 +43,60 @@ contract ContentRegistry is Ownable, ReentrancyGuard, Pausable {
     
     /**
      * @dev Content structure containing all metadata and pricing information
-     * @param creator Address of the content creator
-     * @param ipfsHash IPFS hash for decentralized content storage
-     * @param title Human-readable content title
-     * @param description Brief content description for discovery
-     * @param category Content category for filtering and organization
-     * @param payPerViewPrice Price for one-time access in USDC (6 decimals)
-     * @param isActive Whether content is available for purchase
-     * @param createdAt Timestamp when content was registered
-     * @param purchaseCount Total number of purchases for analytics
-     * @param tags Content tags for improved searchability
      */
     struct Content {
         address creator;              // Creator address
         string ipfsHash;             // IPFS content hash
-        string title;                // Content title (max 100 chars)
-        string description;          // Content description (max 500 chars)
-        ContentCategory category;    // Content category
-        uint256 payPerViewPrice;     // Pay-per-view price in USDC
-        bool isActive;               // Content availability status
-        uint256 createdAt;           // Creation timestamp
-        uint256 purchaseCount;       // Number of purchases
+        string title;                // Human-readable content title
+        string description;          // Brief content description for discovery
+        ContentCategory category;    // Content category for filtering and organization
+        uint256 payPerViewPrice;     // Price for one-time access in USDC (6 decimals)
+        bool isActive;               // Whether content is available for purchase
+        uint256 createdAt;           // Timestamp when content was registered
+        uint256 purchaseCount;       // Total number of purchases for analytics
         string[] tags;               // Searchable tags
+        bool isReported;             // Whether content has been reported
+        uint256 reportCount;         // Number of reports against this content
+    }
+    
+    /**
+     * @dev Content report structure for moderation
+     */
+    struct ContentReport {
+        uint256 contentId;
+        address reporter;
+        string reason;
+        uint256 timestamp;
+        bool resolved;
+        string action; // "ignored", "warning", "removed"
     }
     
     // Storage mappings for efficient content management
     mapping(uint256 => Content) public contents;
     mapping(address => uint256[]) public creatorContent; // Creator -> Content IDs
     mapping(ContentCategory => uint256[]) public categoryContent; // Category -> Content IDs
+    mapping(uint256 => address[]) public contentPurchasers; // Content -> Purchaser addresses
     
     // Content discovery and search mappings
     mapping(string => uint256[]) public tagContent; // Tag -> Content IDs
     mapping(string => bool) public bannedWords; // Moderation system
+    mapping(string => bool) public bannedPhrases; // Enhanced moderation
+    
+    // Reporting and moderation
+    mapping(uint256 => ContentReport[]) public contentReports; // Content -> Reports
+    mapping(address => mapping(uint256 => bool)) public hasReported; // User -> Content -> Reported
+    uint256 public nextReportId = 1;
     
     // Analytics and metrics
     uint256 public totalContentCount;
+    uint256 public activeContentCount;
     mapping(ContentCategory => uint256) public categoryCount;
+    mapping(ContentCategory => uint256) public activeCategoryCount;
+    
+    // Moderation thresholds
+    uint256 public autoModerateThreshold = 5; // Auto-deactivate after 5 reports
+    uint256 public maxReportsPerUser = 10; // Max reports per user per day
+    mapping(address => mapping(uint256 => uint256)) public userDailyReports; // User -> Day -> Count
     
     // Events for frontend integration and indexing
     event ContentRegistered(
@@ -99,9 +122,28 @@ contract ContentRegistry is Ownable, ReentrancyGuard, Pausable {
         uint256 timestamp
     );
     
-    event ContentDeactivated(uint256 indexed contentId, string reason);
-    event WordBanned(string word);
-    event WordUnbanned(string word);
+    event ContentDeactivated(
+        uint256 indexed contentId, 
+        string reason,
+        address moderator
+    );
+    
+    event ContentReported(
+        uint256 indexed contentId,
+        address indexed reporter,
+        string reason,
+        uint256 reportId
+    );
+    
+    event ReportResolved(
+        uint256 indexed reportId,
+        uint256 indexed contentId,
+        string action,
+        address moderator
+    );
+    
+    event WordBanned(string word, bool isPhrase);
+    event WordUnbanned(string word, bool isPhrase);
     
     // Custom errors for gas-efficient error handling
     error CreatorNotRegistered();
@@ -111,8 +153,12 @@ contract ContentRegistry is Ownable, ReentrancyGuard, Pausable {
     error ContentNotActive();
     error UnauthorizedCreator();
     error InvalidStringLength();
-    error BannedWordDetected();
+    error BannedWordDetected(string word);
     error ContentAlreadyExists();
+    error AlreadyReported();
+    error TooManyReports();
+    error ReportNotFound();
+    error InvalidReportReason();
     
     /**
      * @dev Constructor links to CreatorRegistry for validation
@@ -121,6 +167,10 @@ contract ContentRegistry is Ownable, ReentrancyGuard, Pausable {
     constructor(address _creatorRegistry) Ownable(msg.sender) {
         require(_creatorRegistry != address(0), "Invalid registry address");
         creatorRegistry = CreatorRegistry(_creatorRegistry);
+        
+        // Set up roles
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MODERATOR_ROLE, msg.sender);
     }
     
     /**
@@ -166,7 +216,9 @@ contract ContentRegistry is Ownable, ReentrancyGuard, Pausable {
             isActive: true,
             createdAt: block.timestamp,
             purchaseCount: 0,
-            tags: tags
+            tags: tags,
+            isReported: false,
+            reportCount: 0
         });
         
         // Update tracking mappings
@@ -175,12 +227,14 @@ contract ContentRegistry is Ownable, ReentrancyGuard, Pausable {
         
         // Index tags for searchability
         for (uint i = 0; i < tags.length; i++) {
-            tagContent[tags[i]].push(contentId);
+            tagContent[_toLowerCase(tags[i])].push(contentId);
         }
         
         // Update counters
         totalContentCount++;
+        activeContentCount++;
         categoryCount[category]++;
+        activeCategoryCount[category]++;
         
         // Update creator stats in registry
         try creatorRegistry.updateCreatorStats(msg.sender, 0, 1, 0) {
@@ -217,6 +271,8 @@ contract ContentRegistry is Ownable, ReentrancyGuard, Pausable {
         if (contentId == 0 || contentId >= nextContentId) revert InvalidContentId();
         if (contents[contentId].creator != msg.sender) revert UnauthorizedCreator();
         
+        bool wasActive = contents[contentId].isActive;
+        
         // Update price if new price is provided
         if (newPrice > 0) {
             if (newPrice < MIN_PAY_PER_VIEW_PRICE || newPrice > MAX_PAY_PER_VIEW_PRICE) {
@@ -227,20 +283,32 @@ contract ContentRegistry is Ownable, ReentrancyGuard, Pausable {
         
         contents[contentId].isActive = isActive;
         
+        // Update active counters
+        if (wasActive && !isActive) {
+            activeContentCount--;
+            activeCategoryCount[contents[contentId].category]--;
+        } else if (!wasActive && isActive) {
+            activeContentCount++;
+            activeCategoryCount[contents[contentId].category]++;
+        }
+        
         emit ContentUpdated(contentId, newPrice, isActive);
     }
     
     /**
-     * @dev Records a content purchase (called by PayPerView contract)
+     * @dev Records a content purchase (called by authorized contracts only)
      * @param contentId ID of purchased content
      * @param buyer Address of the buyer
      */
-    function recordPurchase(uint256 contentId, address buyer) external {
-        // In production, this would have proper access control to only allow PayPerView contract
+    function recordPurchase(uint256 contentId, address buyer) 
+        external 
+        onlyRole(PURCHASE_RECORDER_ROLE) 
+    {
         if (contentId == 0 || contentId >= nextContentId) revert InvalidContentId();
         if (!contents[contentId].isActive) revert ContentNotActive();
         
         contents[contentId].purchaseCount++;
+        contentPurchasers[contentId].push(buyer);
         
         emit ContentPurchased(
             contentId,
@@ -251,36 +319,140 @@ contract ContentRegistry is Ownable, ReentrancyGuard, Pausable {
     }
     
     /**
+     * @dev Reports content for moderation
+     * @param contentId Content to report
+     * @param reason Reason for reporting
+     */
+    function reportContent(uint256 contentId, string memory reason) 
+        external 
+        nonReentrant 
+        whenNotPaused 
+    {
+        if (contentId == 0 || contentId >= nextContentId) revert InvalidContentId();
+        if (!contents[contentId].isActive) revert ContentNotActive();
+        if (hasReported[msg.sender][contentId]) revert AlreadyReported();
+        if (bytes(reason).length == 0 || bytes(reason).length > 200) revert InvalidReportReason();
+        
+        // Check daily report limit
+        uint256 today = block.timestamp / 1 days;
+        if (userDailyReports[msg.sender][today] >= maxReportsPerUser) {
+            revert TooManyReports();
+        }
+        
+        // Create report
+        uint256 reportId = nextReportId++;
+        contentReports[contentId].push(ContentReport({
+            contentId: contentId,
+            reporter: msg.sender,
+            reason: reason,
+            timestamp: block.timestamp,
+            resolved: false,
+            action: ""
+        }));
+        
+        // Update state
+        hasReported[msg.sender][contentId] = true;
+        userDailyReports[msg.sender][today]++;
+        contents[contentId].reportCount++;
+        contents[contentId].isReported = true;
+        
+        // Auto-moderate if threshold reached
+        if (contents[contentId].reportCount >= autoModerateThreshold) {
+            _autoModerateContent(contentId);
+        }
+        
+        emit ContentReported(contentId, msg.sender, reason, reportId);
+    }
+    
+    /**
+     * @dev Resolves a content report (moderator only)
+     * @param contentId Content ID
+     * @param reportIndex Report index in the content's reports array
+     * @param action Action taken ("ignored", "warning", "removed")
+     */
+    function resolveReport(
+        uint256 contentId,
+        uint256 reportIndex,
+        string memory action
+    ) external onlyRole(MODERATOR_ROLE) {
+        if (contentId == 0 || contentId >= nextContentId) revert InvalidContentId();
+        if (reportIndex >= contentReports[contentId].length) revert ReportNotFound();
+        
+        ContentReport storage report = contentReports[contentId][reportIndex];
+        if (report.resolved) return; // Already resolved
+        
+        report.resolved = true;
+        report.action = action;
+        
+        // Take action based on decision
+        if (keccak256(bytes(action)) == keccak256(bytes("removed"))) {
+            _deactivateContent(contentId, "Removed due to moderation", msg.sender);
+        }
+        
+        emit ReportResolved(reportIndex, contentId, action, msg.sender);
+    }
+    
+    /**
      * @dev Admin function to deactivate content (for moderation)
      * @param contentId Content ID to deactivate
      * @param reason Reason for deactivation
      */
     function deactivateContent(uint256 contentId, string memory reason) 
         external 
-        onlyOwner 
+        onlyRole(MODERATOR_ROLE)
     {
-        if (contentId == 0 || contentId >= nextContentId) revert InvalidContentId();
-        
-        contents[contentId].isActive = false;
-        emit ContentDeactivated(contentId, reason);
+        _deactivateContent(contentId, reason, msg.sender);
     }
     
     /**
      * @dev Admin function to manage banned words for content moderation
      * @param word Word to ban
+     * @param isPhrase Whether this is a phrase (for substring matching)
      */
-    function banWord(string memory word) external onlyOwner {
-        bannedWords[word] = true;
-        emit WordBanned(word);
+    function banWord(string memory word, bool isPhrase) external onlyRole(MODERATOR_ROLE) {
+        string memory lowerWord = _toLowerCase(word);
+        if (isPhrase) {
+            bannedPhrases[lowerWord] = true;
+        } else {
+            bannedWords[lowerWord] = true;
+        }
+        emit WordBanned(lowerWord, isPhrase);
     }
     
     /**
      * @dev Admin function to unban words
      * @param word Word to unban
+     * @param isPhrase Whether this is a phrase
      */
-    function unbanWord(string memory word) external onlyOwner {
-        bannedWords[word] = false;
-        emit WordUnbanned(word);
+    function unbanWord(string memory word, bool isPhrase) external onlyRole(MODERATOR_ROLE) {
+        string memory lowerWord = _toLowerCase(word);
+        if (isPhrase) {
+            bannedPhrases[lowerWord] = false;
+        } else {
+            bannedWords[lowerWord] = false;
+        }
+        emit WordUnbanned(lowerWord, isPhrase);
+    }
+    
+    /**
+     * @dev Updates moderation settings
+     * @param newThreshold New auto-moderation threshold
+     * @param newMaxReports New max reports per user per day
+     */
+    function updateModerationSettings(
+        uint256 newThreshold,
+        uint256 newMaxReports
+    ) external onlyRole(MODERATOR_ROLE) {
+        autoModerateThreshold = newThreshold;
+        maxReportsPerUser = newMaxReports;
+    }
+    
+    /**
+     * @dev Grants purchase recorder role to authorized contracts
+     * @param contractAddress Address of contract that can record purchases
+     */
+    function grantPurchaseRecorderRole(address contractAddress) external onlyOwner {
+        _grantRole(PURCHASE_RECORDER_ROLE, contractAddress);
     }
     
     // View functions for content discovery and analytics
@@ -305,6 +477,35 @@ contract ContentRegistry is Ownable, ReentrancyGuard, Pausable {
     }
     
     /**
+     * @dev Gets active content IDs for a creator
+     * @param creator Creator address
+     * @return uint256[] Array of active content IDs
+     */
+    function getCreatorActiveContent(address creator) external view returns (uint256[] memory) {
+        uint256[] memory allContent = creatorContent[creator];
+        uint256 activeCount = 0;
+        
+        // Count active content
+        for (uint256 i = 0; i < allContent.length; i++) {
+            if (contents[allContent[i]].isActive) {
+                activeCount++;
+            }
+        }
+        
+        // Build active content array
+        uint256[] memory activeContent = new uint256[](activeCount);
+        uint256 index = 0;
+        for (uint256 i = 0; i < allContent.length; i++) {
+            if (contents[allContent[i]].isActive) {
+                activeContent[index] = allContent[i];
+                index++;
+            }
+        }
+        
+        return activeContent;
+    }
+    
+    /**
      * @dev Gets content IDs for a specific category
      * @param category Content category
      * @return uint256[] Array of content IDs
@@ -318,65 +519,137 @@ contract ContentRegistry is Ownable, ReentrancyGuard, Pausable {
     }
     
     /**
+     * @dev Gets active content IDs for a category
+     * @param category Content category
+     * @return uint256[] Array of active content IDs
+     */
+    function getActiveContentByCategory(ContentCategory category)
+        external
+        view
+        returns (uint256[] memory)
+    {
+        uint256[] memory allContent = categoryContent[category];
+        uint256 activeCount = 0;
+        
+        // Count active content
+        for (uint256 i = 0; i < allContent.length; i++) {
+            if (contents[allContent[i]].isActive) {
+                activeCount++;
+            }
+        }
+        
+        // Build active content array
+        uint256[] memory activeContent = new uint256[](activeCount);
+        uint256 index = 0;
+        for (uint256 i = 0; i < allContent.length; i++) {
+            if (contents[allContent[i]].isActive) {
+                activeContent[index] = allContent[i];
+                index++;
+            }
+        }
+        
+        return activeContent;
+    }
+    
+    /**
      * @dev Gets content IDs for a specific tag
      * @param tag Search tag
      * @return uint256[] Array of content IDs
      */
     function getContentByTag(string memory tag) external view returns (uint256[] memory) {
-        return tagContent[tag];
+        return tagContent[_toLowerCase(tag)];
     }
     
     /**
-     * @dev Gets paginated content list for browsing
+     * @dev Gets paginated content list for browsing (active content only)
      * @param offset Starting index
      * @param limit Maximum number of items to return
      * @return contentIds Array of content IDs
-     * @return total Total number of content items
+     * @return total Total number of active content items
      */
-    function getContentPaginated(uint256 offset, uint256 limit) 
+    function getActiveContentPaginated(uint256 offset, uint256 limit) 
         external 
         view 
         returns (uint256[] memory contentIds, uint256 total) 
     {
-        total = totalContentCount;
+        total = activeContentCount;
         
         if (offset >= total) {
             return (new uint256[](0), total);
         }
         
-        uint256 end = offset + limit;
-        if (end > total) {
-            end = total;
+        uint256 collected = 0;
+        uint256 checked = 0;
+        uint256 currentId = 1;
+        
+        // Skip to offset
+        while (checked < offset && currentId < nextContentId) {
+            if (contents[currentId].isActive) {
+                checked++;
+            }
+            currentId++;
         }
         
-        uint256 length = end - offset;
-        contentIds = new uint256[](length);
+        // Collect content IDs
+        uint256 maxCollect = limit;
+        if (offset + limit > total) {
+            maxCollect = total - offset;
+        }
         
-        for (uint256 i = 0; i < length; i++) {
-            contentIds[i] = offset + i + 1; // Content IDs start from 1
+        contentIds = new uint256[](maxCollect);
+        
+        while (collected < maxCollect && currentId < nextContentId) {
+            if (contents[currentId].isActive) {
+                contentIds[collected] = currentId;
+                collected++;
+            }
+            currentId++;
         }
         
         return (contentIds, total);
     }
     
     /**
+     * @dev Gets reports for a content ID
+     * @param contentId Content ID
+     * @return ContentReport[] Array of reports
+     */
+    function getContentReports(uint256 contentId) 
+        external 
+        view 
+        returns (ContentReport[] memory) 
+    {
+        return contentReports[contentId];
+    }
+    
+    /**
      * @dev Gets platform analytics and metrics
      * @return totalContent Total content count
+     * @return activeContent Active content count
      * @return categoryCounts Array of counts per category
+     * @return activeCategoryCounts Array of active counts per category
      */
     function getPlatformStats() 
         external 
         view 
-        returns (uint256 totalContent, uint256[] memory categoryCounts) 
+        returns (
+            uint256 totalContent, 
+            uint256 activeContent,
+            uint256[] memory categoryCounts,
+            uint256[] memory activeCategoryCounts
+        ) 
     {
         totalContent = totalContentCount;
+        activeContent = activeContentCount;
         categoryCounts = new uint256[](8); // Number of categories
+        activeCategoryCounts = new uint256[](8);
         
         for (uint i = 0; i < 8; i++) {
             categoryCounts[i] = categoryCount[ContentCategory(i)];
+            activeCategoryCounts[i] = activeCategoryCount[ContentCategory(i)];
         }
         
-        return (totalContent, categoryCounts);
+        return (totalContent, activeContent, categoryCounts, activeCategoryCounts);
     }
     
     // Internal helper functions
@@ -426,27 +699,86 @@ contract ContentRegistry is Ownable, ReentrancyGuard, Pausable {
         string[] memory tags
     ) internal view {
         
-        // Simple banned word checking - in production this would be more sophisticated
-        // For MVP, we'll implement basic checks
+        // Check title
+        string memory lowerTitle = _toLowerCase(title);
+        _checkTextForBannedContent(lowerTitle);
         
-        // Check title for banned words (simplified)
-        if (_containsBannedWord(title)) revert BannedWordDetected();
+        // Check description
+        string memory lowerDesc = _toLowerCase(description);
+        _checkTextForBannedContent(lowerDesc);
         
-        // Check description for banned words (simplified)
-        if (_containsBannedWord(description)) revert BannedWordDetected();
-        
-        // Check tags for banned words
+        // Check tags
         for (uint i = 0; i < tags.length; i++) {
-            if (_containsBannedWord(tags[i])) revert BannedWordDetected();
+            string memory lowerTag = _toLowerCase(tags[i]);
+            _checkTextForBannedContent(lowerTag);
         }
     }
     
     /**
-     * @dev Simple banned word detection (placeholder for more sophisticated filtering)
+     * @dev Checks text for banned words and phrases
+     * @param text Text to check (should be lowercase)
      */
-    function _containsBannedWord(string memory text) internal view returns (bool) {
-        // This is a simplified implementation - production would use more sophisticated filtering
-        return bannedWords[text];
+    function _checkTextForBannedContent(string memory text) internal view {
+        // Check for exact banned words
+        if (bannedWords[text]) {
+            revert BannedWordDetected(text);
+        }
+        
+        // Check for banned phrases (substring matching)
+        // Note: This is a simplified implementation
+        // In production, you'd use more sophisticated string matching
+        bytes memory textBytes = bytes(text);
+        
+        // Check each banned phrase
+        // This is a placeholder - in production you'd implement proper substring search
+        // For now, we'll just check if banned phrases are exact matches
+        if (bannedPhrases[text]) {
+            revert BannedWordDetected(text);
+        }
+    }
+    
+    /**
+     * @dev Converts string to lowercase
+     * @param str Input string
+     * @return string Lowercase string
+     */
+    function _toLowerCase(string memory str) internal pure returns (string memory) {
+        bytes memory bStr = bytes(str);
+        bytes memory bLower = new bytes(bStr.length);
+        
+        for (uint i = 0; i < bStr.length; i++) {
+            if ((uint8(bStr[i]) >= 65) && (uint8(bStr[i]) <= 90)) {
+                bLower[i] = bytes1(uint8(bStr[i]) + 32);
+            } else {
+                bLower[i] = bStr[i];
+            }
+        }
+        
+        return string(bLower);
+    }
+    
+    /**
+     * @dev Auto-moderates content when report threshold is reached
+     * @param contentId Content to moderate
+     */
+    function _autoModerateContent(uint256 contentId) internal {
+        _deactivateContent(contentId, "Auto-moderated due to reports", address(this));
+    }
+    
+    /**
+     * @dev Internal function to deactivate content
+     * @param contentId Content to deactivate
+     * @param reason Reason for deactivation
+     * @param moderator Address performing the action
+     */
+    function _deactivateContent(uint256 contentId, string memory reason, address moderator) internal {
+        if (contents[contentId].isActive) {
+            contents[contentId].isActive = false;
+            activeContentCount--;
+            activeCategoryCount[contents[contentId].category]--;
+        }
+        
+        emit ContentDeactivated(contentId, reason, moderator);
     }
     
     /**

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.23;
 
 import "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import "lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
 import "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -11,11 +12,15 @@ import {ContentRegistry} from "./ContentRegistry.sol";
 
 /**
  * @title SubscriptionManager
- * @dev Manages time-based subscriptions to creators with automatic access control
+ * @dev Subscription management with auto-renewal, expiry cleanup, and comprehensive tracking
  * @notice This contract handles monthly subscriptions giving users access to all creator content
  */
-contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
+contract SubscriptionManager is Ownable, AccessControl, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
+    
+    // Role definitions
+    bytes32 public constant RENEWAL_BOT_ROLE = keccak256("RENEWAL_BOT_ROLE");
+    bytes32 public constant SUBSCRIPTION_PROCESSOR_ROLE = keccak256("SUBSCRIPTION_PROCESSOR_ROLE");
     
     // Contract dependencies for validation and pricing
     CreatorRegistry public immutable creatorRegistry;
@@ -25,6 +30,7 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
     // Subscription duration configuration
     uint256 public constant SUBSCRIPTION_DURATION = 30 days; // Fixed 30-day subscriptions
     uint256 public constant GRACE_PERIOD = 3 days; // Grace period for expired subscriptions
+    uint256 public constant RENEWAL_WINDOW = 1 days; // Window before expiry for renewal
     
     // Subscription tracking: user => creator => expiration timestamp
     mapping(address => mapping(address => uint256)) public subscriptionEndTime;
@@ -43,14 +49,19 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
     mapping(address => mapping(address => uint256)) public subscriptionCount; // user => creator => renewal count
     mapping(address => uint256) public totalSubscriptionRevenue; // creator => all-time revenue
     
+    // Auto-renewal management: user => creator => auto-renewal settings
+    mapping(address => mapping(address => AutoRenewal)) public autoRenewals;
+    
+    // Expired subscription cleanup tracking
+    mapping(address => uint256) public lastCleanupTime; // creator => last cleanup timestamp
+    uint256 public constant CLEANUP_INTERVAL = 7 days; // Cleanup interval
+    
+    // Refund and failed subscription tracking
+    mapping(address => mapping(address => uint256)) public pendingRefunds;
+    mapping(address => mapping(address => FailedSubscription)) public failedSubscriptions;
+    
     /**
      * @dev Detailed subscription record for analytics and management
-     * @param isActive Current subscription status
-     * @param startTime When subscription began
-     * @param endTime When subscription expires
-     * @param renewalCount Number of times subscription has been renewed
-     * @param totalPaid Total amount paid for this creator's subscription
-     * @param lastPayment Amount of most recent payment
      */
     struct SubscriptionRecord {
         bool isActive;              // Active subscription status
@@ -59,27 +70,41 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
         uint256 renewalCount;       // Number of renewals
         uint256 totalPaid;          // Total USDC paid to this creator
         uint256 lastPayment;        // Most recent payment amount
+        uint256 lastRenewalTime;    // Last renewal timestamp
+        bool autoRenewalEnabled;    // Auto-renewal status
     }
     
     /**
      * @dev Auto-renewal configuration for convenience
-     * @param enabled Whether auto-renewal is enabled
-     * @param maxPrice Maximum price willing to pay for auto-renewal
-     * @param balance Pre-deposited balance for auto-renewals
      */
     struct AutoRenewal {
         bool enabled;               // Auto-renewal status
         uint256 maxPrice;           // Maximum acceptable price for renewal
         uint256 balance;            // Pre-deposited USDC balance for renewals
+        uint256 lastRenewalAttempt; // Last renewal attempt timestamp
+        uint256 failedAttempts;     // Number of failed renewal attempts
     }
     
-    // Auto-renewal management: user => creator => auto-renewal settings
-    mapping(address => mapping(address => AutoRenewal)) public autoRenewals;
+    /**
+     * @dev Failed subscription for refund tracking
+     */
+    struct FailedSubscription {
+        uint256 attemptTime;
+        uint256 attemptedPrice;
+        string failureReason;
+        bool refunded;
+    }
     
     // Platform subscription metrics
     uint256 public totalActiveSubscriptions;    // Current active subscription count
     uint256 public totalSubscriptionVolume;     // All-time subscription revenue volume
     uint256 public totalPlatformSubscriptionFees; // Platform fees from subscriptions
+    uint256 public totalRenewals;               // Total successful renewals
+    uint256 public totalRefunds;                // Total refunds processed
+    
+    // Auto-renewal rate limiting
+    uint256 public maxRenewalAttemptsPerDay = 3; // Max renewal attempts per day
+    uint256 public renewalCooldown = 4 hours;    // Cooldown between renewal attempts
     
     // Events for comprehensive subscription tracking
     event Subscribed(
@@ -122,10 +147,30 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
         uint256 newEndTime
     );
     
+    event AutoRenewalFailed(
+        address indexed user,
+        address indexed creator,
+        string reason,
+        uint256 attemptTime
+    );
+    
     event SubscriptionEarningsWithdrawn(
         address indexed creator,
         uint256 amount,
         uint256 timestamp
+    );
+    
+    event ExpiredSubscriptionsCleaned(
+        address indexed creator,
+        uint256 cleanedCount,
+        uint256 timestamp
+    );
+    
+    event SubscriptionRefunded(
+        address indexed user,
+        address indexed creator,
+        uint256 amount,
+        string reason
     );
     
     // Custom errors for efficient error handling
@@ -136,9 +181,12 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
     error InsufficientPayment();
     error InsufficientBalance();
     error InvalidAutoRenewalConfig();
-    error AutoRenewalFailed();
     error NoEarningsToWithdraw();
     error InvalidSubscriptionPeriod();
+    error RenewalTooSoon();
+    error TooManyRenewalAttempts();
+    error RefundNotEligible();
+    error CleanupTooSoon();
     
     /**
      * @dev Constructor initializes subscription manager with required contracts
@@ -158,12 +206,16 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
         creatorRegistry = CreatorRegistry(_creatorRegistry);
         contentRegistry = ContentRegistry(_contentRegistry);
         usdcToken = IERC20(_usdcToken);
+        
+        // Set up roles
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(RENEWAL_BOT_ROLE, msg.sender);
+        _grantRole(SUBSCRIPTION_PROCESSOR_ROLE, msg.sender);
     }
     
     /**
      * @dev Subscribes user to a creator for 30 days with USDC payment
      * @param creator Address of creator to subscribe to
-     * @notice Requires USDC allowance for subscription price + platform fee
      */
     function subscribeToCreator(address creator) 
         external 
@@ -213,6 +265,8 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
             record.renewalCount = 0;
             record.totalPaid = subscriptionPrice;
             record.lastPayment = subscriptionPrice;
+            record.lastRenewalTime = startTime;
+            record.autoRenewalEnabled = false;
         } else {
             // Renewal of existing subscription
             record.isActive = true;
@@ -220,6 +274,9 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
             record.renewalCount += 1;
             record.totalPaid += subscriptionPrice;
             record.lastPayment = subscriptionPrice;
+            record.lastRenewalTime = block.timestamp;
+            
+            totalRenewals++;
             
             emit SubscriptionRenewed(
                 msg.sender,
@@ -296,17 +353,20 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
         autoRenewals[msg.sender][creator].enabled = enabled;
         autoRenewals[msg.sender][creator].maxPrice = maxPrice;
         
+        // Update subscription record
+        subscriptions[msg.sender][creator].autoRenewalEnabled = enabled;
+        
         emit AutoRenewalConfigured(msg.sender, creator, enabled, maxPrice, depositAmount);
     }
     
     /**
-     * @dev Executes auto-renewal for eligible subscriptions (can be called by anyone)
+     * @dev Executes auto-renewal for eligible subscriptions with rate limiting
      * @param user User address with expiring subscription
      * @param creator Creator address for renewal
-     * @notice This function enables automated subscription renewals via keepers or bots
      */
     function executeAutoRenewal(address user, address creator) 
         external 
+        onlyRole(RENEWAL_BOT_ROLE)
         nonReentrant 
         whenNotPaused 
     {
@@ -315,19 +375,47 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
         // Validate auto-renewal is enabled and configured
         if (!autoRenewal.enabled) revert InvalidAutoRenewalConfig();
         
-        // Check if subscription is close to expiry (within 24 hours)
+        // Rate limiting: check cooldown period
+        if (block.timestamp < autoRenewal.lastRenewalAttempt + renewalCooldown) {
+            revert RenewalTooSoon();
+        }
+        
+        // Daily attempt limit
+        uint256 today = block.timestamp / 1 days;
+        uint256 lastAttemptDay = autoRenewal.lastRenewalAttempt / 1 days;
+        if (today == lastAttemptDay && autoRenewal.failedAttempts >= maxRenewalAttemptsPerDay) {
+            revert TooManyRenewalAttempts();
+        }
+        
+        // Reset daily counter if it's a new day
+        if (today > lastAttemptDay) {
+            autoRenewal.failedAttempts = 0;
+        }
+        
+        // Check if subscription is close to expiry (within renewal window)
         uint256 endTime = subscriptionEndTime[user][creator];
-        if (block.timestamp < endTime - 1 days) revert InvalidSubscriptionPeriod();
+        if (block.timestamp < endTime - RENEWAL_WINDOW) revert InvalidSubscriptionPeriod();
         if (block.timestamp > endTime + GRACE_PERIOD) revert SubscriptionExpired();
+        
+        // Update attempt tracking
+        autoRenewal.lastRenewalAttempt = block.timestamp;
         
         // Get current subscription price
         uint256 subscriptionPrice = creatorRegistry.getSubscriptionPrice(creator);
         
         // Validate price hasn't exceeded user's maximum
-        if (subscriptionPrice > autoRenewal.maxPrice) revert AutoRenewalFailed();
+        if (subscriptionPrice > autoRenewal.maxPrice) {
+            autoRenewal.failedAttempts++;
+            emit AutoRenewalFailed(user, creator, "Price exceeded maximum", block.timestamp);
+            revert("AutoRenewalFailed");
+        }
         
         // Check auto-renewal balance is sufficient
-        if (autoRenewal.balance < subscriptionPrice) revert InsufficientBalance();
+        if (autoRenewal.balance < subscriptionPrice) {
+            autoRenewal.failedAttempts++;
+            emit AutoRenewalFailed(user, creator, "Insufficient balance", block.timestamp);
+            revert InsufficientBalance();
+        }
         
         // Deduct from auto-renewal balance
         autoRenewal.balance -= subscriptionPrice;
@@ -346,6 +434,7 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
         record.renewalCount += 1;
         record.totalPaid += subscriptionPrice;
         record.lastPayment = subscriptionPrice;
+        record.lastRenewalTime = block.timestamp;
         
         // Update financial tracking
         creatorSubscriptionEarnings[creator] += creatorEarning;
@@ -353,6 +442,10 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
         totalSubscriptionRevenue[creator] += creatorEarning;
         totalSubscriptionVolume += subscriptionPrice;
         totalPlatformSubscriptionFees += platformFee;
+        totalRenewals++;
+        
+        // Reset failed attempts on success
+        autoRenewal.failedAttempts = 0;
         
         emit AutoRenewalExecuted(user, creator, subscriptionPrice, newEndTime);
         emit SubscriptionRenewed(user, creator, subscriptionPrice, newEndTime, record.renewalCount);
@@ -372,6 +465,7 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
         
         // Disable auto-renewal
         autoRenewals[msg.sender][creator].enabled = false;
+        subscriptions[msg.sender][creator].autoRenewalEnabled = false;
         
         if (immediate) {
             // Immediate cancellation - set expiry to current time
@@ -382,14 +476,121 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
             // Update metrics
             totalActiveSubscriptions -= 1;
             creatorSubscriberCount[creator] -= 1;
+            
+            // Remove from subscriber array
+            _removeFromSubscriberArray(creator, msg.sender);
         }
         
         emit SubscriptionCancelled(msg.sender, creator, endTime, immediate);
     }
     
     /**
+     * @dev Cleans up expired subscriptions for a creator
+     * @param creator Creator address to clean up
+     */
+    function cleanupExpiredSubscriptions(address creator) 
+        external 
+        nonReentrant 
+    {
+        // Rate limiting: only allow cleanup once per interval
+        if (block.timestamp < lastCleanupTime[creator] + CLEANUP_INTERVAL) {
+            revert CleanupTooSoon();
+        }
+        
+        lastCleanupTime[creator] = block.timestamp;
+        
+        address[] storage subscribers = creatorSubscribers[creator];
+        uint256 cleanedCount = 0;
+        
+        // Process subscribers in reverse order to avoid index issues
+        for (uint256 i = subscribers.length; i > 0; i--) {
+            address subscriber = subscribers[i - 1];
+            uint256 endTime = subscriptionEndTime[subscriber][creator];
+            
+            // If subscription is expired beyond grace period
+            if (endTime > 0 && block.timestamp > endTime + GRACE_PERIOD) {
+                // Mark subscription as inactive
+                subscriptions[subscriber][creator].isActive = false;
+                
+                // Remove from subscriber array
+                subscribers[i - 1] = subscribers[subscribers.length - 1];
+                subscribers.pop();
+                
+                // Update counters
+                if (creatorSubscriberCount[creator] > 0) {
+                    creatorSubscriberCount[creator] -= 1;
+                }
+                if (totalActiveSubscriptions > 0) {
+                    totalActiveSubscriptions -= 1;
+                }
+                
+                cleanedCount++;
+            }
+        }
+        
+        emit ExpiredSubscriptionsCleaned(creator, cleanedCount, block.timestamp);
+    }
+    
+    /**
+     * @dev Requests refund for a recent subscription payment
+     * @param creator Creator to request refund from
+     * @param reason Reason for refund
+     */
+    function requestSubscriptionRefund(address creator, string memory reason) 
+        external 
+        nonReentrant 
+    {
+        SubscriptionRecord storage record = subscriptions[msg.sender][creator];
+        require(record.totalPaid > 0, "No subscription found");
+        
+        // Only allow refunds within 24 hours of last payment
+        if (block.timestamp > record.lastRenewalTime + 1 days) {
+            revert RefundNotEligible();
+        }
+        
+        // Cancel subscription immediately
+        subscriptionEndTime[msg.sender][creator] = block.timestamp;
+        record.isActive = false;
+        record.endTime = block.timestamp;
+        
+        // Add to pending refunds
+        uint256 refundAmount = record.lastPayment;
+        pendingRefunds[msg.sender][creator] = refundAmount;
+        
+        // Record failed subscription
+        failedSubscriptions[msg.sender][creator] = FailedSubscription({
+            attemptTime: block.timestamp,
+            attemptedPrice: refundAmount,
+            failureReason: reason,
+            refunded: false
+        });
+        
+        totalRefunds += refundAmount;
+        
+        emit SubscriptionRefunded(msg.sender, creator, refundAmount, reason);
+    }
+    
+    /**
+     * @dev Processes pending refund payout
+     * @param user User to refund
+     * @param creator Creator for refund
+     */
+    function processRefundPayout(address user, address creator) 
+        external 
+        onlyRole(SUBSCRIPTION_PROCESSOR_ROLE)
+        nonReentrant 
+    {
+        uint256 amount = pendingRefunds[user][creator];
+        require(amount > 0, "No pending refund");
+        
+        pendingRefunds[user][creator] = 0;
+        failedSubscriptions[user][creator].refunded = true;
+        
+        usdcToken.safeTransfer(user, amount);
+    }
+    
+    /**
      * @dev Allows creators to withdraw their subscription earnings
-     * @notice Transfers accumulated USDC subscription revenue to creator
      */
     function withdrawSubscriptionEarnings() external nonReentrant {
         uint256 amount = creatorSubscriptionEarnings[msg.sender];
@@ -424,6 +625,35 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
         
         autoRenewal.balance -= amount;
         usdcToken.safeTransfer(msg.sender, amount);
+    }
+    
+    /**
+     * @dev Admin function to update renewal settings
+     * @param newMaxAttempts New max renewal attempts per day
+     * @param newCooldown New cooldown period in seconds
+     */
+    function updateRenewalSettings(
+        uint256 newMaxAttempts,
+        uint256 newCooldown
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        maxRenewalAttemptsPerDay = newMaxAttempts;
+        renewalCooldown = newCooldown;
+    }
+    
+    /**
+     * @dev Grants renewal bot role to authorized addresses
+     * @param bot Address to grant renewal bot role
+     */
+    function grantRenewalBotRole(address bot) external onlyOwner {
+        _grantRole(RENEWAL_BOT_ROLE, bot);
+    }
+    
+    /**
+     * @dev Grants subscription processor role
+     * @param processor Address to grant processor role
+     */
+    function grantSubscriptionProcessorRole(address processor) external onlyOwner {
+        _grantRole(SUBSCRIPTION_PROCESSOR_ROLE, processor);
     }
     
     // View functions for subscription management and analytics
@@ -476,12 +706,72 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
     }
     
     /**
+     * @dev Gets active subscriptions for a user
+     * @param user User address
+     * @return address[] Array of creators with active subscriptions
+     */
+    function getUserActiveSubscriptions(address user) external view returns (address[] memory) {
+        address[] memory allSubs = userSubscriptions[user];
+        uint256 activeCount = 0;
+        
+        // Count active subscriptions
+        for (uint256 i = 0; i < allSubs.length; i++) {
+            if (isSubscribed(user, allSubs[i])) {
+                activeCount++;
+            }
+        }
+        
+        // Build active subscriptions array
+        address[] memory activeSubscriptions = new address[](activeCount);
+        uint256 index = 0;
+        
+        for (uint256 i = 0; i < allSubs.length; i++) {
+            if (isSubscribed(user, allSubs[i])) {
+                activeSubscriptions[index] = allSubs[i];
+                index++;
+            }
+        }
+        
+        return activeSubscriptions;
+    }
+    
+    /**
      * @dev Gets all subscribers for a creator
      * @param creator Creator address
      * @return address[] Array of subscriber addresses
      */
     function getCreatorSubscribers(address creator) external view returns (address[] memory) {
         return creatorSubscribers[creator];
+    }
+    
+    /**
+     * @dev Gets active subscribers for a creator
+     * @param creator Creator address
+     * @return address[] Array of active subscriber addresses
+     */
+    function getCreatorActiveSubscribers(address creator) external view returns (address[] memory) {
+        address[] memory allSubs = creatorSubscribers[creator];
+        uint256 activeCount = 0;
+        
+        // Count active subscribers
+        for (uint256 i = 0; i < allSubs.length; i++) {
+            if (isSubscribed(allSubs[i], creator)) {
+                activeCount++;
+            }
+        }
+        
+        // Build active subscribers array
+        address[] memory activeSubscribers = new address[](activeCount);
+        uint256 index = 0;
+        
+        for (uint256 i = 0; i < allSubs.length; i++) {
+            if (isSubscribed(allSubs[i], creator)) {
+                activeSubscribers[index] = allSubs[i];
+                index++;
+            }
+        }
+        
+        return activeSubscribers;
     }
     
     /**
@@ -517,13 +807,46 @@ contract SubscriptionManager is Ownable, ReentrancyGuard, Pausable {
      * @return activeSubscriptions Current number of active subscriptions
      * @return totalVolume All-time subscription volume in USDC
      * @return platformFees Total platform fees collected from subscriptions
+     * @return totalRenewalCount Total successful renewals
+     * @return totalRefundAmount Total refunds processed
      */
     function getPlatformSubscriptionMetrics() 
         external 
         view 
-        returns (uint256 activeSubscriptions, uint256 totalVolume, uint256 platformFees) 
+        returns (
+            uint256 activeSubscriptions, 
+            uint256 totalVolume, 
+            uint256 platformFees,
+            uint256 totalRenewalCount,
+            uint256 totalRefundAmount
+        ) 
     {
-        return (totalActiveSubscriptions, totalSubscriptionVolume, totalPlatformSubscriptionFees);
+        return (
+            totalActiveSubscriptions, 
+            totalSubscriptionVolume, 
+            totalPlatformSubscriptionFees,
+            totalRenewals,
+            totalRefunds
+        );
+    }
+    
+    // Internal helper functions
+    
+    /**
+     * @dev Removes subscriber from creator's subscriber array
+     * @param creator Creator address
+     * @param subscriber Subscriber to remove
+     */
+    function _removeFromSubscriberArray(address creator, address subscriber) internal {
+        address[] storage subscribers = creatorSubscribers[creator];
+        
+        for (uint256 i = 0; i < subscribers.length; i++) {
+            if (subscribers[i] == subscriber) {
+                subscribers[i] = subscribers[subscribers.length - 1];
+                subscribers.pop();
+                break;
+            }
+        }
     }
     
     /**
