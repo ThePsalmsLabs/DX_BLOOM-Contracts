@@ -106,6 +106,18 @@ contract CommerceProtocolIntegration is
     }
     
     /**
+     * @dev Payment calculation result
+     */
+    struct PaymentAmounts {
+        uint256 totalAmount;
+        uint256 creatorAmount;
+        uint256 platformFee;
+        uint256 operatorFee;
+        uint256 adjustedCreatorAmount;
+        uint256 expectedAmount;
+    }
+    
+    /**
      * @dev Types of payments our platform supports
      */
     enum PaymentType {
@@ -190,12 +202,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Constructor initializes the integration with the Commerce Protocol
-     * @param _commerceProtocol Address of the deployed Commerce Protocol contract
-     * @param _creatorRegistry Address of our CreatorRegistry contract
-     * @param _contentRegistry Address of our ContentRegistry contract
-     * @param _priceOracle Address of our PriceOracle contract
-     * @param _operatorFeeDestination Address to receive operator fees
-     * @param _operatorSigner Address authorized to sign payment intents
      */
     constructor(
         address _commerceProtocol,
@@ -231,7 +237,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Sets the PayPerView contract address after deployment
-     * @param _payPerView Address of deployed PayPerView contract
      */
     function setPayPerView(address _payPerView) external onlyOwner {
         require(_payPerView != address(0), "Invalid address");
@@ -242,7 +247,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Sets the SubscriptionManager contract address after deployment
-     * @param _subscriptionManager Address of deployed SubscriptionManager contract
      */
     function setSubscriptionManager(address _subscriptionManager) external onlyOwner {
         require(_subscriptionManager != address(0), "Invalid address");
@@ -253,7 +257,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Registers our platform as an operator in the Commerce Protocol
-     * @notice This must be called once after deployment to enable payment processing
      */
     function registerAsOperator() external onlyOwner {
         commerceProtocol.registerOperator(operatorFeeDestination);
@@ -277,87 +280,29 @@ contract CommerceProtocolIntegration is
         // Validate the payment request
         _validatePaymentRequest(request);
         
-        // Calculate payment amounts based on type
-        (uint256 totalAmount, uint256 creatorAmount, uint256 platformFee) = 
-            _calculatePaymentAmounts(request);
-        
-        // Calculate operator fee (our revenue for facilitating the payment)
-        uint256 operatorFee = (totalAmount * operatorFeeRate) / 10000;
-        uint256 adjustedCreatorAmount = creatorAmount - operatorFee;
-        
-        // Get accurate expected payment amount using price oracle
-        uint256 expectedAmount = _getExpectedPaymentAmount(
-            request.paymentToken,
-            totalAmount,
-            request.maxSlippage
-        );
+        // Calculate all payment amounts
+        PaymentAmounts memory amounts = _calculateAllPaymentAmounts(request);
         
         // Generate unique intent ID
         bytes16 intentId = _generateIntentId(msg.sender, request);
         
         // Create the TransferIntent structure
-        intent = ICommercePaymentsProtocol.TransferIntent({
-            recipientAmount: adjustedCreatorAmount,    // Creator receives this amount
-            deadline: request.deadline,                // Payment deadline
-            recipient: payable(request.creator),       // Creator's address
-            recipientCurrency: USDC_TOKEN,             // Always USDC for our platform
-            refundDestination: msg.sender,             // Refunds go back to user
-            feeAmount: platformFee + operatorFee,      // Combined platform and operator fees
-            id: intentId,                              // Unique identifier
-            operator: address(this),                   // Our contract is the operator
-            signature: "",                             // Will be filled by signing
-            prefix: ""                                 // Use default EIP-191 prefix
-        });
+        intent = _createTransferIntent(request, amounts, intentId);
         
         // Create payment context for tracking
-        context = PaymentContext({
-            paymentType: request.paymentType,
-            user: msg.sender,
-            creator: request.creator,
-            contentId: request.contentId,
-            platformFee: platformFee,
-            creatorAmount: adjustedCreatorAmount,
-            operatorFee: operatorFee,
-            timestamp: block.timestamp,
-            processed: false,
-            paymentToken: request.paymentToken,
-            expectedAmount: expectedAmount
-        });
+        context = _createPaymentContext(request, amounts, intentId);
         
-        // Store context and deadline
-        paymentContexts[intentId] = context;
-        intentDeadlines[intentId] = request.deadline;
+        // Store context and sign intent
+        _finalizeIntent(intentId, intent, context, request.deadline);
         
-        // Sign the intent with proper EIP-712 signature
-        intent.signature = _signTransferIntent(intent);
-        
-        // Update metrics
-        totalIntentsCreated++;
-        
-        emit PaymentIntentCreated(
-            intentId,
-            msg.sender,
-            request.creator,
-            request.paymentType,
-            totalAmount,
-            adjustedCreatorAmount,
-            platformFee,
-            operatorFee,
-            request.paymentToken,
-            expectedAmount
-        );
+        // Emit event and return
+        _emitIntentCreatedEvent(intentId, request, amounts);
         
         return (intent, context);
     }
     
     /**
      * @dev Processes a completed payment from the Commerce Protocol
-     * @param intentId The ID of the completed payment intent
-     * @param user The user who made the payment
-     * @param paymentToken The token used for payment
-     * @param amountPaid The total amount paid
-     * @param success Whether the payment was successful
-     * @param failureReason Reason for failure (if applicable)
      */
     function processCompletedPayment(
         bytes16 intentId,
@@ -381,32 +326,8 @@ contract CommerceProtocolIntegration is
         context.processed = true;
         
         if (success) {
-            // Grant access based on payment type
-            if (context.paymentType == PaymentType.ContentPurchase) {
-                _grantContentAccess(context.user, context.contentId, intentId, paymentToken, amountPaid);
-            } else if (context.paymentType == PaymentType.Subscription || 
-                       context.paymentType == PaymentType.SubscriptionRenewal) {
-                _grantSubscriptionAccess(context.user, context.creator, intentId, paymentToken, amountPaid);
-            }
-            
-            // Update creator earnings through registry
-            try creatorRegistry.updateCreatorStats(
-                context.creator, 
-                context.creatorAmount, 
-                context.paymentType == PaymentType.ContentPurchase ? int256(1) : int256(0),
-                context.paymentType == PaymentType.Subscription ? int256(1) : int256(0)
-            ) {
-                // Stats updated successfully
-            } catch {
-                // Continue if stats update fails (non-critical)
-            }
-            
-            // Update operator metrics
-            totalOperatorFees += context.operatorFee;
-            totalPaymentsProcessed++;
-            
+            _handleSuccessfulPayment(context, intentId, paymentToken, amountPaid);
         } else {
-            // Handle failed payment - prepare for potential refund
             _handleFailedPayment(intentId, context, failureReason);
         }
         
@@ -424,8 +345,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Requests a refund for a failed or disputed payment
-     * @param intentId Intent ID to refund
-     * @param reason Reason for refund request
      */
     function requestRefund(bytes16 intentId, string memory reason) 
         external 
@@ -439,28 +358,12 @@ contract CommerceProtocolIntegration is
         // Check if refund already requested
         if (refundRequests[intentId].requestTime != 0) revert RefundAlreadyProcessed();
         
-        // Calculate refund amount (full payment including fees)
-        uint256 refundAmount = context.creatorAmount + context.platformFee + context.operatorFee;
-        
-        // Create refund request
-        refundRequests[intentId] = RefundRequest({
-            originalIntentId: intentId,
-            user: msg.sender,
-            amount: refundAmount,
-            reason: reason,
-            requestTime: block.timestamp,
-            processed: false
-        });
-        
-        // Add to pending refunds
-        pendingRefunds[msg.sender] += refundAmount;
-        
-        emit RefundRequested(intentId, msg.sender, refundAmount, reason);
+        // Calculate and process refund request
+        _processRefundRequest(intentId, context, reason);
     }
     
     /**
      * @dev Processes a refund payout to user
-     * @param intentId Intent ID to refund
      */
     function processRefund(bytes16 intentId) 
         external 
@@ -490,12 +393,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Gets payment information for frontend integration
-     * @param request Payment request details
-     * @return totalAmount Total amount user needs to pay
-     * @return creatorAmount Amount going to creator
-     * @return platformFee Platform fee amount
-     * @return operatorFee Operator fee amount
-     * @return expectedAmount Expected payment amount in chosen token
      */
     function getPaymentInfo(PlatformPaymentRequest memory request) 
         external
@@ -508,20 +405,19 @@ contract CommerceProtocolIntegration is
         ) 
     {
         _validatePaymentRequest(request);
-        (totalAmount, creatorAmount, platformFee) = _calculatePaymentAmounts(request);
-        operatorFee = (totalAmount * operatorFeeRate) / 10000;
-        expectedAmount = _getExpectedPaymentAmount(
-            request.paymentToken,
-            totalAmount,
-            request.maxSlippage
+        PaymentAmounts memory amounts = _calculateAllPaymentAmounts(request);
+        
+        return (
+            amounts.totalAmount,
+            amounts.adjustedCreatorAmount,
+            amounts.platformFee,
+            amounts.operatorFee,
+            amounts.expectedAmount
         );
-        return (totalAmount, creatorAmount - operatorFee, platformFee, operatorFee, expectedAmount);
     }
     
     /**
      * @dev Gets payment context for an intent
-     * @param intentId Intent ID
-     * @return PaymentContext Payment context details
      */
     function getPaymentContext(bytes16 intentId) 
         external 
@@ -533,10 +429,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Gets platform operator metrics
-     * @return intentsCreated Total intents created
-     * @return paymentsProcessed Total payments processed
-     * @return operatorFees Total operator fees collected
-     * @return refunds Total refunds processed
      */
     function getOperatorMetrics() 
         external 
@@ -553,7 +445,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Updates operator fee rate
-     * @param newRate New fee rate in basis points (50 = 0.5%)
      */
     function updateOperatorFeeRate(uint256 newRate) external onlyOwner {
         require(newRate <= 500, "Fee rate too high"); // Max 5%
@@ -566,7 +457,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Updates operator fee destination
-     * @param newDestination New address to receive operator fees
      */
     function updateOperatorFeeDestination(address newDestination) external onlyOwner {
         require(newDestination != address(0), "Invalid destination");
@@ -579,7 +469,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Updates the operator signer address
-     * @param newSigner New signer address
      */
     function updateOperatorSigner(address newSigner) external onlyOwner {
         require(newSigner != address(0), "Invalid signer");
@@ -600,7 +489,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Adds an authorized signer
-     * @param signer Address to authorize for signing
      */
     function addAuthorizedSigner(address signer) external onlyOwner {
         require(signer != address(0), "Invalid signer");
@@ -610,7 +498,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Removes an authorized signer
-     * @param signer Address to remove from signing
      */
     function removeAuthorizedSigner(address signer) external onlyOwner {
         authorizedSigners[signer] = false;
@@ -619,7 +506,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Grants payment monitor role to authorized backend services
-     * @param monitor Address to grant monitoring role
      */
     function grantPaymentMonitorRole(address monitor) external onlyOwner {
         _grantRole(PAYMENT_MONITOR_ROLE, monitor);
@@ -627,7 +513,6 @@ contract CommerceProtocolIntegration is
     
     /**
      * @dev Withdraws operator fees
-     * @param amount Amount to withdraw (0 for all)
      */
     function withdrawOperatorFees(uint256 amount) external onlyOwner {
         uint256 balance = usdcToken.balanceOf(address(this));
@@ -639,7 +524,187 @@ contract CommerceProtocolIntegration is
         usdcToken.safeTransfer(operatorFeeDestination, amount);
     }
     
-    // Internal helper functions
+    // Internal helper functions - broken down to avoid stack too deep
+    
+    /**
+     * @dev Calculates all payment amounts in one go
+     */
+    function _calculateAllPaymentAmounts(PlatformPaymentRequest memory request) 
+        internal 
+        returns (PaymentAmounts memory amounts) 
+    {
+        (amounts.totalAmount, amounts.creatorAmount, amounts.platformFee) = _calculatePaymentAmounts(request);
+        amounts.operatorFee = (amounts.totalAmount * operatorFeeRate) / 10000;
+        amounts.adjustedCreatorAmount = amounts.creatorAmount - amounts.operatorFee;
+        amounts.expectedAmount = _getExpectedPaymentAmount(
+            request.paymentToken,
+            amounts.totalAmount,
+            request.maxSlippage
+        );
+        
+        return amounts;
+    }
+    
+    /**
+     * @dev Creates the TransferIntent structure
+     */
+    function _createTransferIntent(
+        PlatformPaymentRequest memory request,
+        PaymentAmounts memory amounts,
+        bytes16 intentId
+    ) internal view returns (ICommercePaymentsProtocol.TransferIntent memory intent) {
+        
+        intent = ICommercePaymentsProtocol.TransferIntent({
+            recipientAmount: amounts.adjustedCreatorAmount,
+            deadline: request.deadline,
+            recipient: payable(request.creator),
+            recipientCurrency: USDC_TOKEN,
+            refundDestination: msg.sender,
+            feeAmount: amounts.platformFee + amounts.operatorFee,
+            id: intentId,
+            operator: address(this),
+            signature: "",
+            prefix: ""
+        });
+        
+        return intent;
+    }
+    
+    /**
+     * @dev Creates the payment context for tracking
+     */
+    function _createPaymentContext(
+        PlatformPaymentRequest memory request,
+        PaymentAmounts memory amounts,
+        bytes16 intentId
+    ) internal view returns (PaymentContext memory context) {
+        
+        context = PaymentContext({
+            paymentType: request.paymentType,
+            user: msg.sender,
+            creator: request.creator,
+            contentId: request.contentId,
+            platformFee: amounts.platformFee,
+            creatorAmount: amounts.adjustedCreatorAmount,
+            operatorFee: amounts.operatorFee,
+            timestamp: block.timestamp,
+            processed: false,
+            paymentToken: request.paymentToken,
+            expectedAmount: amounts.expectedAmount
+        });
+        
+        return context;
+    }
+    
+    /**
+     * @dev Finalizes intent creation by storing context and signing
+     */
+    function _finalizeIntent(
+        bytes16 intentId,
+        ICommercePaymentsProtocol.TransferIntent memory intent,
+        PaymentContext memory context,
+        uint256 deadline
+    ) internal {
+        // Store context and deadline
+        paymentContexts[intentId] = context;
+        intentDeadlines[intentId] = deadline;
+        
+        // Sign the intent
+        intent.signature = _signTransferIntent(intent);
+        
+        // Update metrics
+        totalIntentsCreated++;
+    }
+    
+    /**
+     * @dev Emits the payment intent created event
+     */
+    function _emitIntentCreatedEvent(
+        bytes16 intentId,
+        PlatformPaymentRequest memory request,
+        PaymentAmounts memory amounts
+    ) internal {
+        emit PaymentIntentCreated(
+            intentId,
+            msg.sender,
+            request.creator,
+            request.paymentType,
+            amounts.totalAmount,
+            amounts.adjustedCreatorAmount,
+            amounts.platformFee,
+            amounts.operatorFee,
+            request.paymentToken,
+            amounts.expectedAmount
+        );
+    }
+    
+    /**
+     * @dev Handles successful payment processing
+     */
+    function _handleSuccessfulPayment(
+        PaymentContext storage context,
+        bytes16 intentId,
+        address paymentToken,
+        uint256 amountPaid
+    ) internal {
+        // Grant access based on payment type
+        if (context.paymentType == PaymentType.ContentPurchase) {
+            _grantContentAccess(context.user, context.contentId, intentId, paymentToken, amountPaid);
+        } else if (context.paymentType == PaymentType.Subscription || 
+                   context.paymentType == PaymentType.SubscriptionRenewal) {
+            _grantSubscriptionAccess(context.user, context.creator, intentId, paymentToken, amountPaid);
+        }
+        
+        // Update creator earnings through registry
+        _updateCreatorStats(context);
+        
+        // Update operator metrics
+        totalOperatorFees += context.operatorFee;
+        totalPaymentsProcessed++;
+    }
+    
+    /**
+     * @dev Updates creator stats safely
+     */
+    function _updateCreatorStats(PaymentContext storage context) internal {
+        try creatorRegistry.updateCreatorStats(
+            context.creator, 
+            context.creatorAmount, 
+            context.paymentType == PaymentType.ContentPurchase ? int256(1) : int256(0),
+            context.paymentType == PaymentType.Subscription ? int256(1) : int256(0)
+        ) {
+            // Stats updated successfully
+        } catch {
+            // Continue if stats update fails (non-critical)
+        }
+    }
+    
+    /**
+     * @dev Processes refund request creation
+     */
+    function _processRefundRequest(
+        bytes16 intentId,
+        PaymentContext storage context,
+        string memory reason
+    ) internal {
+        // Calculate refund amount (full payment including fees)
+        uint256 refundAmount = context.creatorAmount + context.platformFee + context.operatorFee;
+        
+        // Create refund request
+        refundRequests[intentId] = RefundRequest({
+            originalIntentId: intentId,
+            user: msg.sender,
+            amount: refundAmount,
+            reason: reason,
+            requestTime: block.timestamp,
+            processed: false
+        });
+        
+        // Add to pending refunds
+        pendingRefunds[msg.sender] += refundAmount;
+        
+        emit RefundRequested(intentId, msg.sender, refundAmount, reason);
+    }
     
     /**
      * @dev Validates a payment request for correctness
@@ -809,7 +874,7 @@ contract CommerceProtocolIntegration is
         PaymentContext memory context,
         string memory reason
     ) internal {
-        // Create a refund request automatically for failed payments
+        // Calculate refund amount
         uint256 refundAmount = context.creatorAmount + context.platformFee + context.operatorFee;
         
         refundRequests[intentId] = RefundRequest({
