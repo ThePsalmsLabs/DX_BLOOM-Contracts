@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 import "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
-import "./CreatorRegistry.sol";
+import {CreatorRegistry} from "./CreatorRegistry.sol";
 
 /**
  * @title ContentRegistry

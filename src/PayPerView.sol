@@ -6,192 +6,237 @@ import "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./CreatorRegistry.sol";
-import "./ContentRegistry.sol";
+import {CreatorRegistry} from "./CreatorRegistry.sol";
+import {ContentRegistry} from "./ContentRegistry.sol";
+import {CommerceProtocolIntegration} from "./CommerceProtocolIntegration.sol";
+import {PlatformInterfaces} from "./interfaces/PlatformInterfaces.sol";
 
 /**
- * @title PayPerView
- * @dev Handles one-time content purchases with USDC payments and access control
- * @notice This contract processes pay-per-view purchases and manages content access permissions
+ * @title PayPerViewWithCommerce
+ * @dev  PayPerView contract integrated with Base Commerce Protocol
+ * @notice This contract handles content purchases using the Commerce Protocol for
+ *         advanced payment options including ETH payments, token swaps, and multi-currency support
  */
 contract PayPerView is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
     
-    // Contract references for validation and fee calculation
+    // Contract references
     CreatorRegistry public immutable creatorRegistry;
     ContentRegistry public immutable contentRegistry;
-    IERC20 public immutable usdcToken; // USDC token contract on Base
+    CommerceProtocolIntegration public immutable commerceIntegration;
+    ICommercePaymentsProtocol public immutable commerceProtocol;
+    IERC20 public immutable usdcToken;
     
-    // Payment and access tracking
-    // contentId => user => purchase details
+    // Access and purchase tracking
     mapping(uint256 => mapping(address => PurchaseRecord)) public purchases;
+    mapping(address => uint256[]) public userPurchases;
+    mapping(address => uint256) public userTotalSpent;
     
-    // User purchase history for analytics and UX
-    mapping(address => uint256[]) public userPurchases; // user => content IDs
-    mapping(address => uint256) public userTotalSpent; // user => total USDC spent
+    // Creator earnings and platform metrics
+    mapping(address => uint256) public creatorEarnings;
+    mapping(address => uint256) public withdrawableEarnings;
+    uint256 public totalPlatformFees;
+    uint256 public totalVolume;
+    uint256 public totalPurchases;
     
-    // Creator earnings tracking
-    mapping(address => uint256) public creatorEarnings; // creator => total earnings
-    mapping(address => uint256) public withdrawableEarnings; // creator => withdrawable amount
-    
-    // Platform metrics
-    uint256 public totalPlatformFees; // Total fees collected
-    uint256 public totalVolume; // Total transaction volume
-    uint256 public totalPurchases; // Total number of purchases
+    // Commerce Protocol integration tracking
+    mapping(bytes16 => uint256) public intentToContentId; // Link payment intents to content
+    mapping(bytes16 => address) public intentToUser;      // Link payment intents to users
     
     /**
-     * @dev Purchase record structure containing transaction details
-     * @param hasPurchased Whether user has purchased this content
-     * @param purchasePrice Price paid for the content (in USDC)
-     * @param purchaseTime Timestamp of purchase
-     * @param transactionHash Hash of the purchase transaction for reference
+     * @dev Enhanced purchase record with Commerce Protocol integration
      */
     struct PurchaseRecord {
-        bool hasPurchased;       // Purchase status
-        uint256 purchasePrice;   // Amount paid in USDC
-        uint256 purchaseTime;    // Purchase timestamp
-        bytes32 transactionHash; // Transaction reference
+        bool hasPurchased;           // Purchase status
+        uint256 purchasePrice;       // Amount paid in USDC
+        uint256 purchaseTime;        // Purchase timestamp
+        bytes16 intentId;            // Commerce Protocol intent ID
+        address paymentToken;        // Token used for payment (ETH, USDC, etc.)
+        uint256 actualAmountPaid;    // Actual amount paid in payment token
     }
     
     /**
-     * @dev Refund information for failed or disputed purchases
+     * @dev Payment method options for users
      */
-    struct RefundRecord {
-        bool isRefunded;         // Refund status
-        uint256 refundAmount;    // Amount refunded
-        uint256 refundTime;      // Refund timestamp
-        string refundReason;     // Reason for refund
+    enum PaymentMethod {
+        USDC,                // Direct USDC payment
+        ETH,                 // ETH payment (swapped to USDC)
+        WETH,                // WETH payment (converted to USDC)
+        OTHER_TOKEN          // Other ERC-20 token (swapped to USDC)
     }
     
-    // Refund tracking
-    mapping(uint256 => mapping(address => RefundRecord)) public refunds;
+    // Events for comprehensive payment tracking
+    event ContentPurchaseInitiated(
+        uint256 indexed contentId,
+        address indexed buyer,
+        address indexed creator,
+        bytes16 intentId,
+        PaymentMethod paymentMethod,
+        uint256 usdcPrice,
+        uint256 expectedPaymentAmount
+    );
     
-    // Emergency refund capabilities
-    uint256 public refundWindow = 24 hours; // 24-hour refund window for disputes
-    mapping(uint256 => bool) public refundableContent; // Content eligible for refunds
+    event ContentPurchaseCompleted(
+        uint256 indexed contentId,
+        address indexed buyer,
+        address indexed creator,
+        bytes16 intentId,
+        uint256 usdcPrice,
+        uint256 actualAmountPaid,
+        address paymentToken
+    );
     
-    // Events for comprehensive transaction tracking
-    event ContentPurchased(
+    event DirectPurchaseCompleted(
         uint256 indexed contentId,
         address indexed buyer,
         address indexed creator,
         uint256 price,
         uint256 platformFee,
-        uint256 creatorEarning,
-        uint256 timestamp
+        uint256 creatorEarning
     );
     
-    event EarningsWithdrawn(
-        address indexed creator,
-        uint256 amount,
-        uint256 timestamp
-    );
-    
-    event RefundProcessed(
-        uint256 indexed contentId,
-        address indexed buyer,
-        uint256 amount,
-        string reason,
-        uint256 timestamp
-    );
-    
-    event PlatformFeesWithdrawn(
-        address indexed recipient,
-        uint256 amount,
-        uint256 timestamp
-    );
-    
-    event RefundWindowUpdated(uint256 oldWindow, uint256 newWindow);
-    
-    // Custom errors for gas-efficient error handling
-    error ContentNotFound();
-    error ContentNotActive();
-    error AlreadyPurchased();
-    error InsufficientPayment();
-    error CreatorNotRegistered();
-    error InsufficientBalance();
-    error NoEarningsToWithdraw();
-    error RefundNotAllowed();
-    error RefundWindowExpired();
-    error InvalidRefundAmount();
-    error TransferFailed();
+    // Custom errors
+    error InvalidPaymentMethod();
+    error PurchaseAlreadyCompleted();
+    error IntentNotFound();
+    error CommerceProtocolError(string reason);
     
     /**
-     * @dev Constructor initializes contract with required dependencies
-     * @param _creatorRegistry Address of the CreatorRegistry contract
-     * @param _contentRegistry Address of the ContentRegistry contract
-     * @param _usdcToken Address of the USDC token contract on Base
+     * @dev Constructor initializes the enhanced PayPerView system
+     * @param _creatorRegistry Address of CreatorRegistry contract
+     * @param _contentRegistry Address of ContentRegistry contract
+     * @param _commerceIntegration Address of our Commerce Protocol integration
+     * @param _commerceProtocol Address of the deployed Commerce Protocol
+     * @param _usdcToken Address of USDC token contract
      */
     constructor(
         address _creatorRegistry,
         address _contentRegistry,
+        address _commerceIntegration,
+        address _commerceProtocol,
         address _usdcToken
     ) Ownable(msg.sender) {
         require(_creatorRegistry != address(0), "Invalid creator registry");
         require(_contentRegistry != address(0), "Invalid content registry");
+        require(_commerceIntegration != address(0), "Invalid commerce integration");
+        require(_commerceProtocol != address(0), "Invalid commerce protocol");
         require(_usdcToken != address(0), "Invalid USDC token");
         
         creatorRegistry = CreatorRegistry(_creatorRegistry);
         contentRegistry = ContentRegistry(_contentRegistry);
+        commerceIntegration = CommerceProtocolIntegration(_commerceIntegration);
+        commerceProtocol = ICommercePaymentsProtocol(_commerceProtocol);
         usdcToken = IERC20(_usdcToken);
     }
     
     /**
-     * @dev Purchases content with USDC payment and fee distribution
-     * @param contentId ID of content to purchase
-     * @notice Requires user to have approved sufficient USDC allowance
+     * @dev Initiates content purchase using Commerce Protocol for advanced payment options
+     * @param contentId Content to purchase
+     * @param paymentMethod How user wants to pay (USDC, ETH, WETH, other token)
+     * @param paymentToken Token address for OTHER_TOKEN method
+     * @param maxSlippage Maximum slippage for token swaps (basis points)
+     * @param deadline Payment deadline timestamp
+     * @return intent TransferIntent for user to execute
+     * @return expectedAmount Expected payment amount in the chosen token
      */
-    function purchaseContent(uint256 contentId) 
-        external 
-        nonReentrant 
-        whenNotPaused 
-    {
-        // Validate content existence and availability
+    function initiatePurchaseWithCommerce(
+        uint256 contentId,
+        PaymentMethod paymentMethod,
+        address paymentToken,
+        uint256 maxSlippage,
+        uint256 deadline
+    ) external nonReentrant whenNotPaused returns (
+        ICommercePaymentsProtocol.TransferIntent memory intent,
+        uint256 expectedAmount
+    ) {
+        // Validate content and access
         ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
-        if (content.creator == address(0)) revert ContentNotFound();
-        if (!content.isActive) revert ContentNotActive();
+        require(content.creator != address(0), "Content not found");
+        require(content.isActive, "Content not active");
+        require(!purchases[contentId][msg.sender].hasPurchased, "Already purchased");
         
-        // Check if user already purchased this content
-        if (purchases[contentId][msg.sender].hasPurchased) revert AlreadyPurchased();
+        // Create payment request for Commerce Integration
+        CommerceProtocolIntegration.PlatformPaymentRequest memory request = 
+            CommerceProtocolIntegration.PlatformPaymentRequest({
+                paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+                creator: content.creator,
+                contentId: contentId,
+                paymentToken: _getPaymentTokenAddress(paymentMethod, paymentToken),
+                maxSlippage: maxSlippage,
+                deadline: deadline
+            });
         
-        // Validate creator registration
-        if (!creatorRegistry.isRegisteredCreator(content.creator)) {
-            revert CreatorNotRegistered();
-        }
+        // Get signed intent from our integration contract
+        (intent, ) = commerceIntegration.createPaymentIntent(request);
         
+        // Track the intent for completion processing
+        intentToContentId[intent.id] = contentId;
+        intentToUser[intent.id] = msg.sender;
+        
+        // Calculate expected payment amount based on method
+        expectedAmount = _calculateExpectedPaymentAmount(
+            content.payPerViewPrice,
+            paymentMethod,
+            paymentToken
+        );
+        
+        emit ContentPurchaseInitiated(
+            contentId,
+            msg.sender,
+            content.creator,
+            intent.id,
+            paymentMethod,
+            content.payPerViewPrice,
+            expectedAmount
+        );
+        
+        return (intent, expectedAmount);
+    }
+    
+    /**
+     * @dev Completes content purchase after Commerce Protocol payment
+     * @param intentId Payment intent ID that was executed
+     * @param paymentToken Token used for payment
+     * @param actualAmountPaid Actual amount paid in payment token
+     * @notice This is called by our monitoring system when payments complete
+     */
+    function completePurchase(
+        bytes16 intentId,
+        address paymentToken,
+        uint256 actualAmountPaid
+    ) external nonReentrant {
+        // In production, this would have proper access control (payment monitor only)
+        
+        uint256 contentId = intentToContentId[intentId];
+        address user = intentToUser[intentId];
+        
+        require(contentId != 0, "Intent not found");
+        require(user != address(0), "User not found");
+        require(!purchases[contentId][user].hasPurchased, "Already completed");
+        
+        // Get content and creator details
+        ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
         uint256 contentPrice = content.payPerViewPrice;
         
-        // Calculate platform fee and creator earnings
+        // Calculate fees and earnings
         uint256 platformFee = creatorRegistry.calculatePlatformFee(contentPrice);
         uint256 creatorEarning = contentPrice - platformFee;
         
-        // Verify user has sufficient USDC balance and allowance
-        if (usdcToken.balanceOf(msg.sender) < contentPrice) revert InsufficientBalance();
-        if (usdcToken.allowance(msg.sender, address(this)) < contentPrice) {
-            revert InsufficientPayment();
-        }
-        
-        // Transfer USDC from buyer to contract
-        usdcToken.safeTransferFrom(msg.sender, address(this), contentPrice);
-        
-        // Record purchase details
-        purchases[contentId][msg.sender] = PurchaseRecord({
+        // Record the purchase
+        purchases[contentId][user] = PurchaseRecord({
             hasPurchased: true,
             purchasePrice: contentPrice,
             purchaseTime: block.timestamp,
-            transactionHash: keccak256(abi.encodePacked(
-                contentId, 
-                msg.sender, 
-                block.timestamp, 
-                block.number
-            ))
+            intentId: intentId,
+            paymentToken: paymentToken,
+            actualAmountPaid: actualAmountPaid
         });
         
         // Update user purchase history
-        userPurchases[msg.sender].push(contentId);
-        userTotalSpent[msg.sender] += contentPrice;
+        userPurchases[user].push(contentId);
+        userTotalSpent[user] += contentPrice;
         
-        // Update creator earnings (available for withdrawal)
+        // Update creator earnings
         creatorEarnings[content.creator] += creatorEarning;
         withdrawableEarnings[content.creator] += creatorEarning;
         
@@ -200,179 +245,145 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
         totalVolume += contentPrice;
         totalPurchases++;
         
-        // Update creator stats in registry
+        // Update creator stats
         try creatorRegistry.updateCreatorStats(content.creator, creatorEarning, 0, 0) {
             // Stats updated successfully
         } catch {
-            // Continue if stats update fails (non-critical)
+            // Continue if stats update fails
         }
         
-        // Record purchase in content registry for analytics
-        try contentRegistry.recordPurchase(contentId, msg.sender) {
+        // Record purchase in content registry
+        try contentRegistry.recordPurchase(contentId, user) {
             // Purchase recorded successfully
         } catch {
-            // Continue if recording fails (non-critical)
+            // Continue if recording fails
         }
         
-        // Mark content as refundable within the refund window
-        refundableContent[contentId] = true;
+        // Clean up tracking
+        delete intentToContentId[intentId];
+        delete intentToUser[intentId];
         
-        emit ContentPurchased(
+        emit ContentPurchaseCompleted(
+            contentId,
+            user,
+            content.creator,
+            intentId,
+            contentPrice,
+            actualAmountPaid,
+            paymentToken
+        );
+    }
+    
+    /**
+     * @dev Direct USDC purchase (legacy method for users who prefer simple payments)
+     * @param contentId Content to purchase
+     */
+    function purchaseContentDirect(uint256 contentId) 
+        external 
+        nonReentrant 
+        whenNotPaused 
+    {
+        // Validate content and access
+        ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
+        require(content.creator != address(0), "Content not found");
+        require(content.isActive, "Content not active");
+        require(!purchases[contentId][msg.sender].hasPurchased, "Already purchased");
+        require(creatorRegistry.isRegisteredCreator(content.creator), "Creator not registered");
+        
+        uint256 contentPrice = content.payPerViewPrice;
+        uint256 platformFee = creatorRegistry.calculatePlatformFee(contentPrice);
+        uint256 creatorEarning = contentPrice - platformFee;
+        
+        // Verify user has sufficient USDC
+        require(usdcToken.balanceOf(msg.sender) >= contentPrice, "Insufficient balance");
+        require(usdcToken.allowance(msg.sender, address(this)) >= contentPrice, "Insufficient allowance");
+        
+        // Transfer USDC from user
+        usdcToken.safeTransferFrom(msg.sender, address(this), contentPrice);
+        
+        // Record purchase
+        purchases[contentId][msg.sender] = PurchaseRecord({
+            hasPurchased: true,
+            purchasePrice: contentPrice,
+            purchaseTime: block.timestamp,
+            intentId: 0, // No intent ID for direct purchases
+            paymentToken: address(usdcToken),
+            actualAmountPaid: contentPrice
+        });
+        
+        // Update tracking
+        userPurchases[msg.sender].push(contentId);
+        userTotalSpent[msg.sender] += contentPrice;
+        creatorEarnings[content.creator] += creatorEarning;
+        withdrawableEarnings[content.creator] += creatorEarning;
+        totalPlatformFees += platformFee;
+        totalVolume += contentPrice;
+        totalPurchases++;
+        
+        // Update stats and registry
+        try creatorRegistry.updateCreatorStats(content.creator, creatorEarning, 0, 0) {} catch {}
+        try contentRegistry.recordPurchase(contentId, msg.sender) {} catch {}
+        
+        emit DirectPurchaseCompleted(
             contentId,
             msg.sender,
             content.creator,
             contentPrice,
             platformFee,
-            creatorEarning,
-            block.timestamp
+            creatorEarning
         );
     }
     
     /**
-     * @dev Allows creators to withdraw their earnings
-     * @notice Transfers accumulated USDC earnings to creator's wallet
+     * @dev Gets available payment methods and their expected costs for content
+     * @param contentId Content to check pricing for
+     * @return methods Array of available payment methods
+     * @return expectedCosts Expected payment amounts for each method
      */
-    function withdrawEarnings() external nonReentrant {
-        uint256 amount = withdrawableEarnings[msg.sender];
-        if (amount == 0) revert NoEarningsToWithdraw();
-        
-        // Reset withdrawable amount before transfer to prevent reentrancy
-        withdrawableEarnings[msg.sender] = 0;
-        
-        // Transfer USDC to creator
-        usdcToken.safeTransfer(msg.sender, amount);
-        
-        emit EarningsWithdrawn(msg.sender, amount, block.timestamp);
-    }
-    
-    /**
-     * @dev Processes refunds for eligible content within refund window
-     * @param contentId Content ID to refund
-     * @param buyer Address of buyer requesting refund
-     * @param reason Reason for refund
-     */
-    function processRefund(
-        uint256 contentId,
-        address buyer,
-        string memory reason
-    ) external onlyOwner {
-        
-        PurchaseRecord memory purchase = purchases[contentId][buyer];
-        if (!purchase.hasPurchased) revert RefundNotAllowed();
-        
-        // Check if content is eligible for refunds
-        if (!refundableContent[contentId]) revert RefundNotAllowed();
-        
-        // Check refund window (24 hours from purchase)
-        if (block.timestamp > purchase.purchaseTime + refundWindow) {
-            revert RefundWindowExpired();
-        }
-        
-        // Check if already refunded
-        if (refunds[contentId][buyer].isRefunded) revert RefundNotAllowed();
-        
-        uint256 refundAmount = purchase.purchasePrice;
-        
-        // Calculate amounts to reverse
-        uint256 platformFee = creatorRegistry.calculatePlatformFee(refundAmount);
-        uint256 creatorLoss = refundAmount - platformFee;
-        
-        // Get content creator
+    function getPaymentOptions(uint256 contentId) 
+        external 
+        view 
+        returns (
+            PaymentMethod[] memory methods,
+            uint256[] memory expectedCosts
+        ) 
+    {
         ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
+        require(content.creator != address(0), "Content not found");
         
-        // Reduce creator earnings (if available)
-        if (withdrawableEarnings[content.creator] >= creatorLoss) {
-            withdrawableEarnings[content.creator] -= creatorLoss;
-            creatorEarnings[content.creator] -= creatorLoss;
-        }
+        methods = new PaymentMethod[](4);
+        expectedCosts = new uint256[](4);
         
-        // Reduce platform fees
-        if (totalPlatformFees >= platformFee) {
-            totalPlatformFees -= platformFee;
-        }
+        methods[0] = PaymentMethod.USDC;
+        expectedCosts[0] = content.payPerViewPrice;
         
-        // Record refund
-        refunds[contentId][buyer] = RefundRecord({
-            isRefunded: true,
-            refundAmount: refundAmount,
-            refundTime: block.timestamp,
-            refundReason: reason
-        });
+        methods[1] = PaymentMethod.ETH;
+        expectedCosts[1] = _estimateETHCost(content.payPerViewPrice);
         
-        // Remove purchase access
-        purchases[contentId][buyer].hasPurchased = false;
+        methods[2] = PaymentMethod.WETH;
+        expectedCosts[2] = _estimateETHCost(content.payPerViewPrice); // Same as ETH
         
-        // Update metrics
-        userTotalSpent[buyer] -= refundAmount;
-        totalVolume -= refundAmount;
-        totalPurchases--;
+        methods[3] = PaymentMethod.OTHER_TOKEN;
+        expectedCosts[3] = 0; // Depends on specific token chosen
         
-        // Transfer refund to buyer
-        usdcToken.safeTransfer(buyer, refundAmount);
-        
-        emit RefundProcessed(contentId, buyer, refundAmount, reason, block.timestamp);
+        return (methods, expectedCosts);
     }
     
     /**
-     * @dev Admin function to withdraw accumulated platform fees
-     * @param recipient Address to receive platform fees
-     */
-    function withdrawPlatformFees(address recipient) external onlyOwner {
-        require(recipient != address(0), "Invalid recipient");
-        
-        uint256 amount = totalPlatformFees;
-        if (amount == 0) revert NoEarningsToWithdraw();
-        
-        // Reset platform fees before transfer
-        totalPlatformFees = 0;
-        
-        // Transfer to fee recipient
-        usdcToken.safeTransfer(recipient, amount);
-        
-        emit PlatformFeesWithdrawn(recipient, amount, block.timestamp);
-    }
-    
-    /**
-     * @dev Updates the refund window duration
-     * @param newWindow New refund window in seconds
-     */
-    function updateRefundWindow(uint256 newWindow) external onlyOwner {
-        require(newWindow <= 7 days, "Refund window too long"); // Max 7 days
-        require(newWindow >= 1 hours, "Refund window too short"); // Min 1 hour
-        
-        uint256 oldWindow = refundWindow;
-        refundWindow = newWindow;
-        
-        emit RefundWindowUpdated(oldWindow, newWindow);
-    }
-    
-    // View functions for access control and analytics
-    
-    /**
-     * @dev Checks if user has access to specific content
+     * @dev Enhanced access check supporting both direct and Commerce Protocol purchases
      * @param contentId Content ID to check
      * @param user User address to check
-     * @return bool True if user has purchased and not refunded content
+     * @return bool True if user has purchased content
      */
     function hasAccess(uint256 contentId, address user) external view returns (bool) {
-        return purchases[contentId][user].hasPurchased && 
-               !refunds[contentId][user].isRefunded;
+        return purchases[contentId][user].hasPurchased;
     }
     
     /**
-     * @dev Gets user's purchase history
-     * @param user User address
-     * @return uint256[] Array of content IDs purchased by user
-     */
-    function getUserPurchases(address user) external view returns (uint256[] memory) {
-        return userPurchases[user];
-    }
-    
-    /**
-     * @dev Gets detailed purchase information
+     * @dev Gets detailed purchase information including payment method used
      * @param contentId Content ID
      * @param user User address
-     * @return PurchaseRecord Purchase details
+     * @return PurchaseRecord Complete purchase details
      */
     function getPurchaseDetails(uint256 contentId, address user) 
         external 
@@ -383,87 +394,82 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @dev Gets creator's total and withdrawable earnings
-     * @param creator Creator address
-     * @return total Total lifetime earnings
-     * @return withdrawable Current withdrawable amount
+     * @dev Creator earnings withdrawal (unchanged from original)
      */
-    function getCreatorEarnings(address creator) 
-        external 
-        view 
-        returns (uint256 total, uint256 withdrawable) 
-    {
-        return (creatorEarnings[creator], withdrawableEarnings[creator]);
-    }
-    
-    /**
-     * @dev Gets platform analytics and metrics
-     * @return totalFees Total platform fees collected
-     * @return volume Total transaction volume
-     * @return purchaseCount Total number of purchases
-     */
-    function getPlatformMetrics() 
-        external 
-        view 
-        returns (uint256 totalFees, uint256 volume, uint256 purchaseCount) 
-    {
-        return (totalPlatformFees, totalVolume, totalPurchases);
-    }
-    
-    /**
-     * @dev Gets refund information for a purchase
-     * @param contentId Content ID
-     * @param buyer Buyer address
-     * @return RefundRecord Refund details
-     */
-    function getRefundDetails(uint256 contentId, address buyer) 
-        external 
-        view 
-        returns (RefundRecord memory) 
-    {
-        return refunds[contentId][buyer];
-    }
-    
-    /**
-     * @dev Checks if a purchase is eligible for refund
-     * @param contentId Content ID
-     * @param buyer Buyer address
-     * @return bool True if refund is allowed within time window
-     */
-    function isRefundEligible(uint256 contentId, address buyer) 
-        external 
-        view 
-        returns (bool) 
-    {
-        PurchaseRecord memory purchase = purchases[contentId][buyer];
+    function withdrawEarnings() external nonReentrant {
+        uint256 amount = withdrawableEarnings[msg.sender];
+        require(amount > 0, "No earnings to withdraw");
         
-        return purchase.hasPurchased &&
-               !refunds[contentId][buyer].isRefunded &&
-               refundableContent[contentId] &&
-               block.timestamp <= purchase.purchaseTime + refundWindow;
+        withdrawableEarnings[msg.sender] = 0;
+        usdcToken.safeTransfer(msg.sender, amount);
+    }
+    
+    // Internal helper functions
+    
+    /**
+     * @dev Gets the appropriate token address for payment method
+     */
+    function _getPaymentTokenAddress(PaymentMethod method, address providedToken) 
+        internal 
+        view 
+        returns (address) 
+    {
+        if (method == PaymentMethod.USDC) return address(usdcToken);
+        if (method == PaymentMethod.ETH) return address(0); // ETH is address(0)
+        if (method == PaymentMethod.WETH) return 0x4200000000000000000000000000000000000006; // WETH on Base
+        if (method == PaymentMethod.OTHER_TOKEN) return providedToken;
+        
+        revert InvalidPaymentMethod();
     }
     
     /**
-     * @dev Emergency pause function for security
+     * @dev Calculates expected payment amount for different methods
+     */
+    function _calculateExpectedPaymentAmount(
+        uint256 usdcPrice,
+        PaymentMethod method,
+        address paymentToken
+    ) internal view returns (uint256) {
+        if (method == PaymentMethod.USDC) {
+            return usdcPrice;
+        } else if (method == PaymentMethod.ETH || method == PaymentMethod.WETH) {
+            return _estimateETHCost(usdcPrice);
+        } else if (method == PaymentMethod.OTHER_TOKEN) {
+            // This would use a price oracle or Uniswap quoter in production
+            return _estimateTokenCost(paymentToken, usdcPrice);
+        }
+        
+        return 0;
+    }
+    
+    /**
+     * @dev Estimates ETH cost for USDC amount (placeholder for price oracle)
+     */
+    function _estimateETHCost(uint256 usdcAmount) internal pure returns (uint256) {
+        // Placeholder: In production, use Chainlink oracle or Uniswap quoter
+        // Assuming 1 ETH = $3000, this is a rough estimate
+        return (usdcAmount * 1e18) / (3000 * 1e6); // Convert USDC to ETH
+    }
+    
+    /**
+     * @dev Estimates cost in other tokens (placeholder for price oracle)
+     */
+    function _estimateTokenCost(address token, uint256 usdcAmount) internal pure returns (uint256) {
+        // Placeholder: In production, use price oracles or Uniswap quoter
+        return usdcAmount; // 1:1 ratio as placeholder
+    }
+    
+    /**
+     * @dev Emergency pause function
      */
     function pause() external onlyOwner {
         _pause();
     }
     
     /**
-     * @dev Resume operations after pause
+     * @dev Resume operations
      */
     function unpause() external onlyOwner {
         _unpause();
-    }
-    
-    /**
-     * @dev Emergency function to recover stuck tokens (not USDC)
-     * @param token Token contract address
-     * @param amount Amount to recover
-     */
-    function emergencyTokenRecovery(address token, uint256 amount) external onlyOwner {
-        require(token != address(usdcToken), "Cannot recover USDC");
-        IERC20(token).safeTransfer(owner(), amount);
     }
 }
