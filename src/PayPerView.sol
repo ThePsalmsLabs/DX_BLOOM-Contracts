@@ -9,7 +9,7 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {CreatorRegistry} from "./CreatorRegistry.sol";
 import {ContentRegistry} from "./ContentRegistry.sol";
 import {CommerceProtocolIntegration} from "./CommerceProtocolIntegration.sol";
-import {ICommercePaymentsProtocol} from "./interfaces/PlatformInterfaces.sol";
+import {ICommercePaymentsProtocol} from "./interfaces/IPlatformInterfaces.sol";
 
 /**
  * @title PayPerViewWithCommerce
@@ -429,7 +429,7 @@ contract PayPerView is Ownable, ReentrancyGuard, Pausable {
         uint256 usdcPrice,
         PaymentMethod method,
         address paymentToken
-    ) internal view returns (uint256) {
+    ) internal pure returns (uint256) {
         if (method == PaymentMethod.USDC) {
             return usdcPrice;
         } else if (method == PaymentMethod.ETH || method == PaymentMethod.WETH) {

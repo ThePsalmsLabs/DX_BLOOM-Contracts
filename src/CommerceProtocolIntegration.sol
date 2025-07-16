@@ -8,7 +8,7 @@ import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
 import {CreatorRegistry} from "./CreatorRegistry.sol";
 import {ContentRegistry} from "./ContentRegistry.sol";
-import {ICommercePaymentsProtocol} from "./interfaces/PlatformInterfaces.sol";
+import {ICommercePaymentsProtocol} from "./interfaces/IPlatformInterfaces.sol";
 
 /**
  * @title CommerceProtocolIntegration
