@@ -15,6 +15,7 @@ import {PayPerView} from "./PayPerView.sol";
 import {SubscriptionManager} from "./SubscriptionManager.sol";
 import {PriceOracle} from "./PriceOracle.sol";
 import {ICommercePaymentsProtocol} from "./interfaces/IPlatformInterfaces.sol";
+import {IntentIdManager} from "./IntentIdManager.sol";
 
 /**
  * @title CommerceProtocolIntegration
@@ -31,6 +32,7 @@ contract CommerceProtocolIntegration is
 {
     using ECDSA for bytes32;
     using SafeERC20 for IERC20;
+    using IntentIdManager for *;
     
     // Role definitions
     bytes32 public constant PAYMENT_MONITOR_ROLE = keccak256("PAYMENT_MONITOR_ROLE");
@@ -96,6 +98,7 @@ contract CommerceProtocolIntegration is
         bool processed;              // Whether payment has been processed
         address paymentToken;        // Token used for payment
         uint256 expectedAmount;      // Expected payment amount
+        bytes16 intentId;           // The original intent ID from the Commerce Protocol
     }
     
     /**
@@ -289,7 +292,8 @@ contract CommerceProtocolIntegration is
         _validatePaymentRequest(request);
         
         PaymentAmounts memory amounts = _calculateAllPaymentAmounts(request);
-        bytes16 intentId = _generateIntentId(msg.sender, request);
+        // Use standardized intent ID
+        bytes16 intentId = _generateStandardIntentId(msg.sender, request);
         
         intent = _createTransferIntent(request, amounts, intentId);
         context = _createPaymentContext(request, amounts, intentId);
@@ -358,8 +362,15 @@ contract CommerceProtocolIntegration is
         // Check if refund already requested
         if (refundRequests[intentId].requestTime != 0) revert RefundAlreadyProcessed();
         
+        // Use standardized refund intent ID
+        bytes16 refundIntentId = IntentIdManager.generateRefundIntentId(
+            intentId,
+            msg.sender,
+            reason,
+            address(this)
+        );
         // Calculate and process refund request
-        _processRefundRequest(intentId, context, reason);
+        _processRefundRequest(refundIntentId, context, reason);
     }
     
     /**
@@ -661,7 +672,8 @@ contract CommerceProtocolIntegration is
             timestamp: block.timestamp,
             processed: false,
             paymentToken: request.paymentToken,
-            expectedAmount: amounts.expectedAmount
+            expectedAmount: amounts.expectedAmount,
+            intentId: intentId // Store the original intent ID
         });
         
         return context;
@@ -753,7 +765,7 @@ contract CommerceProtocolIntegration is
      * @dev Processes refund request creation
      */
     function _processRefundRequest(
-        bytes16 intentId,
+        bytes16 refundIntentId,
         PaymentContext storage context,
         string memory reason
     ) internal {
@@ -761,8 +773,8 @@ contract CommerceProtocolIntegration is
         uint256 refundAmount = context.creatorAmount + context.platformFee + context.operatorFee;
         
         // Create refund request
-        refundRequests[intentId] = RefundRequest({
-            originalIntentId: intentId,
+        refundRequests[refundIntentId] = RefundRequest({
+            originalIntentId: context.intentId, // Reference to original
             user: msg.sender,
             amount: refundAmount,
             reason: reason,
@@ -773,7 +785,7 @@ contract CommerceProtocolIntegration is
         // Add to pending refunds
         pendingRefunds[msg.sender] += refundAmount;
         
-        emit RefundRequested(intentId, msg.sender, refundAmount, reason);
+        emit RefundRequested(refundIntentId, msg.sender, refundAmount, reason);
     }
     
     /**
@@ -844,24 +856,32 @@ contract CommerceProtocolIntegration is
     }
     
     /**
-     * @dev Generates a unique intent ID for the payment
+     * @dev UPDATED: Standardized intent ID generation using IntentIdManager
+     * @param user User making the payment
+     * @param request Payment request details
+     * @return bytes16 Unique intent ID
      */
-    function _generateIntentId(address user, PlatformPaymentRequest memory request) 
-        internal 
-        returns (bytes16) 
-    {
+    function _generateStandardIntentId(
+        address user, 
+        PlatformPaymentRequest memory request
+    ) internal returns (bytes16) {
         uint256 nonce = ++userNonces[user];
-        
-        bytes32 hash = keccak256(abi.encodePacked(
+        IntentIdManager.IntentType intentType;
+        if (request.paymentType == PaymentType.ContentPurchase) {
+            intentType = IntentIdManager.IntentType.CONTENT_PURCHASE;
+        } else if (request.paymentType == PaymentType.Subscription) {
+            intentType = IntentIdManager.IntentType.SUBSCRIPTION;
+        } else if (request.paymentType == PaymentType.SubscriptionRenewal) {
+            intentType = IntentIdManager.IntentType.SUBSCRIPTION_RENEWAL;
+        }
+        return IntentIdManager.generateIntentId(
             user,
             request.creator,
             request.contentId,
-            uint256(request.paymentType),
+            intentType,
             nonce,
-            block.timestamp
-        ));
-        
-        return bytes16(hash);
+            address(this)
+        );
     }
     
     /**
@@ -1040,8 +1060,16 @@ contract CommerceProtocolIntegration is
         // Calculate refund amount
         uint256 refundAmount = context.creatorAmount + context.platformFee + context.operatorFee;
         
-        refundRequests[intentId] = RefundRequest({
-            originalIntentId: intentId,
+        // Use standardized refund intent ID
+        bytes16 refundIntentId = IntentIdManager.generateRefundIntentId(
+            intentId,
+            context.user,
+            reason,
+            address(this)
+        );
+
+        refundRequests[refundIntentId] = RefundRequest({
+            originalIntentId: context.intentId, // Reference to original
             user: context.user,
             amount: refundAmount,
             reason: reason,
@@ -1051,7 +1079,7 @@ contract CommerceProtocolIntegration is
         
         pendingRefunds[context.user] += refundAmount;
         
-        emit RefundRequested(intentId, context.user, refundAmount, reason);
+        emit RefundRequested(refundIntentId, context.user, refundAmount, reason);
     }
     
     /**

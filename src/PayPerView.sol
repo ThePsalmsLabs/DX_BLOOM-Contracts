@@ -11,6 +11,7 @@ import {CreatorRegistry} from "./CreatorRegistry.sol";
 import {ContentRegistry} from "./ContentRegistry.sol";
 import {PriceOracle} from "./PriceOracle.sol";
 import {ICommercePaymentsProtocol} from "./interfaces/IPlatformInterfaces.sol";
+import {IntentIdManager} from "./IntentIdManager.sol";
 
 /**
  * @title PayPerView
@@ -20,6 +21,7 @@ import {ICommercePaymentsProtocol} from "./interfaces/IPlatformInterfaces.sol";
  */
 contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
+    using IntentIdManager for *;
     
     // Role definitions
     bytes32 public constant PAYMENT_PROCESSOR_ROLE = keccak256("PAYMENT_PROCESSOR_ROLE");
@@ -40,6 +42,7 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
     mapping(address => uint256[]) public userPurchases;
     mapping(address => uint256) public userTotalSpent;
     mapping(bytes16 => PendingPurchase) public pendingPurchases; // Intent -> Purchase details
+    mapping(address => uint256) public userNonces;
     
     // Creator earnings and platform metrics
     mapping(address => uint256) public creatorEarnings;
@@ -217,25 +220,19 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
         uint256 expectedAmount,
         uint256 deadline
     ) {
-        // Validate content and access
         ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
         require(content.creator != address(0), "Content not found");
         require(content.isActive, "Content not active");
         require(!purchases[contentId][msg.sender].hasPurchased, "Already purchased");
-        
-        // Generate unique intent ID
-        intentId = _generateIntentId(msg.sender, contentId);
+        // Use standardized intent ID
+        intentId = _generateStandardIntentId(msg.sender, content.creator, contentId);
         deadline = block.timestamp + PAYMENT_TIMEOUT;
-        
-        // Get accurate price quote using Uniswap
         address tokenAddress = _getPaymentTokenAddress(paymentMethod, paymentToken);
         expectedAmount = _getAccurateTokenAmount(
             tokenAddress,
             content.payPerViewPrice,
             maxSlippage
         );
-        
-        // Store pending purchase
         pendingPurchases[intentId] = PendingPurchase({
             contentId: contentId,
             user: msg.sender,
@@ -245,7 +242,6 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
             deadline: deadline,
             isProcessed: false
         });
-        
         emit ContentPurchaseInitiated(
             contentId,
             msg.sender,
@@ -255,7 +251,6 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
             content.payPerViewPrice,
             expectedAmount
         );
-        
         return (intentId, expectedAmount, deadline);
     }
     
@@ -374,11 +369,12 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
         usdcToken.safeTransferFrom(msg.sender, address(this), contentPrice);
         
         // Record purchase
+        bytes16 intentId = _generateStandardIntentId(msg.sender, content.creator, contentId);
         purchases[contentId][msg.sender] = PurchaseRecord({
             hasPurchased: true,
             purchasePrice: contentPrice,
             purchaseTime: block.timestamp,
-            intentId: 0, // No intent ID for direct purchases
+            intentId: intentId,
             paymentToken: address(usdcToken),
             actualAmountPaid: contentPrice,
             refundEligible: true,
@@ -430,14 +426,16 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
         require(purchase.hasPurchased, "No purchase found");
         require(purchase.refundEligible, "Not refund eligible");
         require(block.timestamp <= purchase.refundDeadline, "Refund window expired");
-        
-        // Mark as not refund eligible and add to pending refunds
         purchase.refundEligible = false;
         pendingRefunds[msg.sender] += purchase.purchasePrice;
-        
-        // Create failed purchase record for tracking
-        bytes16 refundId = _generateIntentId(msg.sender, contentId);
-        failedPurchases[refundId] = FailedPurchase({
+        // Use standardized refund intent ID
+        bytes16 refundIntentId = IntentIdManager.generateRefundIntentId(
+            purchase.intentId,
+            msg.sender,
+            reason,
+            address(this)
+        );
+        failedPurchases[refundIntentId] = FailedPurchase({
             contentId: contentId,
             user: msg.sender,
             usdcAmount: purchase.purchasePrice,
@@ -447,10 +445,8 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
             reason: reason,
             refunded: false
         });
-        
         totalRefunds += purchase.purchasePrice;
-        
-        emit RefundProcessed(refundId, msg.sender, purchase.purchasePrice, reason);
+        emit RefundProcessed(refundIntentId, msg.sender, purchase.purchasePrice, reason);
     }
     
     /**
@@ -591,12 +587,11 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
         address paymentToken,
         uint256 actualAmountPaid
     ) external onlyRole(PAYMENT_PROCESSOR_ROLE) nonReentrant {
-        
+        require(IntentIdManager.isValidIntentId(intentId), "Invalid intent ID format");
         ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
         require(content.creator != address(0), "Content not found");
         require(content.isActive, "Content not active");
         require(_canPurchaseContent(contentId, buyer), "Cannot purchase content");
-        
         purchases[contentId][buyer] = PurchaseRecord({
             hasPurchased: true,
             purchasePrice: usdcPrice,
@@ -735,13 +730,20 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Generates unique intent ID
      */
-    function _generateIntentId(address user, uint256 contentId) internal view returns (bytes16) {
-        return bytes16(keccak256(abi.encodePacked(
+    function _generateStandardIntentId(
+        address user, 
+        address creator, 
+        uint256 contentId
+    ) internal returns (bytes16) {
+        uint256 nonce = ++userNonces[user];
+        return IntentIdManager.generateIntentId(
             user,
+            creator,
             contentId,
-            block.timestamp,
-            block.number
-        )));
+            IntentIdManager.IntentType.CONTENT_PURCHASE,
+            nonce,
+            address(this)
+        );
     }
     
     /**
