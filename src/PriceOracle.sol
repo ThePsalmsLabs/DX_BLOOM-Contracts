@@ -117,20 +117,21 @@ contract PriceOracle is Ownable {
             poolFee = _getOptimalPoolFee(token, USDC);
         }
         
-        // First try direct pair
+        uint8 tokenDecimals = _getTokenDecimals(token);
+        uint256 baseAmount = 10**tokenDecimals;
+        
         try QUOTER_V2.quoteExactInputSingle(
             IQuoterV2.QuoteExactInputSingleParams({
                 tokenIn: token,
                 tokenOut: USDC,
-                amountIn: 10**18, // 1 token (assuming 18 decimals)
+                amountIn: baseAmount,
                 fee: poolFee,
                 sqrtPriceLimitX96: 0
             })
         ) returns (uint256 usdcPerToken, uint160, uint32, uint256) {
-            return (usdcAmount * 10**18) / usdcPerToken;
+            return (usdcAmount * baseAmount) / usdcPerToken;
         } catch {
-            // Try via WETH if direct pair fails
-            return _getTokenAmountViaWETH(token, usdcAmount);
+            return _getTokenAmountViaWETH(token, usdcAmount, tokenDecimals);
         }
     }
     
@@ -138,28 +139,29 @@ contract PriceOracle is Ownable {
      * @dev Gets token amount via WETH route (token -> WETH -> USDC)
      * @param token Token address
      * @param usdcAmount USDC amount needed
+     * @param tokenDecimals Token decimals
      * @return tokenAmount Token amount needed
      */
     function _getTokenAmountViaWETH(
         address token,
-        uint256 usdcAmount
+        uint256 usdcAmount,
+        uint8 tokenDecimals
     ) internal returns (uint256 tokenAmount) {
-        // Get WETH amount needed for USDC
         uint256 wethNeeded = this.getETHPrice(usdcAmount);
         
-        // Get token amount needed for WETH
         uint24 poolFee = _getOptimalPoolFee(token, WETH);
+        uint256 baseAmount = 10**tokenDecimals;
         
         try QUOTER_V2.quoteExactInputSingle(
             IQuoterV2.QuoteExactInputSingleParams({
                 tokenIn: token,
                 tokenOut: WETH,
-                amountIn: 10**18, // 1 token
+                amountIn: baseAmount,
                 fee: poolFee,
                 sqrtPriceLimitX96: 0
             })
         ) returns (uint256 wethPerToken, uint160, uint32, uint256) {
-            return (wethNeeded * 10**18) / wethPerToken;
+            return (wethNeeded * baseAmount) / wethPerToken;
         } catch {
             revert QuoteReverted();
         }
@@ -280,5 +282,24 @@ contract PriceOracle is Ownable {
         defaultSlippage = newSlippage;
         
         emit SlippageUpdated(oldSlippage, newSlippage);
+    }
+
+    /**
+     * @dev COMPLETE: Get token decimals safely
+     */
+    function _getTokenDecimals(address token) internal view returns (uint8) {
+        if (token == address(0)) return 18;
+        if (token == WETH) return 18;
+        if (token == USDC) return 6;
+        
+        (bool success, bytes memory data) = token.staticcall(
+            abi.encodeWithSignature("decimals()")
+        );
+        
+        if (success && data.length >= 32) {
+            return abi.decode(data, (uint8));
+        }
+        
+        return 18;
     }
 }

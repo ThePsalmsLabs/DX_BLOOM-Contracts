@@ -154,6 +154,9 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
         uint256 timestamp
     );
     
+    event ExternalPurchaseRecorded(uint256 indexed contentId, address indexed buyer, bytes16 intentId, uint256 usdcPrice, address paymentToken, uint256 actualAmountPaid);
+    event ExternalRefundProcessed(bytes16 indexed intentId, address indexed user, uint256 indexed contentId, uint256 amount);
+    
     // Custom errors
     error InvalidPaymentMethod();
     error PurchaseAlreadyCompleted();
@@ -575,6 +578,121 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
      */
     function grantRefundManagerRole(address manager) external onlyOwner {
         _grantRole(REFUND_MANAGER_ROLE, manager);
+    }
+    
+    /**
+     * @dev COMPLETE: Records purchase from external contract
+     */
+    function recordExternalPurchase(
+        uint256 contentId,
+        address buyer,
+        bytes16 intentId,
+        uint256 usdcPrice,
+        address paymentToken,
+        uint256 actualAmountPaid
+    ) external onlyRole(PAYMENT_PROCESSOR_ROLE) nonReentrant {
+        
+        ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
+        require(content.creator != address(0), "Content not found");
+        require(content.isActive, "Content not active");
+        require(_canPurchaseContent(contentId, buyer), "Cannot purchase content");
+        
+        purchases[contentId][buyer] = PurchaseRecord({
+            hasPurchased: true,
+            purchasePrice: usdcPrice,
+            purchaseTime: block.timestamp,
+            intentId: intentId,
+            paymentToken: paymentToken,
+            actualAmountPaid: actualAmountPaid,
+            refundEligible: true,
+            refundDeadline: block.timestamp + REFUND_WINDOW
+        });
+        
+        userPurchases[buyer].push(contentId);
+        userTotalSpent[buyer] += usdcPrice;
+        
+        uint256 platformFee = creatorRegistry.calculatePlatformFee(usdcPrice);
+        uint256 creatorEarning = usdcPrice - platformFee;
+        
+        creatorEarnings[content.creator] += creatorEarning;
+        withdrawableEarnings[content.creator] += creatorEarning;
+        
+        totalPlatformFees += platformFee;
+        totalVolume += usdcPrice;
+        totalPurchases++;
+        
+        contentRegistry.recordPurchase(contentId, buyer);
+        
+        creatorRegistry.updateCreatorStats(content.creator, creatorEarning, 1, 0);
+        
+        emit ExternalPurchaseRecorded(contentId, buyer, intentId, usdcPrice, paymentToken, actualAmountPaid);
+    }
+
+    /**
+     * @dev COMPLETE: Handles refund from external contract
+     */
+    function handleExternalRefund(
+        bytes16 intentId,
+        address user,
+        uint256 contentId
+    ) external onlyRole(PAYMENT_PROCESSOR_ROLE) nonReentrant {
+        
+        PurchaseRecord storage purchase = purchases[contentId][user];
+        require(purchase.hasPurchased, "No purchase found");
+        require(purchase.intentId == intentId, "Intent ID mismatch");
+        require(purchase.refundEligible, "Not eligible for refund");
+        
+        purchase.refundEligible = false;
+        
+        uint256 refundAmount = purchase.purchasePrice;
+        uint256 platformFee = creatorRegistry.calculatePlatformFee(refundAmount);
+        uint256 creatorAmount = refundAmount - platformFee;
+        
+        ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
+        
+        if (withdrawableEarnings[content.creator] >= creatorAmount) {
+            withdrawableEarnings[content.creator] -= creatorAmount;
+        } else {
+            withdrawableEarnings[content.creator] = 0;
+        }
+        
+        if (creatorEarnings[content.creator] >= creatorAmount) {
+            creatorEarnings[content.creator] -= creatorAmount;
+        } else {
+            creatorEarnings[content.creator] = 0;
+        }
+        
+        if (totalPlatformFees >= platformFee) {
+            totalPlatformFees -= platformFee;
+        }
+        if (totalVolume >= refundAmount) {
+            totalVolume -= refundAmount;
+        }
+        if (totalPurchases > 0) {
+            totalPurchases--;
+        }
+        
+        totalRefunds += refundAmount;
+        
+        creatorRegistry.updateCreatorStats(content.creator, 0, -1, 0);
+        
+        emit ExternalRefundProcessed(intentId, user, contentId, refundAmount);
+    }
+
+    /**
+     * @dev COMPLETE: Check if user can purchase content (handles refunds)
+     */
+    function _canPurchaseContent(uint256 contentId, address user) internal view returns (bool) {
+        PurchaseRecord memory purchase = purchases[contentId][user];
+        
+        if (!purchase.hasPurchased) return true;
+        if (purchase.hasPurchased && !purchase.refundEligible) return true;
+        
+        return false;
+    }
+
+    function canPurchaseContent(uint256 contentId, address user) external view returns (bool) {
+        return _canPurchaseContent(contentId, user);
     }
     
     // Internal helper functions

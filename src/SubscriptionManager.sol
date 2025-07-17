@@ -173,11 +173,15 @@ contract SubscriptionManager is Ownable, AccessControl, ReentrancyGuard, Pausabl
         string reason
     );
     
+    event ExternalSubscriptionRecorded(address indexed user, address indexed creator, bytes16 intentId, uint256 usdcAmount, address paymentToken, uint256 actualAmountPaid, uint256 endTime);
+    event SubscriptionExpired(address indexed user, address indexed creator, uint256 timestamp);
+    event ExternalRefundProcessed(bytes16 intentId, address indexed user, address indexed creator, uint256 refundAmount);
+    
     // Custom errors for efficient error handling
     error CreatorNotRegistered();
     error AlreadySubscribed();
     error SubscriptionNotFound();
-    error SubscriptionExpired();
+    error SubscriptionAlreadyExpired();
     error InsufficientPayment();
     error InsufficientBalance();
     error InvalidAutoRenewalConfig();
@@ -395,7 +399,7 @@ contract SubscriptionManager is Ownable, AccessControl, ReentrancyGuard, Pausabl
         // Check if subscription is close to expiry (within renewal window)
         uint256 endTime = subscriptionEndTime[user][creator];
         if (block.timestamp < endTime - RENEWAL_WINDOW) revert InvalidSubscriptionPeriod();
-        if (block.timestamp > endTime + GRACE_PERIOD) revert SubscriptionExpired();
+        if (block.timestamp > endTime + GRACE_PERIOD) revert SubscriptionAlreadyExpired();
         
         // Update attempt tracking
         autoRenewal.lastRenewalAttempt = block.timestamp;
@@ -888,5 +892,225 @@ contract SubscriptionManager is Ownable, AccessControl, ReentrancyGuard, Pausabl
     function emergencyTokenRecovery(address token, uint256 amount) external onlyOwner {
         require(token != address(usdcToken), "Cannot recover USDC");
         IERC20(token).safeTransfer(owner(), amount);
+    }
+
+    /**
+     * @dev COMPLETE: Records subscription payment from external contract
+     */
+    function recordSubscriptionPayment(
+        address user,
+        address creator,
+        bytes16 intentId,
+        uint256 usdcAmount,
+        address paymentToken,
+        uint256 actualAmountPaid
+    ) external onlyRole(SUBSCRIPTION_PROCESSOR_ROLE) nonReentrant {
+        
+        require(creatorRegistry.isRegisteredCreator(creator), "Creator not registered");
+        
+        uint256 startTime = block.timestamp;
+        uint256 endTime;
+        
+        if (isSubscribed(user, creator)) {
+            endTime = subscriptionEndTime[user][creator] + SUBSCRIPTION_DURATION;
+        } else {
+            endTime = startTime + SUBSCRIPTION_DURATION;
+        }
+        
+        subscriptionEndTime[user][creator] = endTime;
+        
+        SubscriptionRecord storage record = subscriptions[user][creator];
+        bool isNewSubscription = (record.totalPaid == 0);
+        
+        if (isNewSubscription) {
+            userSubscriptions[user].push(creator);
+            creatorSubscribers[creator].push(user);
+            
+            record.isActive = true;
+            record.startTime = startTime;
+            record.endTime = endTime;
+            record.renewalCount = 0;
+            record.totalPaid = usdcAmount;
+            record.lastPayment = usdcAmount;
+            record.lastRenewalTime = startTime;
+            record.autoRenewalEnabled = false;
+            
+            totalActiveSubscriptions++;
+            creatorSubscriberCount[creator]++;
+            
+            uint256 platformFeeLocal = creatorRegistry.calculatePlatformFee(usdcAmount);
+            uint256 creatorEarningLocal = usdcAmount - platformFeeLocal;
+            
+            emit Subscribed(user, creator, usdcAmount, platformFeeLocal, creatorEarningLocal, startTime, endTime);
+        } else {
+            record.isActive = true;
+            record.endTime = endTime;
+            record.renewalCount += 1;
+            record.totalPaid += usdcAmount;
+            record.lastPayment = usdcAmount;
+            record.lastRenewalTime = block.timestamp;
+            
+            totalRenewals++;
+            
+            emit SubscriptionRenewed(user, creator, usdcAmount, endTime, record.renewalCount);
+        }
+        
+        uint256 platformFee = creatorRegistry.calculatePlatformFee(usdcAmount);
+        uint256 creatorEarning = usdcAmount - platformFee;
+        
+        creatorSubscriptionEarnings[creator] += creatorEarning;
+        userSubscriptionSpending[user] += usdcAmount;
+        totalSubscriptionRevenue[creator] += creatorEarning;
+        totalSubscriptionVolume += usdcAmount;
+        totalPlatformSubscriptionFees += platformFee;
+        
+        if (isNewSubscription) {
+            creatorRegistry.updateCreatorStats(creator, creatorEarning, 0, 1);
+        } else {
+            creatorRegistry.updateCreatorStats(creator, creatorEarning, 0, 0);
+        }
+        
+        emit ExternalSubscriptionRecorded(user, creator, intentId, usdcAmount, paymentToken, actualAmountPaid, endTime);
+    }
+
+    /**
+     * @dev COMPLETE: Handles external refund for subscriptions
+     */
+    function handleExternalRefund(
+        bytes16 intentId,
+        address user,
+        address creator
+    ) external onlyRole(SUBSCRIPTION_PROCESSOR_ROLE) nonReentrant {
+        
+        SubscriptionRecord storage record = subscriptions[user][creator];
+        require(record.totalPaid > 0, "No subscription found");
+        
+        uint256 refundAmount = record.lastPayment;
+        uint256 platformFee = creatorRegistry.calculatePlatformFee(refundAmount);
+        uint256 creatorRefund = refundAmount - platformFee;
+        
+        subscriptionEndTime[user][creator] = block.timestamp;
+        record.isActive = false;
+        record.endTime = block.timestamp;
+        
+        if (creatorSubscriptionEarnings[creator] >= creatorRefund) {
+            creatorSubscriptionEarnings[creator] -= creatorRefund;
+        } else {
+            creatorSubscriptionEarnings[creator] = 0;
+        }
+        
+        if (userSubscriptionSpending[user] >= refundAmount) {
+            userSubscriptionSpending[user] -= refundAmount;
+        } else {
+            userSubscriptionSpending[user] = 0;
+        }
+        
+        if (totalSubscriptionRevenue[creator] >= creatorRefund) {
+            totalSubscriptionRevenue[creator] -= creatorRefund;
+        } else {
+            totalSubscriptionRevenue[creator] = 0;
+        }
+        
+        if (totalSubscriptionVolume >= refundAmount) {
+            totalSubscriptionVolume -= refundAmount;
+        } else {
+            totalSubscriptionVolume = 0;
+        }
+        
+        if (totalPlatformSubscriptionFees >= platformFee) {
+            totalPlatformSubscriptionFees -= platformFee;
+        } else {
+            totalPlatformSubscriptionFees = 0;
+        }
+        
+        if (totalActiveSubscriptions > 0) {
+            totalActiveSubscriptions--;
+        }
+        if (creatorSubscriberCount[creator] > 0) {
+            creatorSubscriberCount[creator]--;
+        }
+        
+        _removeFromSubscriberArray(creator, user);
+        
+        totalRefunds += refundAmount;
+        
+        creatorRegistry.updateCreatorStats(creator, 0, 0, -1);
+        
+        emit ExternalRefundProcessed(intentId, user, creator, refundAmount);
+    }
+
+    /**
+     * @dev COMPLETE: Enhanced cleanup with events
+     */
+    function cleanupExpiredSubscriptionsEnhanced(address creator) 
+        external 
+        nonReentrant 
+        returns (address[] memory cleanedUsers)
+    {
+        require(block.timestamp >= lastCleanupTime[creator] + CLEANUP_INTERVAL, "Cleanup too soon");
+        
+        lastCleanupTime[creator] = block.timestamp;
+        
+        address[] storage subscribers = creatorSubscribers[creator];
+        uint256 cleanedCount = 0;
+        address[] memory tempCleanedUsers = new address[](subscribers.length);
+        
+        for (uint256 i = subscribers.length; i > 0; i--) {
+            address subscriber = subscribers[i - 1];
+            uint256 endTime = subscriptionEndTime[subscriber][creator];
+            
+            if (endTime > 0 && block.timestamp > endTime + GRACE_PERIOD) {
+                subscriptions[subscriber][creator].isActive = false;
+                
+                tempCleanedUsers[cleanedCount] = subscriber;
+                
+                subscribers[i - 1] = subscribers[subscribers.length - 1];
+                subscribers.pop();
+                
+                if (creatorSubscriberCount[creator] > 0) {
+                    creatorSubscriberCount[creator]--;
+                }
+                if (totalActiveSubscriptions > 0) {
+                    totalActiveSubscriptions--;
+                }
+                
+                cleanedCount++;
+            }
+        }
+        
+        cleanedUsers = new address[](cleanedCount);
+        for (uint256 i = 0; i < cleanedCount; i++) {
+            cleanedUsers[i] = tempCleanedUsers[i];
+        }
+        
+        emit ExpiredSubscriptionsCleaned(creator, cleanedCount, block.timestamp);
+        
+        for (uint256 i = 0; i < cleanedCount; i++) {
+            emit SubscriptionExpired(cleanedUsers[i], creator, block.timestamp);
+        }
+        
+        return cleanedUsers;
+    }
+
+    /**
+     * @dev COMPLETE: Get subscription status with grace period
+     */
+    function getSubscriptionStatus(address user, address creator) 
+        external 
+        view 
+        returns (
+            bool isActive,
+            bool inGracePeriod,
+            uint256 endTime,
+            uint256 gracePeriodEnd
+        ) 
+    {
+        endTime = subscriptionEndTime[user][creator];
+        gracePeriodEnd = endTime + GRACE_PERIOD;
+        
+        isActive = endTime > block.timestamp;
+        inGracePeriod = !isActive && block.timestamp <= gracePeriodEnd;
+        
+        return (isActive, inGracePeriod, endTime, gracePeriodEnd);
     }
 }

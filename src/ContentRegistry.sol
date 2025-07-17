@@ -86,6 +86,7 @@ contract ContentRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
     mapping(uint256 => ContentReport[]) public contentReports; // Content -> Reports
     mapping(address => mapping(uint256 => bool)) public hasReported; // User -> Content -> Reported
     uint256 public nextReportId = 1;
+    string[] public bannedPhrasesList;
     
     // Analytics and metrics
     uint256 public totalContentCount;
@@ -435,6 +436,19 @@ contract ContentRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
     }
     
     /**
+     * @dev Admin function to ban phrases
+     * @param phrase Phrase to ban
+     */
+    function banPhrase(string memory phrase) external onlyRole(MODERATOR_ROLE) {
+        string memory lowerPhrase = _toLowerCase(phrase);
+        if (!bannedPhrases[lowerPhrase]) {
+            bannedPhrases[lowerPhrase] = true;
+            bannedPhrasesList.push(lowerPhrase);
+            emit WordBanned(lowerPhrase, true);
+        }
+    }
+    
+    /**
      * @dev Updates moderation settings
      * @param newThreshold New auto-moderation threshold
      * @param newMaxReports New max reports per user per day
@@ -719,21 +733,16 @@ contract ContentRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
      * @param text Text to check (should be lowercase)
      */
     function _checkTextForBannedContent(string memory text) internal view {
-        // Check for exact banned words
-        if (bannedWords[text]) {
+        string memory lowerText = _toLowerCase(text);
+        
+        if (bannedWords[lowerText]) {
             revert BannedWordDetected(text);
         }
         
-        // Check for banned phrases (substring matching)
-        // Note: This is a simplified implementation
-        // In production, you'd use more sophisticated string matching
-        bytes memory textBytes = bytes(text);
-        
-        // Check each banned phrase
-        // This is a placeholder - in production you'd implement proper substring search
-        // For now, we'll just check if banned phrases are exact matches
-        if (bannedPhrases[text]) {
-            revert BannedWordDetected(text);
+        for (uint256 i = 0; i < bannedPhrasesList.length; i++) {
+            if (_containsSubstring(lowerText, bannedPhrasesList[i])) {
+                revert BannedWordDetected(bannedPhrasesList[i]);
+            }
         }
     }
     
@@ -776,9 +785,70 @@ contract ContentRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
             contents[contentId].isActive = false;
             activeContentCount--;
             activeCategoryCount[contents[contentId].category]--;
+            
+            _removeFromAllMappings(contentId);
         }
         
         emit ContentDeactivated(contentId, reason, moderator);
+    }
+    
+    /**
+     * @dev COMPLETE: Substring matching implementation
+     */
+    function _containsSubstring(string memory text, string memory substring) internal pure returns (bool) {
+        bytes memory textBytes = bytes(text);
+        bytes memory subBytes = bytes(substring);
+        
+        if (subBytes.length > textBytes.length || subBytes.length == 0) return false;
+        
+        for (uint256 i = 0; i <= textBytes.length - subBytes.length; i++) {
+            bool found = true;
+            for (uint256 j = 0; j < subBytes.length; j++) {
+                if (textBytes[i + j] != subBytes[j]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) return true;
+        }
+        return false;
+    }
+
+    /**
+     * @dev COMPLETE: Remove content from all mappings
+     */
+    function _removeFromAllMappings(uint256 contentId) internal {
+        Content storage content = contents[contentId];
+        
+        uint256[] storage creatorArray = creatorContent[content.creator];
+        for (uint256 i = 0; i < creatorArray.length; i++) {
+            if (creatorArray[i] == contentId) {
+                creatorArray[i] = creatorArray[creatorArray.length - 1];
+                creatorArray.pop();
+                break;
+            }
+        }
+        
+        for (uint256 i = 0; i < content.tags.length; i++) {
+            string memory lowerTag = _toLowerCase(content.tags[i]);
+            uint256[] storage tagArray = tagContent[lowerTag];
+            for (uint256 j = 0; j < tagArray.length; j++) {
+                if (tagArray[j] == contentId) {
+                    tagArray[j] = tagArray[tagArray.length - 1];
+                    tagArray.pop();
+                    break;
+                }
+            }
+        }
+        
+        uint256[] storage categoryArray = categoryContent[content.category];
+        for (uint256 i = 0; i < categoryArray.length; i++) {
+            if (categoryArray[i] == contentId) {
+                categoryArray[i] = categoryArray[categoryArray.length - 1];
+                categoryArray.pop();
+                break;
+            }
+        }
     }
     
     /**

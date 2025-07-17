@@ -223,8 +223,9 @@ interface IPayPerView {
     function purchaseContentDirect(uint256 contentId) external;
     function completePurchase(
         bytes16 intentId,
-        address paymentToken,
-        uint256 actualAmountPaid
+        uint256 actualAmountPaid,
+        bool success,
+        string memory failureReason
     ) external;
     function hasAccess(uint256 contentId, address user) external view returns (bool);
     function withdrawEarnings() external;
@@ -232,6 +233,20 @@ interface IPayPerView {
         external 
         view 
         returns (PurchaseRecord memory);
+    function recordExternalPurchase(
+        uint256 contentId,
+        address buyer,
+        bytes16 intentId,
+        uint256 usdcPrice,
+        address paymentToken,
+        uint256 actualAmountPaid
+    ) external;
+    function handleExternalRefund(
+        bytes16 intentId,
+        address user,
+        uint256 contentId
+    ) external;
+    function canPurchaseContent(uint256 contentId, address user) external view returns (bool);
     
     event ContentPurchaseCompleted(
         uint256 indexed contentId,
@@ -281,6 +296,19 @@ interface ISubscriptionManager {
         external 
         view 
         returns (SubscriptionRecord memory);
+    function recordSubscriptionPayment(
+        address user,
+        address creator,
+        bytes16 intentId,
+        uint256 usdcAmount,
+        address paymentToken,
+        uint256 actualAmountPaid
+    ) external;
+    function handleExternalRefund(
+        bytes16 intentId,
+        address user,
+        address creator
+    ) external;
     
     event Subscribed(
         address indexed user,

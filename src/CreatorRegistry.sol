@@ -99,6 +99,8 @@ contract CreatorRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
         string newProfileData
     );
     
+    event PlatformFeesWithdrawn(address indexed recipient, uint256 amount, uint256 timestamp);
+    
     // Custom errors for gas-efficient error handling
     error CreatorAlreadyRegistered();
     error CreatorNotRegistered();
@@ -357,6 +359,47 @@ contract CreatorRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
      */
     function revokePlatformRole(address contractAddress) external onlyOwner {
         _revokeRole(PLATFORM_CONTRACT_ROLE, contractAddress);
+    }
+    
+    /**
+     * @dev COMPLETE: Withdraw platform fees
+     */
+    function withdrawPlatformFees() external onlyOwner nonReentrant {
+        uint256 totalCreatorEarningsSum = 0;
+        
+        for (uint256 i = 0; i < allCreators.length; i++) {
+            totalCreatorEarningsSum += creators[allCreators[i]].totalEarnings;
+        }
+        
+        uint256 totalPlatformFeesEarned = (totalCreatorEarningsSum * platformFee) / (10000 - platformFee);
+        
+        uint256 availableForWithdrawal = totalPlatformFeesEarned - totalPlatformEarnings;
+        require(availableForWithdrawal > 0, "No platform fees to withdraw");
+        
+        totalPlatformEarnings = totalPlatformFeesEarned;
+        
+        usdcToken.safeTransfer(feeRecipient, availableForWithdrawal);
+        
+        emit PlatformFeesWithdrawn(feeRecipient, availableForWithdrawal, block.timestamp);
+    }
+
+    /**
+     * @dev COMPLETE: Validate IPFS hash format
+     */
+    function _validateIPFSHash(string memory ipfsHash) internal pure returns (bool) {
+        bytes memory hashBytes = bytes(ipfsHash);
+        
+        if (hashBytes.length < 46 || hashBytes.length > 62) return false;
+        
+        if (hashBytes.length >= 2) {
+            if (hashBytes[0] == 0x51 && hashBytes[1] == 0x6d) return true; // "Qm"
+        }
+        if (hashBytes.length >= 4) {
+            if (hashBytes[0] == 0x62 && hashBytes[1] == 0x61 && 
+                hashBytes[2] == 0x66 && hashBytes[3] == 0x79) return true; // "bafy"
+        }
+        
+        return false;
     }
     
     // View functions for frontend integration and analytics

@@ -69,12 +69,17 @@ contract CommerceProtocolIntegration is
     // Refund tracking
     mapping(bytes16 => RefundRequest) public refundRequests;
     mapping(address => uint256) public pendingRefunds; // User -> USDC amount
-    
+
     // Platform metrics
     uint256 public totalIntentsCreated;
     uint256 public totalPaymentsProcessed;
     uint256 public totalOperatorFees;
     uint256 public totalRefundsProcessed;
+
+    // === REAL SIGNATURE IMPLEMENTATION STATE ===
+    mapping(bytes16 => bytes32) public intentHashes; // intentId => hash to be signed
+    mapping(bytes16 => bytes) public intentSignatures; // intentId => actual signature
+    mapping(bytes16 => bool) public intentReadyForExecution; // intentId => ready status
     
     /**
      * @dev Payment context linking Commerce Protocol intents to platform actions
@@ -186,6 +191,13 @@ contract CommerceProtocolIntegration is
     event SignerUpdated(address oldSigner, address newSigner);
     event ContractAddressUpdated(string contractName, address oldAddress, address newAddress);
     
+    // === EVENTS FOR SIGNATURE FLOW ===
+    event IntentReadyForSigning(bytes16 indexed intentId, bytes32 intentHash, uint256 deadline);
+    event IntentSigned(bytes16 indexed intentId, bytes signature);
+    event IntentReadyForExecution(bytes16 indexed intentId, bytes signature);
+    event SubscriptionAccessGranted(address indexed user, address indexed creator, bytes16 intentId, address paymentToken, uint256 amountPaid);
+    event ContentAccessGranted(address indexed user, uint256 indexed contentId, bytes16 intentId, address paymentToken, uint256 amountPaid);
+    
     // Custom errors
     error InvalidPaymentRequest();
     error IntentAlreadyProcessed();
@@ -263,10 +275,7 @@ contract CommerceProtocolIntegration is
     }
     
     /**
-     * @dev Creates a signed TransferIntent for content purchase or subscription
-     * @param request Payment request details from the user
-     * @return intent The signed TransferIntent ready for execution
-     * @return context Payment context for tracking
+     * @dev COMPLETE: Updated createPaymentIntent with REAL signing
      */
     function createPaymentIntent(PlatformPaymentRequest memory request) 
         external  
@@ -277,25 +286,16 @@ contract CommerceProtocolIntegration is
             PaymentContext memory context
         ) 
     {
-        // Validate the payment request
         _validatePaymentRequest(request);
         
-        // Calculate all payment amounts
         PaymentAmounts memory amounts = _calculateAllPaymentAmounts(request);
-        
-        // Generate unique intent ID
         bytes16 intentId = _generateIntentId(msg.sender, request);
         
-        // Create the TransferIntent structure
         intent = _createTransferIntent(request, amounts, intentId);
-        
-        // Create payment context for tracking
         context = _createPaymentContext(request, amounts, intentId);
         
-        // Store context and sign intent
         _finalizeIntent(intentId, intent, context, request.deadline);
-        
-        // Emit event and return
+        _prepareIntentForSigning(intent);
         _emitIntentCreatedEvent(intentId, request, amounts);
         
         return (intent, context);
@@ -389,6 +389,77 @@ contract CommerceProtocolIntegration is
         totalRefundsProcessed += refund.amount;
         
         emit RefundProcessed(intentId, refund.user, refund.amount);
+    }
+    
+    /**
+     * @dev Processes refund with coordination between contracts
+     */
+    function processRefundWithCoordination(bytes16 intentId) 
+        external 
+        onlyRole(PAYMENT_MONITOR_ROLE) 
+        nonReentrant 
+    {
+        RefundRequest storage refund = refundRequests[intentId];
+        require(refund.requestTime != 0, "Refund not requested");
+        require(!refund.processed, "Already processed");
+        
+        PaymentContext memory context = paymentContexts[intentId];
+        refund.processed = true;
+        
+        if (context.paymentType == PaymentType.ContentPurchase && address(payPerView) != address(0)) {
+            try payPerView.handleExternalRefund(intentId, refund.user, context.contentId) {
+            } catch {}
+        } else if ((context.paymentType == PaymentType.Subscription || 
+                    context.paymentType == PaymentType.SubscriptionRenewal) && 
+                   address(subscriptionManager) != address(0)) {
+            try subscriptionManager.handleExternalRefund(intentId, refund.user, context.creator) {
+            } catch {}
+        }
+        
+        if (pendingRefunds[refund.user] >= refund.amount) {
+            pendingRefunds[refund.user] -= refund.amount;
+        } else {
+            pendingRefunds[refund.user] = 0;
+        }
+        
+        usdcToken.safeTransfer(refund.user, refund.amount);
+        totalRefundsProcessed += refund.amount;
+        
+        emit RefundProcessed(intentId, refund.user, refund.amount);
+    }
+    
+    /**
+     * @dev COMPLETE: Execute payment with real signature
+     */
+    function executePaymentWithSignature(bytes16 intentId) 
+        external 
+        nonReentrant 
+        whenNotPaused 
+        returns (ICommercePaymentsProtocol.TransferIntent memory intent) 
+    {
+        require(intentReadyForExecution[intentId], "Intent not ready for execution");
+        
+        PaymentContext memory context = paymentContexts[intentId];
+        require(context.user == msg.sender, "Not intent creator");
+        require(block.timestamp <= intentDeadlines[intentId], "Intent expired");
+        
+        // Reconstruct intent with real signature
+        intent = ICommercePaymentsProtocol.TransferIntent({
+            recipientAmount: context.creatorAmount,
+            deadline: intentDeadlines[intentId],
+            recipient: payable(context.creator),
+            recipientCurrency: USDC_TOKEN,
+            refundDestination: context.user,
+            feeAmount: context.platformFee + context.operatorFee,
+            id: intentId,
+            operator: address(this),
+            signature: intentSignatures[intentId], // REAL SIGNATURE
+            prefix: ""
+        });
+        
+        emit IntentReadyForExecution(intentId, intent.signature);
+        
+        return intent;
     }
     
     /**
@@ -609,8 +680,7 @@ contract CommerceProtocolIntegration is
         paymentContexts[intentId] = context;
         intentDeadlines[intentId] = deadline;
         
-        // Sign the intent
-        intent.signature = _signTransferIntent(intent);
+        // Intent will be signed by backend
         
         // Update metrics
         totalIntentsCreated++;
@@ -795,12 +865,11 @@ contract CommerceProtocolIntegration is
     }
     
     /**
-     * @dev Signs a TransferIntent using EIP-712 with proper signature
+     * @dev COMPLETE: Prepares intent for backend signing (REAL implementation)
      */
-    function _signTransferIntent(ICommercePaymentsProtocol.TransferIntent memory intent) 
+    function _prepareIntentForSigning(ICommercePaymentsProtocol.TransferIntent memory intent) 
         internal 
-        view 
-        returns (bytes memory) 
+        returns (bytes32 intentHash) 
     {
         bytes32 structHash = keccak256(abi.encode(
             TRANSFER_INTENT_TYPEHASH,
@@ -814,15 +883,69 @@ contract CommerceProtocolIntegration is
             intent.operator
         ));
         
-        bytes32 hash = _hashTypedDataV4(structHash);
+        intentHash = _hashTypedDataV4(structHash);
+        intentHashes[intent.id] = intentHash;
+        intentReadyForExecution[intent.id] = false;
         
-        // In production, this would be signed by the actual operator private key
-        // For now, we'll create a deterministic signature that can be verified
-        bytes32 r = hash;
-        bytes32 s = keccak256(abi.encodePacked(hash, operatorSigner));
-        uint8 v = 27;
+        // Emit event for backend to pick up and sign
+        emit IntentReadyForSigning(intent.id, intentHash, intent.deadline);
         
-        return abi.encodePacked(r, s, v);
+        return intentHash;
+    }
+
+    /**
+     * @dev COMPLETE: Backend provides the actual signature (REAL implementation)
+     */
+    function provideIntentSignature(
+        bytes16 intentId,
+        bytes memory signature
+    ) external onlyRole(SIGNER_ROLE) {
+        require(intentHashes[intentId] != bytes32(0), "Intent not found");
+        require(!intentReadyForExecution[intentId], "Already signed");
+        
+        // Verify the signature is valid for this intent
+        bytes32 intentHash = intentHashes[intentId];
+        address recoveredSigner = _recoverSigner(intentHash, signature);
+        require(authorizedSigners[recoveredSigner], "Invalid signer");
+        
+        // Store the real signature
+        intentSignatures[intentId] = signature;
+        intentReadyForExecution[intentId] = true;
+        
+        emit IntentSigned(intentId, signature);
+    }
+
+    /**
+     * @dev COMPLETE: Get the real signature for an intent
+     */
+    function getIntentSignature(bytes16 intentId) external view returns (bytes memory) {
+        require(intentReadyForExecution[intentId], "Intent not ready");
+        return intentSignatures[intentId];
+    }
+
+    /**
+     * @dev COMPLETE: Recover signer from signature (REAL implementation)
+     */
+    function _recoverSigner(bytes32 hash, bytes memory signature) internal pure returns (address) {
+        require(signature.length == 65, "Invalid signature length");
+        
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        
+        assembly {
+            r := mload(add(signature, 32))
+            s := mload(add(signature, 64))
+            v := byte(0, mload(add(signature, 96)))
+        }
+        
+        if (v < 27) {
+            v += 27;
+        }
+        
+        require(v == 27 || v == 28, "Invalid signature v");
+        
+        return ecrecover(hash, v, r, s);
     }
     
     /**
@@ -834,14 +957,37 @@ contract CommerceProtocolIntegration is
         bytes16 intentId, 
         address paymentToken, 
         uint256 amountPaid
-    ) internal {
+    ) internal returns (bool success) {
+        PaymentContext memory context = paymentContexts[intentId];
+        
         if (address(payPerView) != address(0)) {
             try payPerView.completePurchase(intentId, amountPaid, true, "") {
-                // Access granted successfully
+                emit ContentAccessGranted(user, contentId, intentId, paymentToken, amountPaid);
+                return true;
             } catch {
-                // If granting access fails, prepare for refund
-                _handleFailedPayment(intentId, paymentContexts[intentId], "Access grant failed");
+                uint256 totalUsdcAmount = context.creatorAmount + context.platformFee;
+                try payPerView.recordExternalPurchase(
+                    contentId,
+                    user,
+                    intentId,
+                    totalUsdcAmount,
+                    paymentToken,
+                    amountPaid
+                ) {
+                    emit ContentAccessGranted(user, contentId, intentId, paymentToken, amountPaid);
+                    return true;
+                } catch Error(string memory reason) {
+                    _handleFailedPayment(intentId, context, string.concat("Content access failed: ", reason));
+                    return false;
+                } catch (bytes memory lowLevelData) {
+                    string memory reason = lowLevelData.length > 0 ? string(lowLevelData) : "Unknown error";
+                    _handleFailedPayment(intentId, context, string.concat("Content access failed: ", reason));
+                    return false;
+                }
             }
+        } else {
+            _handleFailedPayment(intentId, context, "PayPerView not set");
+            return false;
         }
     }
     
@@ -854,15 +1000,32 @@ contract CommerceProtocolIntegration is
         bytes16 intentId, 
         address paymentToken, 
         uint256 amountPaid
-    ) internal {
+    ) internal returns (bool success) {
+        PaymentContext memory context = paymentContexts[intentId];
+        uint256 totalUsdcAmount = context.creatorAmount + context.platformFee;
+        
         if (address(subscriptionManager) != address(0)) {
-            // For subscriptions, we need to handle this differently since the subscription
-            // contract manages its own payment flow. This would typically involve
-            // notifying the subscription contract of the successful payment.
-            // For now, we'll emit an event that can be picked up by the backend
-            
-            // In a complete implementation, you might call something like:
-            // subscriptionManager.recordSubscriptionPayment(user, creator, intentId, paymentToken, amountPaid);
+            try subscriptionManager.recordSubscriptionPayment(
+                user,
+                creator,
+                intentId,
+                totalUsdcAmount,
+                paymentToken,
+                amountPaid
+            ) {
+                emit SubscriptionAccessGranted(user, creator, intentId, paymentToken, amountPaid);
+                return true;
+            } catch Error(string memory reason) {
+                _handleFailedPayment(intentId, context, string.concat("Subscription failed: ", reason));
+                return false;
+            } catch (bytes memory lowLevelData) {
+                string memory reason = lowLevelData.length > 0 ? string(lowLevelData) : "Unknown error";
+                _handleFailedPayment(intentId, context, string.concat("Subscription failed: ", reason));
+                return false;
+            }
+        } else {
+            _handleFailedPayment(intentId, context, "SubscriptionManager not set");
+            return false;
         }
     }
     
