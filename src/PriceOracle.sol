@@ -223,7 +223,7 @@ contract PriceOracle is Ownable {
     function _getOptimalPoolFee(
         address tokenA,
         address tokenB
-    ) internal returns (uint24 poolFee) {
+    ) internal view returns (uint24 poolFee) {
         // Check for custom pool fee
         poolFee = customPoolFees[tokenA][tokenB];
         if (poolFee != 0) return poolFee;
