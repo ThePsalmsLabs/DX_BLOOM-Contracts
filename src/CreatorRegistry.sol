@@ -48,6 +48,7 @@ contract CreatorRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
         uint256 subscriberCount;    // Current number of active subscribers
         uint256 registrationTime;   // When creator registered
         string profileData;         // IPFS hash for profile metadata
+        bool isSuspended; // Suspension status
     }
     
     // Storage mappings for efficient data access
@@ -100,6 +101,7 @@ contract CreatorRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
     );
     
     event PlatformFeesWithdrawn(address indexed recipient, uint256 amount, uint256 timestamp);
+    event CreatorSuspended(address indexed creator, bool suspended);
     
     // Custom errors for gas-efficient error handling
     error CreatorAlreadyRegistered();
@@ -155,7 +157,8 @@ contract CreatorRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
             contentCount: 0,             // No content initially
             subscriberCount: 0,          // No subscribers initially
             registrationTime: block.timestamp,
-            profileData: profileData
+            profileData: profileData,
+            isSuspended: false
         });
         
         // Track registration timestamp and add to creator list
@@ -225,6 +228,17 @@ contract CreatorRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
         }
         
         emit CreatorVerified(creator, verified);
+    }
+
+    /**
+     * @dev Admin function to suspend or unsuspend a creator
+     * @param creator Address of creator to suspend/unsuspend
+     * @param suspended True to suspend, false to unsuspend
+     */
+    function suspendCreator(address creator, bool suspended) external onlyRole(MODERATOR_ROLE) {
+        if (!creators[creator].isRegistered) revert CreatorNotRegistered();
+        creators[creator].isSuspended = suspended;
+        emit CreatorSuspended(creator, suspended);
     }
     
     /**
@@ -517,6 +531,35 @@ contract CreatorRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
             totalCreatorEarnings,
             totalWithdrawnEarnings
         );
+    }
+    
+    /**
+     * @dev Deactivates a creator (admin/moderator action)
+     * @param creator Address of creator to deactivate
+     */
+    function deactivateCreator(address creator) external onlyRole(MODERATOR_ROLE) {
+        if (!creators[creator].isRegistered) revert CreatorNotRegistered();
+        creators[creator].isSuspended = true;
+        emit CreatorSuspended(creator, true);
+    }
+
+    /**
+     * @dev Returns the active status of a creator (registered and not suspended)
+     * @param creator Address to check
+     * @return bool True if active, false otherwise
+     */
+    function isActive(address creator) public view returns (bool) {
+        return creators[creator].isRegistered && !creators[creator].isSuspended;
+    }
+
+    /**
+     * @dev Gets complete creator profile and active status
+     * @param creator Creator address
+     * @return Creator struct and isActive bool
+     */
+    function getCreatorWithActive(address creator) external view returns (Creator memory, bool active) {
+        Creator memory c = creators[creator];
+        return (c, c.isRegistered && !c.isSuspended);
     }
     
     // Internal helper functions

@@ -61,6 +61,8 @@ interface ICommercePaymentsProtocol {
         address operator;            // Operator facilitating the payment
         bytes signature;             // Operator's signature over the intent data
         bytes prefix;                // Custom signature prefix (optional)
+        address sender;              // The user who initiated the payment intent
+        address token;               // The token the user is paying with
     }
 
     struct Permit2SignatureTransferData {

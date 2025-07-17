@@ -484,11 +484,9 @@ contract CommerceProtocolIntegration is
         returns (ICommercePaymentsProtocol.TransferIntent memory intent) 
     {
         require(intentReadyForExecution[intentId], "Intent not ready for execution");
-        
         PaymentContext memory context = paymentContexts[intentId];
         require(context.user == msg.sender, "Not intent creator");
         require(block.timestamp <= intentDeadlines[intentId], "Intent expired");
-        
         // Reconstruct intent with real signature
         intent = ICommercePaymentsProtocol.TransferIntent({
             recipientAmount: context.creatorAmount,
@@ -500,11 +498,11 @@ contract CommerceProtocolIntegration is
             id: intentId,
             operator: address(this),
             signature: intentSignatures[intentId], // REAL SIGNATURE
-            prefix: ""
+            prefix: "",
+            sender: context.user,
+            token: context.paymentToken
         });
-        
         emit IntentReadyForExecution(intentId, intent.signature);
-        
         return intent;
     }
     
@@ -670,7 +668,6 @@ contract CommerceProtocolIntegration is
         PaymentAmounts memory amounts,
         bytes16 intentId
     ) internal view returns (ICommercePaymentsProtocol.TransferIntent memory intent) {
-        
         intent = ICommercePaymentsProtocol.TransferIntent({
             recipientAmount: amounts.adjustedCreatorAmount,
             deadline: request.deadline,
@@ -681,9 +678,10 @@ contract CommerceProtocolIntegration is
             id: intentId,
             operator: address(this),
             signature: "",
-            prefix: ""
+            prefix: "",
+            sender: msg.sender,
+            token: request.paymentToken
         });
-        
         return intent;
     }
     
@@ -1192,5 +1190,19 @@ contract CommerceProtocolIntegration is
      */
     function emergencyTokenRecovery(address token, uint256 amount) external onlyOwner {
         IERC20(token).safeTransfer(owner(), amount);
+    }
+
+    /**
+     * @dev Returns true if a signature has been provided for the given intentId
+     */
+    function hasSignature(bytes16 intentId) public view returns (bool) {
+        return intentReadyForExecution[intentId];
+    }
+
+    /**
+     * @dev Returns true if the intent is still active (not processed)
+     */
+    function hasActiveIntent(bytes16 intentId) public view returns (bool) {
+        return !processedIntents[intentId];
     }
 }
