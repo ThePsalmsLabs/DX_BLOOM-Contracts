@@ -19,12 +19,7 @@ interface IQuoterV2 {
 
     function quoteExactInputSingle(QuoteExactInputSingleParams memory params)
         external
-        returns (
-            uint256 amountOut,
-            uint160 sqrtPriceX96After,
-            uint32 initializedTicksCrossed,
-            uint256 gasEstimate
-        );
+        returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate);
 }
 
 // Permit2 interfaces
@@ -33,13 +28,13 @@ interface ISignatureTransfer {
         address token;
         uint256 amount;
     }
-    
+
     struct PermitTransferFrom {
         TokenPermissions permitted;
         uint256 nonce;
         uint256 deadline;
     }
-    
+
     struct SignatureTransferDetails {
         address to;
         uint256 requestedAmount;
@@ -51,18 +46,18 @@ interface ICommercePaymentsProtocol {
      * @dev TransferIntent structure from the actual Base Commerce Protocol
      */
     struct TransferIntent {
-        uint256 recipientAmount;      // Amount merchant will receive (in recipientCurrency)
-        uint256 deadline;             // Unix timestamp - payment must complete before this
-        address payable recipient;    // Merchant's receiving address
-        address recipientCurrency;    // Token address merchant wants to receive (USDC for our platform)
-        address refundDestination;    // Address for refunds (usually payer address)
-        uint256 feeAmount;           // Operator fee (in recipientCurrency)
-        bytes16 id;                  // Unique payment identifier
-        address operator;            // Operator facilitating the payment
-        bytes signature;             // Operator's signature over the intent data
-        bytes prefix;                // Custom signature prefix (optional)
-        address sender;              // The user who initiated the payment intent
-        address token;               // The token the user is paying with
+        uint256 recipientAmount; // Amount merchant will receive (in recipientCurrency)
+        uint256 deadline; // Unix timestamp - payment must complete before this
+        address payable recipient; // Merchant's receiving address
+        address recipientCurrency; // Token address merchant wants to receive (USDC for our platform)
+        address refundDestination; // Address for refunds (usually payer address)
+        uint256 feeAmount; // Operator fee (in recipientCurrency)
+        bytes16 id; // Unique payment identifier
+        address operator; // Operator facilitating the payment
+        bytes signature; // Operator's signature over the intent data
+        bytes prefix; // Custom signature prefix (optional)
+        address sender; // The user who initiated the payment intent
+        address token; // The token the user is paying with
     }
 
     struct Permit2SignatureTransferData {
@@ -72,8 +67,8 @@ interface ICommercePaymentsProtocol {
     }
 
     struct EIP2612SignatureTransferData {
-        address owner;     // Token owner
-        bytes signature;   // Permit signature
+        address owner; // Token owner
+        bytes signature; // Permit signature
     }
 
     function registerOperator(address _feeDestination) external;
@@ -83,19 +78,13 @@ interface ICommercePaymentsProtocol {
         Permit2SignatureTransferData calldata _signatureTransferData
     ) external;
     function transferTokenPreApproved(TransferIntent calldata _intent) external;
-    function swapAndTransferUniswapV3Native(
-        TransferIntent calldata _intent,
-        uint24 poolFeesTier
-    ) external payable;
+    function swapAndTransferUniswapV3Native(TransferIntent calldata _intent, uint24 poolFeesTier) external payable;
     function swapAndTransferUniswapV3Token(
         TransferIntent calldata _intent,
         Permit2SignatureTransferData calldata _signatureTransferData,
         uint24 poolFeesTier
     ) external;
-    function swapAndTransferUniswapV3TokenPreApproved(
-        TransferIntent calldata _intent,
-        uint24 poolFeesTier
-    ) external;
+    function swapAndTransferUniswapV3TokenPreApproved(TransferIntent calldata _intent, uint24 poolFeesTier) external;
     function wrapAndTransfer(TransferIntent calldata _intent) external payable;
     function unwrapAndTransfer(
         TransferIntent calldata _intent,
@@ -138,20 +127,16 @@ interface ICreatorRegistry {
         uint256 contentCount;
         uint256 subscriberCount;
     }
-    
+
     function registerCreator(uint256 subscriptionPrice) external;
     function updateSubscriptionPrice(uint256 newPrice) external;
     function withdrawCreatorEarnings() external;
     function isRegisteredCreator(address creator) external view returns (bool);
     function getSubscriptionPrice(address creator) external view returns (uint256);
     function calculatePlatformFee(uint256 amount) external view returns (uint256);
-    function updateCreatorStats(
-        address creator,
-        uint256 earnings,
-        int256 contentDelta,
-        int256 subscriberDelta
-    ) external;
-    
+    function updateCreatorStats(address creator, uint256 earnings, int256 contentDelta, int256 subscriberDelta)
+        external;
+
     event CreatorRegistered(address indexed creator, uint256 subscriptionPrice, uint256 timestamp);
     event SubscriptionPriceUpdated(address indexed creator, uint256 oldPrice, uint256 newPrice);
     event CreatorVerified(address indexed creator, bool verified);
@@ -171,7 +156,7 @@ interface IContentRegistry {
         Course,
         Other
     }
-    
+
     struct Content {
         address creator;
         string ipfsHash;
@@ -184,7 +169,7 @@ interface IContentRegistry {
         uint256 purchaseCount;
         string[] tags;
     }
-    
+
     function registerContent(
         string memory ipfsHash,
         string memory title,
@@ -193,11 +178,11 @@ interface IContentRegistry {
         uint256 payPerViewPrice,
         string[] memory tags
     ) external returns (uint256 contentId);
-    
+
     function getContent(uint256 contentId) external view returns (Content memory);
     function getCreatorContent(address creator) external view returns (uint256[] memory);
     function recordPurchase(uint256 contentId, address buyer) external;
-    
+
     event ContentRegistered(
         uint256 indexed contentId,
         address indexed creator,
@@ -221,20 +206,13 @@ interface IPayPerView {
         address paymentToken;
         uint256 actualAmountPaid;
     }
-    
+
     function purchaseContentDirect(uint256 contentId) external;
-    function completePurchase(
-        bytes16 intentId,
-        uint256 actualAmountPaid,
-        bool success,
-        string memory failureReason
-    ) external;
+    function completePurchase(bytes16 intentId, uint256 actualAmountPaid, bool success, string memory failureReason)
+        external;
     function hasAccess(uint256 contentId, address user) external view returns (bool);
     function withdrawEarnings() external;
-    function getPurchaseDetails(uint256 contentId, address user) 
-        external 
-        view 
-        returns (PurchaseRecord memory);
+    function getPurchaseDetails(uint256 contentId, address user) external view returns (PurchaseRecord memory);
     function recordExternalPurchase(
         uint256 contentId,
         address buyer,
@@ -243,13 +221,9 @@ interface IPayPerView {
         address paymentToken,
         uint256 actualAmountPaid
     ) external;
-    function handleExternalRefund(
-        bytes16 intentId,
-        address user,
-        uint256 contentId
-    ) external;
+    function handleExternalRefund(bytes16 intentId, address user, uint256 contentId) external;
     function canPurchaseContent(uint256 contentId, address user) external view returns (bool);
-    
+
     event ContentPurchaseCompleted(
         uint256 indexed contentId,
         address indexed buyer,
@@ -259,7 +233,7 @@ interface IPayPerView {
         uint256 actualAmountPaid,
         address paymentToken
     );
-    
+
     event DirectPurchaseCompleted(
         uint256 indexed contentId,
         address indexed buyer,
@@ -282,22 +256,19 @@ interface ISubscriptionManager {
         uint256 totalPaid;
         uint256 lastPayment;
     }
-    
+
     struct AutoRenewal {
         bool enabled;
         uint256 maxPrice;
         uint256 balance;
     }
-    
+
     function subscribeToCreator(address creator) external;
     function executeAutoRenewal(address user, address creator) external;
     function cancelSubscription(address creator, bool immediate) external;
     function withdrawSubscriptionEarnings() external;
     function isSubscribed(address user, address creator) external view returns (bool);
-    function getSubscriptionDetails(address user, address creator) 
-        external 
-        view 
-        returns (SubscriptionRecord memory);
+    function getSubscriptionDetails(address user, address creator) external view returns (SubscriptionRecord memory);
     function recordSubscriptionPayment(
         address user,
         address creator,
@@ -306,12 +277,8 @@ interface ISubscriptionManager {
         address paymentToken,
         uint256 actualAmountPaid
     ) external;
-    function handleExternalRefund(
-        bytes16 intentId,
-        address user,
-        address creator
-    ) external;
-    
+    function handleExternalRefund(bytes16 intentId, address user, address creator) external;
+
     event Subscribed(
         address indexed user,
         address indexed creator,
@@ -321,13 +288,9 @@ interface ISubscriptionManager {
         uint256 startTime,
         uint256 endTime
     );
-    
+
     event SubscriptionRenewed(
-        address indexed user,
-        address indexed creator,
-        uint256 price,
-        uint256 newEndTime,
-        uint256 renewalCount
+        address indexed user, address indexed creator, uint256 price, uint256 newEndTime, uint256 renewalCount
     );
 }
 
@@ -335,19 +298,16 @@ interface ISubscriptionManager {
  * @dev Interface for price estimation using Uniswap
  */
 interface IPriceOracle {
-    function getTokenPrice(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint24 poolFee
-    ) external view returns (uint256 amountOut);
-    
+    function getTokenPrice(address tokenIn, address tokenOut, uint256 amountIn, uint24 poolFee)
+        external
+        view
+        returns (uint256 amountOut);
+
     function getETHPrice(uint256 usdcAmount) external view returns (uint256 ethAmount);
-    function getTokenAmountForUSDC(
-        address token,
-        uint256 usdcAmount,
-        uint24 poolFee
-    ) external view returns (uint256 tokenAmount);
+    function getTokenAmountForUSDC(address token, uint256 usdcAmount, uint24 poolFee)
+        external
+        view
+        returns (uint256 tokenAmount);
 }
 
 /**
@@ -357,7 +317,7 @@ interface IPaymentMonitor {
     function grantPurchaseAccess(address user, uint256 contentId) external;
     function grantSubscriptionAccess(address user, address creator) external;
     function processRefund(bytes16 intentId, address user, uint256 amount) external;
-    
+
     event AccessGranted(address indexed user, uint256 indexed contentId, string accessType);
     event RefundProcessed(bytes16 indexed intentId, address indexed user, uint256 amount);
 }
