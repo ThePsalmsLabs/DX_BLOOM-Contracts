@@ -45,10 +45,6 @@ abstract contract TestSetup is Test, TestConstants {
     address public operatorSigner = address(0x3003);
     
     // Test constants for pricing and configuration
-    uint256 public constant DEFAULT_SUBSCRIPTION_PRICE = 1e6; // $1 USDC
-    uint256 public constant DEFAULT_CONTENT_PRICE = 0.1e6; // $0.10 USDC
-    uint256 public constant PLATFORM_FEE_BPS = 250; // 2.5%
-    uint256 public constant OPERATOR_FEE_BPS = 50; // 0.5%
     
     // Events for testing - we'll check these are emitted correctly
     event CreatorRegistered(address indexed creator, uint256 subscriptionPrice, uint256 timestamp, string profileData);
@@ -276,24 +272,6 @@ abstract contract TestSetup is Test, TestConstants {
      */
     function stringEqual(string memory a, string memory b) internal pure returns (bool equal) {
         return keccak256(bytes(a)) == keccak256(bytes(b));
-    }
-    
-    /**
-     * @dev Helper function to calculate platform fee
-     * @param amount The amount to calculate fee for
-     * @return fee The platform fee amount
-     */
-    function calculatePlatformFee(uint256 amount) internal pure returns (uint256 fee) {
-        return (amount * PLATFORM_FEE_BPS) / 10000;
-    }
-    
-    /**
-     * @dev Helper function to calculate operator fee
-     * @param amount The amount to calculate fee for
-     * @return fee The operator fee amount
-     */
-    function calculateOperatorFee(uint256 amount) internal pure returns (uint256 fee) {
-        return (amount * OPERATOR_FEE_BPS) / 10000;
     }
     
     /**
