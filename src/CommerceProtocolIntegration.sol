@@ -201,7 +201,31 @@ contract CommerceProtocolIntegration is
     event SubscriptionAccessGranted(address indexed user, address indexed creator, bytes16 intentId, address paymentToken, uint256 amountPaid);
     event ContentAccessGranted(address indexed user, uint256 indexed contentId, bytes16 intentId, address paymentToken, uint256 amountPaid);
     
-    // Custom errors
+    // Additional events needed for the complete implementation
+
+    event IntentFinalized(
+        bytes16 indexed intentId,
+        address indexed user,
+        address indexed creator,
+        PaymentType paymentType,
+        uint256 amount,
+        uint256 deadline
+    );
+
+    event IntentAuditRecord(
+        bytes16 indexed intentId,
+        address indexed user,
+        address indexed creator,
+        PaymentType paymentType,
+        uint256 creatorAmount,
+        uint256 platformFee,
+        uint256 operatorFee,
+        address paymentToken,
+        uint256 deadline,
+        uint256 createdAt
+    );
+
+        // Custom errors
     error InvalidPaymentRequest();
     error IntentAlreadyProcessed();
     error InvalidCreator();
@@ -214,6 +238,17 @@ contract CommerceProtocolIntegration is
     error RefundAlreadyProcessed();
     error NoRefundAvailable();
     error InvalidRefundAmount();
+
+    // Additional errors needed for the complete implementation
+    error IntentAlreadyExists();
+    error DeadlineInPast();
+    error DeadlineTooFar();
+    error ZeroAmount();
+    error FeeExceedsAmount();
+    error InvalidRecipient();
+    error InvalidRefundDestination();
+    error ContextIntentMismatch();
+    error AmountMismatch();
     
     /**
      * @dev Constructor initializes the integration with the Commerce Protocol
@@ -680,7 +715,11 @@ contract CommerceProtocolIntegration is
     }
     
     /**
-     * @dev Finalizes intent creation by storing context and signing
+     * @dev COMPLETE: Finalizes intent creation with proper validation and state initialization
+     * @param intentId Unique identifier for the payment intent
+     * @param intent The transfer intent structure for the Commerce Protocol
+     * @param context Payment context containing business logic details
+     * @param deadline When the payment intent expires
      */
     function _finalizeIntent(
         bytes16 intentId,
@@ -688,14 +727,66 @@ contract CommerceProtocolIntegration is
         PaymentContext memory context,
         uint256 deadline
     ) internal {
-        // Store context and deadline
+        // VALIDATION: Ensure intent ID is unique and not already processed
+        if (processedIntents[intentId]) revert IntentAlreadyProcessed();
+        if (paymentContexts[intentId].user != address(0)) revert IntentAlreadyExists();
+        // VALIDATION: Ensure deadline is reasonable (not in the past, not too far in future)
+        if (deadline <= block.timestamp) revert DeadlineInPast();
+        if (deadline > block.timestamp + 7 days) revert DeadlineTooFar(); // Max 7 days
+        // VALIDATION: Ensure intent amounts are reasonable and consistent
+        if (intent.recipientAmount == 0) revert ZeroAmount();
+        if (intent.feeAmount > intent.recipientAmount) revert FeeExceedsAmount();
+        // VALIDATION: Ensure recipient and refund destinations are valid
+        if (intent.recipient == address(0)) revert InvalidRecipient();
+        if (intent.refundDestination == address(0)) revert InvalidRefundDestination();
+        // VALIDATION: Ensure context data is consistent with intent
+        if (context.user != intent.refundDestination) revert ContextIntentMismatch();
+        if (context.creatorAmount != intent.recipientAmount) revert AmountMismatch();
+        // STORAGE: Store the validated context and deadline
         paymentContexts[intentId] = context;
         intentDeadlines[intentId] = deadline;
-        
-        // Intent will be signed by backend
-        
-        // Update metrics
+        // INITIALIZATION: Initialize signing-related state
+        intentReadyForExecution[intentId] = false; // Will be set to true when signed
+        // INITIALIZATION: Mark intent as created but not processed
+        processedIntents[intentId] = false; // Will be set to true when payment completes
+        // METRICS: Update counters for monitoring and analytics
         totalIntentsCreated++;
+        // LOGGING: Emit event for off-chain monitoring and debugging
+        emit IntentFinalized(
+            intentId,
+            context.user,
+            context.creator,
+            context.paymentType,
+            intent.recipientAmount,
+            deadline
+        );
+        // AUDIT: Record intent creation in our audit log
+        _recordIntentCreation(intentId, context, deadline);
+    }
+
+    /**
+     * @dev Records intent creation for audit purposes
+     * @param intentId The intent identifier
+     * @param context Payment context
+     * @param deadline Intent deadline
+     */
+    function _recordIntentCreation(
+        bytes16 intentId,
+        PaymentContext memory context,
+        uint256 deadline
+    ) private {
+        emit IntentAuditRecord(
+            intentId,
+            context.user,
+            context.creator,
+            context.paymentType,
+            context.creatorAmount,
+            context.platformFee,
+            context.operatorFee,
+            context.paymentToken,
+            deadline,
+            block.timestamp
+        );
     }
     
     /**
