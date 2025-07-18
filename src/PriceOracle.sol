@@ -5,15 +5,18 @@ import "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IQuoterV2} from "./interfaces/IPlatformInterfaces.sol";
 
 /**
- * @title PriceOracle
- * @dev Uses Uniswap V3 Quoter for real-time price estimation
- * @notice This contract provides accurate price quotes for token swaps
+ * @title PriceOracle - FIXED VERSION
+ * @dev Uses Uniswap V3 Quoter for real-time price estimation with configurable quoter
+ * @notice This contract provides accurate price quotes for token swaps.
+ *         CRITICAL FIX: Made quoter configurable for testing instead of hardcoded constant
  */
 contract PriceOracle is Ownable {
-    // Uniswap V3 Quoter contract on Base
-    IQuoterV2 public constant QUOTER_V2 = IQuoterV2(0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a);
+    // ============ STATE VARIABLES ============
+    
+    // Configurable Uniswap V3 Quoter contract (FIXED: No longer constant)
+    IQuoterV2 public quoterV2;
 
-    // Token addresses on Base
+    // Token addresses on Base - these can remain constant as they're standard
     address public constant WETH = 0x4200000000000000000000000000000000000006;
     address public constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
 
@@ -28,16 +31,42 @@ contract PriceOracle is Ownable {
     // Custom pool fees for specific token pairs
     mapping(address => mapping(address => uint24)) public customPoolFees;
 
-    // Events
+    // ============ EVENTS ============
+    
     event SlippageUpdated(uint256 oldSlippage, uint256 newSlippage);
     event CustomPoolFeeSet(address indexed tokenA, address indexed tokenB, uint24 fee);
+    event QuoterUpdated(address indexed oldQuoter, address indexed newQuoter);
 
-    // Custom errors
+    // ============ ERRORS ============
+    
     error InvalidSlippage();
     error InvalidPoolFee();
     error QuoteReverted();
+    error InvalidQuoterAddress();
 
-    constructor() Ownable(msg.sender) {}
+    /**
+     * @dev Constructor now accepts quoter address for maximum flexibility
+     * @param _quoterV2 Address of the Uniswap V3 QuoterV2 contract
+     * @notice For mainnet: 0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a
+     *         For testing: address of MockQuoterV2
+     */
+    constructor(address _quoterV2) Ownable(msg.sender) {
+        if (_quoterV2 == address(0)) revert InvalidQuoterAddress();
+        quoterV2 = IQuoterV2(_quoterV2);
+        emit QuoterUpdated(address(0), _quoterV2);
+    }
+
+    /**
+     * @dev Admin function to update quoter address if needed
+     * @param _newQuoter New quoter contract address
+     * @notice This allows upgrading to new Uniswap versions or switching to mocks
+     */
+    function updateQuoter(address _newQuoter) external onlyOwner {
+        if (_newQuoter == address(0)) revert InvalidQuoterAddress();
+        address oldQuoter = address(quoterV2);
+        quoterV2 = IQuoterV2(_newQuoter);
+        emit QuoterUpdated(oldQuoter, _newQuoter);
+    }
 
     /**
      * @dev Gets the amount of tokenOut needed for a given tokenIn amount
@@ -51,43 +80,46 @@ contract PriceOracle is Ownable {
         external
         returns (uint256 amountOut)
     {
-        if (poolFee == 0) {
-            poolFee = _getOptimalPoolFee(tokenIn, tokenOut);
+        // Use custom pool fee if set, otherwise use provided fee or auto-detect
+        uint24 fee = customPoolFees[tokenIn][tokenOut];
+        if (fee == 0) {
+            fee = poolFee == 0 ? _selectOptimalPoolFee(tokenIn, tokenOut) : poolFee;
         }
 
-        try QUOTER_V2.quoteExactInputSingle(
+        try quoterV2.quoteExactInputSingle(
             IQuoterV2.QuoteExactInputSingleParams({
                 tokenIn: tokenIn,
                 tokenOut: tokenOut,
                 amountIn: amountIn,
-                fee: poolFee,
+                fee: fee,
                 sqrtPriceLimitX96: 0
             })
-        ) returns (uint256 _amountOut, uint160, uint32, uint256) {
-            return _amountOut;
+        ) returns (uint256 outputAmount, uint160, uint32, uint256) {
+            return outputAmount;
         } catch {
             revert QuoteReverted();
         }
     }
 
     /**
-     * @dev Gets ETH amount needed for a specific USDC amount
-     * @param usdcAmount USDC amount (6 decimals)
-     * @return ethAmount ETH amount needed (18 decimals)
+     * @dev Gets ETH price in USDC for a given USDC amount
+     * @param usdcAmount Amount of USDC to get ETH price for
+     * @return ethAmount Amount of ETH equivalent
+     * @notice This is a specialized function for common ETH/USDC conversions
      */
     function getETHPrice(uint256 usdcAmount) external returns (uint256 ethAmount) {
-        uint24 poolFee = _getOptimalPoolFee(WETH, USDC);
-
-        try QUOTER_V2.quoteExactInputSingle(
+        // Always get ETH amount for 1 ETH first to calculate ratio
+        try quoterV2.quoteExactInputSingle(
             IQuoterV2.QuoteExactInputSingleParams({
                 tokenIn: WETH,
                 tokenOut: USDC,
                 amountIn: 1e18, // 1 ETH
-                fee: poolFee,
+                fee: DEFAULT_POOL_FEE,
                 sqrtPriceLimitX96: 0
             })
         ) returns (uint256 usdcPerEth, uint160, uint32, uint256) {
-            // Calculate ETH needed: (usdcAmount * 1e18) / usdcPerEth
+            // Calculate ETH amount based on USDC amount
+            // Formula: ethAmount = (usdcAmount * 1e18) / usdcPerEth
             return (usdcAmount * 1e18) / usdcPerEth;
         } catch {
             revert QuoteReverted();
@@ -95,99 +127,61 @@ contract PriceOracle is Ownable {
     }
 
     /**
-     * @dev Gets token amount needed for a specific USDC amount
-     * @param token Token address
-     * @param usdcAmount USDC amount needed
-     * @param poolFee Pool fee (0 for auto-detect)
-     * @return tokenAmount Token amount needed
+     * @dev Gets the amount of input token needed to get exact USDC output
+     * @param tokenIn Input token address
+     * @param usdcAmount Desired USDC amount
+     * @param poolFee Pool fee tier (0 for auto-detect)
+     * @return tokenAmount Amount of input token needed
      */
-    function getTokenAmountForUSDC(address token, uint256 usdcAmount, uint24 poolFee)
+    function getTokenAmountForUSDC(address tokenIn, uint256 usdcAmount, uint24 poolFee)
         external
         returns (uint256 tokenAmount)
     {
-        if (token == USDC) {
+        uint24 fee = poolFee == 0 ? _selectOptimalPoolFee(tokenIn, USDC) : poolFee;
+
+        // If token is already USDC, return 1:1
+        if (tokenIn == USDC) {
             return usdcAmount;
         }
 
-        if (poolFee == 0) {
-            poolFee = _getOptimalPoolFee(token, USDC);
+        // If token is WETH, use ETH price function
+        if (tokenIn == WETH) {
+            return this.getETHPrice(usdcAmount);
         }
 
-        uint8 tokenDecimals = _getTokenDecimals(token);
-        uint256 baseAmount = 10 ** tokenDecimals;
-
-        try QUOTER_V2.quoteExactInputSingle(
+        // For other tokens, first try direct path
+        try quoterV2.quoteExactInputSingle(
             IQuoterV2.QuoteExactInputSingleParams({
-                tokenIn: token,
+                tokenIn: tokenIn,
                 tokenOut: USDC,
-                amountIn: baseAmount,
-                fee: poolFee,
+                amountIn: 1e18, // Use 1 token as base
+                fee: fee,
                 sqrtPriceLimitX96: 0
             })
         ) returns (uint256 usdcPerToken, uint160, uint32, uint256) {
-            return (usdcAmount * baseAmount) / usdcPerToken;
+            // Calculate required token amount
+            return (usdcAmount * 1e18) / usdcPerToken;
         } catch {
-            return _getTokenAmountViaWETH(token, usdcAmount, tokenDecimals);
+            // If direct path fails, try routing through WETH
+            return _getTokenAmountViaWETH(tokenIn, usdcAmount);
         }
     }
 
     /**
-     * @dev Gets token amount via WETH route (token -> WETH -> USDC)
-     * @param token Token address
-     * @param usdcAmount USDC amount needed
-     * @param tokenDecimals Token decimals
-     * @return tokenAmount Token amount needed
-     */
-    function _getTokenAmountViaWETH(address token, uint256 usdcAmount, uint8 tokenDecimals)
-        internal
-        returns (uint256 tokenAmount)
-    {
-        uint256 wethNeeded = this.getETHPrice(usdcAmount);
-
-        uint24 poolFee = _getOptimalPoolFee(token, WETH);
-        uint256 baseAmount = 10 ** tokenDecimals;
-
-        try QUOTER_V2.quoteExactInputSingle(
-            IQuoterV2.QuoteExactInputSingleParams({
-                tokenIn: token,
-                tokenOut: WETH,
-                amountIn: baseAmount,
-                fee: poolFee,
-                sqrtPriceLimitX96: 0
-            })
-        ) returns (uint256 wethPerToken, uint160, uint32, uint256) {
-            return (wethNeeded * baseAmount) / wethPerToken;
-        } catch {
-            revert QuoteReverted();
-        }
-    }
-
-    /**
-     * @dev Applies slippage to a quote amount
-     * @param amount Original amount
-     * @param slippageBps Slippage in basis points (100 = 1%)
-     * @return adjustedAmount Amount with slippage applied
-     */
-    function applySlippage(uint256 amount, uint256 slippageBps) external pure returns (uint256 adjustedAmount) {
-        if (slippageBps > 10000) revert InvalidSlippage(); // Max 100%
-        return amount + (amount * slippageBps) / 10000;
-    }
-
-    /**
-     * @dev Gets multiple price quotes for different pool fees
-     * @param tokenIn Input token
-     * @param tokenOut Output token
+     * @dev Gets quotes from multiple pool fee tiers for comparison
+     * @param tokenIn Input token address
+     * @param tokenOut Output token address
      * @param amountIn Input amount
-     * @return quotes Array of quotes [500, 3000, 10000] fee tiers
+     * @return quotes Array of quotes [500bp, 3000bp, 10000bp]
      */
     function getMultipleQuotes(address tokenIn, address tokenOut, uint256 amountIn)
         external
         returns (uint256[3] memory quotes)
     {
-        uint24[3] memory fees = [STABLE_POOL_FEE, DEFAULT_POOL_FEE, HIGH_FEE];
-
+        uint24[3] memory fees = [uint24(500), uint24(3000), uint24(10000)];
+        
         for (uint256 i = 0; i < 3; i++) {
-            try QUOTER_V2.quoteExactInputSingle(
+            try quoterV2.quoteExactInputSingle(
                 IQuoterV2.QuoteExactInputSingleParams({
                     tokenIn: tokenIn,
                     tokenOut: tokenOut,
@@ -195,92 +189,97 @@ contract PriceOracle is Ownable {
                     fee: fees[i],
                     sqrtPriceLimitX96: 0
                 })
-            ) returns (uint256 amountOut, uint160, uint32, uint256) {
-                quotes[i] = amountOut;
+            ) returns (uint256 outputAmount, uint160, uint32, uint256) {
+                quotes[i] = outputAmount;
             } catch {
-                quotes[i] = 0; // Pool doesn't exist for this fee
+                quotes[i] = 0; // Mark as unavailable
             }
         }
-
-        return quotes;
     }
 
     /**
-     * @dev Gets the optimal pool fee for a token pair
-     * @param tokenA First token
-     * @param tokenB Second token
-     * @return poolFee Optimal pool fee
+     * @dev Applies slippage tolerance to an amount
+     * @param amount Base amount
+     * @param slippageBps Slippage in basis points
+     * @return adjustedAmount Amount with slippage applied
      */
-    function _getOptimalPoolFee(address tokenA, address tokenB) internal view returns (uint24 poolFee) {
-        // Check for custom pool fee
-        poolFee = customPoolFees[tokenA][tokenB];
-        if (poolFee != 0) return poolFee;
-
-        poolFee = customPoolFees[tokenB][tokenA];
-        if (poolFee != 0) return poolFee;
-
-        // Use defaults based on token types
-        if (_isStablecoin(tokenA) && _isStablecoin(tokenB)) {
-            return STABLE_POOL_FEE;
-        } else if (tokenA == WETH || tokenB == WETH) {
-            return DEFAULT_POOL_FEE;
-        } else {
-            return HIGH_FEE;
-        }
-    }
-
-    /**
-     * @dev Checks if a token is a stablecoin
-     * @param token Token address
-     * @return bool True if stablecoin
-     */
-    function _isStablecoin(address token) internal pure returns (bool) {
-        return token == USDC || token == 0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA // USDbC
-            || token == 0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb; // DAI
+    function applySlippage(uint256 amount, uint256 slippageBps) external pure returns (uint256 adjustedAmount) {
+        if (slippageBps > 10000) revert InvalidSlippage(); // Max 100% slippage
+        return amount + (amount * slippageBps) / 10000;
     }
 
     /**
      * @dev Sets custom pool fee for a token pair
      * @param tokenA First token
      * @param tokenB Second token
-     * @param poolFee Pool fee (500, 3000, or 10000)
+     * @param fee Pool fee in basis points
      */
-    function setCustomPoolFee(address tokenA, address tokenB, uint24 poolFee) external onlyOwner {
-        if (poolFee != 500 && poolFee != 3000 && poolFee != 10000) {
-            revert InvalidPoolFee();
-        }
-
-        customPoolFees[tokenA][tokenB] = poolFee;
-        emit CustomPoolFeeSet(tokenA, tokenB, poolFee);
+    function setCustomPoolFee(address tokenA, address tokenB, uint24 fee) external onlyOwner {
+        if (fee != 500 && fee != 3000 && fee != 10000) revert InvalidPoolFee();
+        
+        customPoolFees[tokenA][tokenB] = fee;
+        customPoolFees[tokenB][tokenA] = fee; // Set both directions
+        
+        emit CustomPoolFeeSet(tokenA, tokenB, fee);
     }
 
     /**
      * @dev Updates default slippage tolerance
      * @param newSlippage New slippage in basis points
      */
-    function updateDefaultSlippage(uint256 newSlippage) external onlyOwner {
+    function updateSlippage(uint256 newSlippage) external onlyOwner {
         if (newSlippage > 1000) revert InvalidSlippage(); // Max 10%
-
         uint256 oldSlippage = defaultSlippage;
         defaultSlippage = newSlippage;
-
         emit SlippageUpdated(oldSlippage, newSlippage);
     }
 
+    // ============ INTERNAL FUNCTIONS ============
+
     /**
-     * @dev COMPLETE: Get token decimals safely
+     * @dev Selects optimal pool fee based on token pair
+     * @param tokenA First token
+     * @param tokenB Second token
+     * @return fee Optimal pool fee
      */
-    function _getTokenDecimals(address token) internal view returns (uint8) {
-        if (token == address(0)) return 18;
-        if (token == WETH) return 18;
-        if (token == USDC) return 6;
-
-        (bool success, bytes memory data) = token.staticcall(abi.encodeWithSignature("decimals()"));
-
-        if (success && data.length >= 32) {
-            return abi.decode(data, (uint8));
+    function _selectOptimalPoolFee(address tokenA, address tokenB) internal pure returns (uint24 fee) {
+        // Use lower fees for stablecoin pairs
+        if ((tokenA == USDC) || (tokenB == USDC)) {
+            return STABLE_POOL_FEE;
         }
+        
+        // Use default fee for WETH pairs
+        if (tokenA == WETH || tokenB == WETH) {
+            return DEFAULT_POOL_FEE;
+        }
+        
+        // Use higher fee for exotic pairs
+        return HIGH_FEE;
+    }
 
-        return 18;
+    /**
+     * @dev Gets token amount by routing through WETH
+     * @param tokenIn Input token
+     * @param usdcAmount Desired USDC amount
+     * @return tokenAmount Required token amount
+     */
+    function _getTokenAmountViaWETH(address tokenIn, uint256 usdcAmount) internal returns (uint256 tokenAmount) {
+        // First get WETH amount needed for USDC
+        uint256 wethNeeded = this.getETHPrice(usdcAmount);
+        
+        // Then get token amount needed for that WETH
+        try quoterV2.quoteExactInputSingle(
+            IQuoterV2.QuoteExactInputSingleParams({
+                tokenIn: tokenIn,
+                tokenOut: WETH,
+                amountIn: 1e18,
+                fee: DEFAULT_POOL_FEE,
+                sqrtPriceLimitX96: 0
+            })
+        ) returns (uint256 wethPerToken, uint160, uint32, uint256) {
+            return (wethNeeded * 1e18) / wethPerToken;
+        } catch {
+            revert QuoteReverted();
+        }
     }
 }

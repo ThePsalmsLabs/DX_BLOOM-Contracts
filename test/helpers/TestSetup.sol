@@ -15,13 +15,14 @@ import {MockQuoterV2} from "../mocks/MockQuoterV2.sol";
 import {TestConstants} from "./TestConstants.sol";
 
 /**
- * @title TestSetup
- * @dev Base contract for all tests - provides common setup and utilities
- * @notice This contract serves as the foundation for all test contracts, ensuring
- *         consistent setup and providing shared utilities across the test suite
+ * @title TestSetup - FIXED VERSION
+ * @dev Base contract for all tests - provides common setup and utilities with proper mock injection
+ * @notice CRITICAL IMPROVEMENT: This version properly configures all contracts to use mock dependencies
+ *         instead of hardcoded mainnet addresses. This is a fundamental principle of isolated unit testing.
  */
 abstract contract TestSetup is Test, TestConstants {
-    // Core contract instances - these will be deployed in each test
+    // ============ CORE CONTRACT INSTANCES ============
+    
     CreatorRegistry public creatorRegistry;
     ContentRegistry public contentRegistry;
     PayPerView public payPerView;
@@ -29,12 +30,14 @@ abstract contract TestSetup is Test, TestConstants {
     CommerceProtocolIntegration public commerceIntegration;
     PriceOracle public priceOracle;
 
-    // Mock contracts for external dependencies
+    // ============ MOCK DEPENDENCIES ============
+    
     MockERC20 public mockUSDC;
     MockCommerceProtocol public mockCommerceProtocol;
     MockQuoterV2 public mockQuoter;
 
-    // Test user addresses - using consistent addresses across all tests
+    // ============ TEST USER ADDRESSES ============
+    
     address public creator1 = address(0x1001);
     address public creator2 = address(0x1002);
     address public user1 = address(0x2001);
@@ -43,9 +46,8 @@ abstract contract TestSetup is Test, TestConstants {
     address public feeRecipient = address(0x3002);
     address public operatorSigner = address(0x3003);
 
-    // Test constants for pricing and configuration
-
-    // Events for testing - we'll check these are emitted correctly
+    // ============ EVENTS FOR TESTING ============
+    
     event CreatorRegistered(address indexed creator, uint256 subscriptionPrice, uint256 timestamp, string profileData);
     event ContentRegistered(
         uint256 indexed contentId,
@@ -68,42 +70,53 @@ abstract contract TestSetup is Test, TestConstants {
     );
 
     /**
-     * @dev Sets up the complete test environment
-     * @notice This function is called before each test to ensure a clean state
-     * It deploys all contracts and sets up the necessary permissions and configurations
+     * @dev Sets up the complete test environment with proper dependency injection
+     * @notice TEACHING MOMENT: This function demonstrates the correct way to set up isolated
+     *         unit tests for smart contracts. Each step is carefully ordered to ensure
+     *         proper dependency resolution and mock injection.
      */
     function setUp() public virtual {
-        // Set up the test environment with proper admin permissions
+        // Always start with admin privileges for setup
         vm.startPrank(admin);
 
-        // Deploy mock external dependencies first
+        // Step 1: Deploy external mock dependencies first
+        // PRINCIPLE: Always deploy dependencies before dependents
         _deployMockDependencies();
 
-        // Deploy our core contracts with proper constructor parameters
+        // Step 2: Deploy core contracts with mock dependencies injected
+        // CRITICAL: Pass mock addresses to constructors instead of using hardcoded mainnet addresses
         _deployCoreContracts();
 
-        // Configure contracts with proper roles and permissions
+        // Step 3: Configure contract permissions and relationships
+        // PRINCIPLE: Set up all access controls after deployment but before testing
         _configureContracts();
 
-        // Set up test users with initial balances and permissions
+        // Step 4: Set up test users with realistic balances
+        // BEST PRACTICE: Mirror production-like conditions in tests
         _setupTestUsers();
 
         vm.stopPrank();
     }
 
     /**
-     * @dev Deploys mock contracts for external dependencies
-     * @notice We use mocks to isolate our contract logic from external systems
+     * @dev Deploys all mock external dependencies
+     * @notice EDUCATIONAL: Mock contracts allow us to test our logic in isolation.
+     *         Each mock simulates the behavior of external systems like Uniswap, USDC, etc.
      */
     function _deployMockDependencies() internal {
-        // Deploy mock USDC with proper decimals and initial supply
+        console.log("Deploying mock dependencies...");
+        
+        // Deploy mock USDC with proper ERC20 configuration
+        // DETAIL: 6 decimals matches real USDC, 1M supply for extensive testing
         mockUSDC = new MockERC20("Mock USDC", "USDC", 6);
         mockUSDC.mint(admin, 1000000e6); // 1M USDC for testing
 
-        // Deploy mock Commerce Protocol for payment testing
+        // Deploy mock Commerce Protocol for payment flow testing
+        // PURPOSE: Simulates Coinbase Commerce without external dependencies
         mockCommerceProtocol = new MockCommerceProtocol();
 
-        // Deploy mock Uniswap Quoter for price oracle testing
+        // Deploy mock Uniswap Quoter with realistic price data
+        // CRITICAL: This replaces the hardcoded mainnet quoter address
         mockQuoter = new MockQuoterV2();
 
         console.log("Mock dependencies deployed:");
@@ -113,189 +126,219 @@ abstract contract TestSetup is Test, TestConstants {
     }
 
     /**
-     * @dev Deploys all core platform contracts
-     * @notice Order matters here due to constructor dependencies
+     * @dev Deploys all core platform contracts with proper dependency injection
+     * @notice CRITICAL LEARNING: The order of deployment matters due to constructor dependencies.
+     *         Notice how we pass mock addresses to constructors instead of relying on hardcoded constants.
      */
     function _deployCoreContracts() internal {
-        // Deploy PriceOracle first (no dependencies)
-        priceOracle = new PriceOracle();
+        console.log("Deploying core contracts...");
 
-        // Deploy CreatorRegistry (depends on USDC)
+        // Step 1: Deploy PriceOracle with injected mock quoter
+        // FIX: Pass mockQuoter address to constructor instead of using hardcoded constant
+        priceOracle = new PriceOracle(address(mockQuoter));
+        console.log("- PriceOracle deployed at:", address(priceOracle));
+
+        // Step 2: Deploy CreatorRegistry (no external dependencies)
         creatorRegistry = new CreatorRegistry(feeRecipient, address(mockUSDC));
+        console.log("- CreatorRegistry deployed at:", address(creatorRegistry));
 
-        // Deploy ContentRegistry (depends on CreatorRegistry)
+        // Step 3: Deploy ContentRegistry (depends on CreatorRegistry)
         contentRegistry = new ContentRegistry(address(creatorRegistry));
+        console.log("- ContentRegistry deployed at:", address(contentRegistry));
 
-        // Deploy PayPerView (depends on multiple contracts)
-        payPerView =
-            new PayPerView(address(creatorRegistry), address(contentRegistry), address(priceOracle), address(mockUSDC));
+        // Step 4: Deploy PayPerView (depends on multiple contracts)
+        // PRINCIPLE: Always inject dependencies rather than having contracts find them
+        payPerView = new PayPerView(
+            address(creatorRegistry),
+            address(contentRegistry),
+            address(priceOracle), // Now uses our configurable oracle
+            address(mockUSDC)
+        );
+        console.log("- PayPerView deployed at:", address(payPerView));
 
-        // Deploy SubscriptionManager (depends on multiple contracts)
-        subscriptionManager =
-            new SubscriptionManager(address(creatorRegistry), address(contentRegistry), address(mockUSDC));
+        // Step 5: Deploy SubscriptionManager
+        subscriptionManager = new SubscriptionManager(
+            address(creatorRegistry),
+            address(contentRegistry),
+            address(mockUSDC)
+        );
+        console.log("- SubscriptionManager deployed at:", address(subscriptionManager));
 
-        // Deploy CommerceProtocolIntegration (depends on all contracts)
+        // Step 6: Deploy CommerceProtocolIntegration (most complex dependencies)
         commerceIntegration = new CommerceProtocolIntegration(
-            address(mockCommerceProtocol),
+            address(mockCommerceProtocol), // Use mock instead of mainnet
             address(creatorRegistry),
             address(contentRegistry),
             address(priceOracle),
-            feeRecipient,
+            address(mockUSDC),
             operatorSigner
         );
+        console.log("- CommerceIntegration deployed at:", address(commerceIntegration));
 
-        console.log("Core contracts deployed:");
-        console.log("- CreatorRegistry:", address(creatorRegistry));
-        console.log("- ContentRegistry:", address(contentRegistry));
-        console.log("- PayPerView:", address(payPerView));
-        console.log("- SubscriptionManager:", address(subscriptionManager));
-        console.log("- CommerceIntegration:", address(commerceIntegration));
+        console.log("Core contracts deployed successfully");
     }
 
     /**
-     * @dev Configures contracts with proper roles and integrations
-     * @notice This sets up the permission structure that allows contracts to interact
+     * @dev Configures all contract permissions and cross-contract relationships
+     * @notice TEACHING: This step is crucial for proper access control in complex DeFi systems.
+     *         Each contract needs specific permissions to interact with others.
      */
     function _configureContracts() internal {
-        // Grant platform roles to core contracts in CreatorRegistry
-        creatorRegistry.grantPlatformRole(address(payPerView));
-        creatorRegistry.grantPlatformRole(address(subscriptionManager));
-        creatorRegistry.grantPlatformRole(address(commerceIntegration));
+        console.log("Configuring contract permissions...");
 
-        // Grant purchase recorder role to PayPerView in ContentRegistry
-        contentRegistry.grantPurchaseRecorderRole(address(payPerView));
+        // Configure CreatorRegistry permissions
+        // PRINCIPLE: Grant minimum necessary permissions for each operation
+        creatorRegistry.grantRole(creatorRegistry.CONTENT_MANAGER_ROLE(), address(contentRegistry));
+        creatorRegistry.grantRole(creatorRegistry.PAYMENT_PROCESSOR_ROLE(), address(payPerView));
+        creatorRegistry.grantRole(creatorRegistry.PAYMENT_PROCESSOR_ROLE(), address(subscriptionManager));
+        creatorRegistry.grantRole(creatorRegistry.PAYMENT_PROCESSOR_ROLE(), address(commerceIntegration));
 
-        // Grant payment processor role to CommerceIntegration in PayPerView
-        payPerView.grantPaymentProcessorRole(address(commerceIntegration));
+        // Configure ContentRegistry permissions
+        contentRegistry.grantRole(contentRegistry.PURCHASE_MANAGER_ROLE(), address(payPerView));
+        contentRegistry.grantRole(contentRegistry.PURCHASE_MANAGER_ROLE(), address(commerceIntegration));
 
-        // Grant subscription processor role to CommerceIntegration in SubscriptionManager
-        subscriptionManager.grantSubscriptionProcessorRole(address(commerceIntegration));
+        // Configure PayPerView contract addresses
+        // IMPORTANT: This allows PayPerView to communicate with other platform contracts
+        payPerView.setCommerceIntegration(address(commerceIntegration));
 
-        // Set up CommerceIntegration with other contract addresses
+        // Configure CommerceProtocolIntegration with all necessary contract addresses
+        // ARCHITECTURAL NOTE: This creates the complete dependency graph
         commerceIntegration.setPayPerView(address(payPerView));
         commerceIntegration.setSubscriptionManager(address(subscriptionManager));
+
+        // Grant necessary roles to CommerceProtocolIntegration
+        commerceIntegration.grantRole(commerceIntegration.PAYMENT_MONITOR_ROLE(), admin);
+        commerceIntegration.grantRole(commerceIntegration.SIGNER_ROLE(), operatorSigner);
 
         console.log("Contract permissions configured");
     }
 
     /**
-     * @dev Sets up test users with initial USDC balances
-     * @notice This ensures all test users have sufficient funds for testing
+     * @dev Sets up test users with realistic token balances and ETH
+     * @notice BEST PRACTICE: Test users should have sufficient balances to execute
+     *         all test scenarios without running into insufficient balance errors.
      */
     function _setupTestUsers() internal {
-        address[] memory users = new address[](4);
-        users[0] = creator1;
-        users[1] = creator2;
-        users[2] = user1;
-        users[3] = user2;
+        console.log("Setting up test users...");
 
-        // Give each user 1000 USDC for testing
+        address[4] memory users = [creator1, creator2, user1, user2];
+        
         for (uint256 i = 0; i < users.length; i++) {
+            // Give each user 1000 USDC for testing payments
             mockUSDC.mint(users[i], 1000e6);
-            vm.deal(users[i], 10 ether); // Also give them ETH for gas
+            
+            // Give each user 10 ETH for gas and ETH-based payments
+            vm.deal(users[i], 10 ether);
         }
 
         console.log("Test users set up with initial balances");
     }
 
     /**
-     * @dev Helper function to register a creator with default settings
-     * @param creator The address to register as creator
-     * @return success Whether the registration was successful
+     * @dev Sets up realistic mock price data for testing
+     * @notice EDUCATIONAL: This function demonstrates how to configure mock contracts
+     *         with realistic market data for comprehensive testing scenarios.
      */
-    function registerCreator(address creator) internal returns (bool success) {
-        return registerCreator(creator, DEFAULT_SUBSCRIPTION_PRICE, "Default profile");
-    }
-
-    /**
-     * @dev Helper function to register a creator with custom settings
-     * @param creator The address to register as creator
-     * @param subscriptionPrice The monthly subscription price
-     * @param profileData IPFS hash for profile data
-     * @return success Whether the registration was successful
-     */
-    function registerCreator(address creator, uint256 subscriptionPrice, string memory profileData)
-        internal
-        returns (bool success)
-    {
-        vm.startPrank(creator);
-        try creatorRegistry.registerCreator(subscriptionPrice, profileData) {
-            success = true;
-        } catch {
-            success = false;
-        }
-        vm.stopPrank();
-        return success;
-    }
-
-    /**
-     * @dev Helper function to register content with default settings
-     * @param creator The creator address
-     * @return contentId The ID of the registered content
-     */
-    function registerContent(address creator) internal returns (uint256 contentId) {
-        return registerContent(creator, DEFAULT_CONTENT_PRICE, "Sample content");
-    }
-
-    /**
-     * @dev Helper function to register content with custom settings
-     * @param creator The creator address
-     * @param price The pay-per-view price
-     * @param title The content title
-     * @return contentId The ID of the registered content
-     */
-    function registerContent(address creator, uint256 price, string memory title)
-        internal
-        returns (uint256 contentId)
-    {
-        vm.startPrank(creator);
-
-        string[] memory tags = new string[](2);
-        tags[0] = "test";
-        tags[1] = "content";
-
-        contentId = contentRegistry.registerContent(
-            "QmTestHash123456789", title, "Test description", ContentRegistry.ContentCategory.Article, price, tags
+    function _setupMockPrices() internal {
+        // Set up realistic ETH/USDC prices for different fee tiers
+        // EXPLANATION: Different fee tiers often have slightly different prices due to liquidity
+        
+        // 0.05% fee tier (most liquid, best price)
+        mockQuoter.setMockPrice(
+            0x4200000000000000000000000000000000000006, // WETH
+            address(mockUSDC),
+            500,
+            2000e6 // 1 ETH = 2000 USDC
         );
 
+        // 0.3% fee tier (standard)
+        mockQuoter.setMockPrice(
+            0x4200000000000000000000000000000000000006, // WETH
+            address(mockUSDC),
+            3000,
+            1995e6 // Slightly worse price due to higher fees
+        );
+
+        // 1% fee tier (least liquid, worst price)
+        mockQuoter.setMockPrice(
+            0x4200000000000000000000000000000000000006, // WETH
+            address(mockUSDC),
+            10000,
+            1990e6 // Even worse price
+        );
+
+        // Set up reverse prices for USDC -> WETH
+        mockQuoter.setMockPrice(
+            address(mockUSDC),
+            0x4200000000000000000000000000000000000006, // WETH
+            3000,
+            500000000000000 // 1 USDC = 0.0005 ETH (1/2000)
+        );
+
+        // Set up a test token for exotic pair testing
+        mockQuoter.setMockPrice(
+            0x1234567890123456789012345678901234567890, // Test token
+            address(mockUSDC),
+            3000,
+            1e6 // 1 TEST = 1 USDC
+        );
+    }
+
+    /**
+     * @dev Registers test creators with the platform
+     * @notice HELPER FUNCTION: This simplifies test setup by pre-registering creators
+     *         with realistic subscription prices and profiles.
+     */
+    function _registerTestCreators() internal {
+        vm.startPrank(creator1);
+        creatorRegistry.registerCreator(
+            5e6, // 5 USDC subscription price
+            "ipfs://creator1-profile",
+            "Test Creator 1"
+        );
         vm.stopPrank();
-        return contentId;
+
+        vm.startPrank(creator2);
+        creatorRegistry.registerCreator(
+            10e6, // 10 USDC subscription price
+            "ipfs://creator2-profile",
+            "Test Creator 2"
+        );
+        vm.stopPrank();
     }
 
     /**
-     * @dev Helper function to approve USDC spending
-     * @param user The user address
-     * @param spender The spender address
-     * @param amount The amount to approve
+     * @dev Creates test content for various testing scenarios
+     * @notice UTILITY: Pre-populates the platform with content for comprehensive testing
      */
-    function approveUSDC(address user, address spender, uint256 amount) internal {
-        vm.prank(user);
-        mockUSDC.approve(spender, amount);
+    function _createTestContent() internal {
+        _registerTestCreators();
+
+        vm.startPrank(creator1);
+        contentRegistry.registerContent(
+            "ipfs://test-content-1",
+            "Test Content 1",
+            ContentRegistry.ContentCategory.VIDEO,
+            2e6 // 2 USDC per view
+        );
+        vm.stopPrank();
+
+        vm.startPrank(creator2);
+        contentRegistry.registerContent(
+            "ipfs://test-content-2", 
+            "Test Content 2",
+            ContentRegistry.ContentCategory.ARTICLE,
+            1e6 // 1 USDC per view
+        );
+        vm.stopPrank();
     }
 
     /**
-     * @dev Helper function to check if two strings are equal
-     * @param a First string
-     * @param b Second string
-     * @return equal Whether the strings are equal
+     * @dev Override this in test contracts for custom setup
+     * @notice EXTENSIBILITY: Allows individual test contracts to add their own setup logic
      */
-    function stringEqual(string memory a, string memory b) internal pure returns (bool equal) {
-        return keccak256(bytes(a)) == keccak256(bytes(b));
-    }
-
-    /**
-     * @dev Helper function to advance time in tests
-     * @param timeToAdvance The time to advance in seconds
-     */
-    function advanceTime(uint256 timeToAdvance) internal {
-        vm.warp(block.timestamp + timeToAdvance);
-    }
-
-    /**
-     * @dev Helper function to expect a specific revert message
-     * @param expectedRevert The expected revert message
-     */
-    function expectRevert(string memory expectedRevert) internal {
-        vm.expectRevert(bytes(expectedRevert));
+    function _customSetup() internal virtual {
+        // Default implementation does nothing
+        // Individual test contracts can override this
     }
 }
