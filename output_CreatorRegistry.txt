@@ -1,0 +1,1381 @@
+No files changed, compilation skipped
+
+Ran 27 tests for test/unit/CreatorRegistry.t.sol:CreatorRegistryTest
+[PASS] test_FeeCalculation_Various() (gas: 22719)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [22719] CreatorRegistryTest::test_FeeCalculation_Various()
+    ├─ [3232] CreatorRegistry::calculatePlatformFee(1000000 [1e6]) [staticcall]
+    │   └─ ← [Return] 25000 [2.5e4]
+    ├─ [0] VM::assertEq(25000 [2.5e4], 25000 [2.5e4]) [staticcall]
+    │   └─ ← [Return]
+    ├─ [1232] CreatorRegistry::calculatePlatformFee(10000000 [1e7]) [staticcall]
+    │   └─ ← [Return] 250000 [2.5e5]
+    ├─ [0] VM::assertEq(250000 [2.5e5], 250000 [2.5e5]) [staticcall]
+    │   └─ ← [Return]
+    ├─ [1232] CreatorRegistry::calculatePlatformFee(100000000 [1e8]) [staticcall]
+    │   └─ ← [Return] 2500000 [2.5e6]
+    ├─ [0] VM::assertEq(2500000 [2.5e6], 2500000 [2.5e6]) [staticcall]
+    │   └─ ← [Return]
+    ├─ [1232] CreatorRegistry::calculatePlatformFee(1000000000 [1e9]) [staticcall]
+    │   └─ ← [Return] 25000000 [2.5e7]
+    ├─ [0] VM::assertEq(25000000 [2.5e7], 25000000 [2.5e7]) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_GetPlatformStats_Success() (gas: 658174)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [663774] CreatorRegistryTest::test_GetPlatformStats_Success()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001002)
+    │   └─ ← [Return]
+    ├─ [153404] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001002, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::prank(0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return]
+    ├─ [69986] CreatorRegistry::setCreatorVerification(0x0000000000000000000000000000000000001001, true)
+    │   ├─ emit CreatorVerified(creator: 0x0000000000000000000000000000000000001001, verified: true)
+    │   └─ ← [Stop]
+    ├─ [0] VM::prank(0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return]
+    ├─ [27522] CreatorRegistry::grantPlatformRole(CreatorRegistryTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: CreatorRegistryTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [110371] CreatorRegistry::updateCreatorStats(0x0000000000000000000000000000000000001001, 1000000 [1e6], 1, 1)
+    │   ├─ emit CreatorEarningsUpdated(creator: 0x0000000000000000000000000000000000001001, amount: 1000000 [1e6], source: "platform_activity")
+    │   └─ ← [Stop]
+    ├─ [88471] CreatorRegistry::updateCreatorStats(0x0000000000000000000000000000000000001002, 2000000 [2e6], 2, 2)
+    │   ├─ emit CreatorEarningsUpdated(creator: 0x0000000000000000000000000000000000001002, amount: 2000000 [2e6], source: "platform_activity")
+    │   └─ ← [Stop]
+    ├─ [5389] CreatorRegistry::getPlatformStats() [staticcall]
+    │   └─ ← [Return] 2, 1, 0, 3000000 [3e6], 0
+    ├─ [0] VM::assertEq(2, 2) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertEq(1, 1) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertEq(0, 0) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertEq(3000000 [3e6], 3000000 [3e6]) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertEq(0, 0) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_InvalidCreatorAddress_Handling() (gas: 24945)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [24945] CreatorRegistryTest::test_InvalidCreatorAddress_Handling()
+    ├─ [3009] CreatorRegistry::isRegisteredCreator(0x0000000000000000000000000000000000000000) [staticcall]
+    │   └─ ← [Return] false
+    ├─ [0] VM::assertFalse(false) [staticcall]
+    │   └─ ← [Return]
+    ├─ [2946] CreatorRegistry::getSubscriptionPrice(0x0000000000000000000000000000000000000000) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::assertEq(0, 0) [staticcall]
+    │   └─ ← [Return]
+    ├─ [3009] CreatorRegistry::isRegisteredCreator(0x0000000000000000000000000000000000009999) [staticcall]
+    │   └─ ← [Return] false
+    ├─ [0] VM::assertFalse(false) [staticcall]
+    │   └─ ← [Return]
+    ├─ [2946] CreatorRegistry::getSubscriptionPrice(0x0000000000000000000000000000000000009999) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::assertEq(0, 0) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_MultipleCreators_Success() (gas: 374027)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [379627] CreatorRegistryTest::test_MultipleCreators_Success()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Creator 1 Profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Creator 1 Profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001002)
+    │   └─ ← [Return]
+    ├─ [153404] CreatorRegistry::registerCreator(2000000 [2e6], "Creator 2 Profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001002, subscriptionPrice: 2000000 [2e6], timestamp: 1, profileData: "Creator 2 Profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [509] CreatorRegistry::getTotalCreators() [staticcall]
+    │   └─ ← [Return] 2
+    ├─ [0] VM::assertEq(2, 2) [staticcall]
+    │   └─ ← [Return]
+    ├─ [1197] CreatorRegistry::getCreatorByIndex(0) [staticcall]
+    │   └─ ← [Return] 0x0000000000000000000000000000000000001001
+    ├─ [0] VM::assertEq(0x0000000000000000000000000000000000001001, 0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return]
+    ├─ [1197] CreatorRegistry::getCreatorByIndex(1) [staticcall]
+    │   └─ ← [Return] 0x0000000000000000000000000000000000001002
+    ├─ [0] VM::assertEq(0x0000000000000000000000000000000000001002, 0x0000000000000000000000000000000000001002) [staticcall]
+    │   └─ ← [Return]
+    ├─ [946] CreatorRegistry::getSubscriptionPrice(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] 1000000 [1e6]
+    ├─ [0] VM::assertEq(1000000 [1e6], 1000000 [1e6]) [staticcall]
+    │   └─ ← [Return]
+    ├─ [946] CreatorRegistry::getSubscriptionPrice(0x0000000000000000000000000000000000001002) [staticcall]
+    │   └─ ← [Return] 2000000 [2e6]
+    ├─ [0] VM::assertEq(2000000 [2e6], 2000000 [2e6]) [staticcall]
+    │   └─ ← [Return]
+    ├─ [4334] CreatorRegistry::getCreatorProfile(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] Creator({ isRegistered: true, subscriptionPrice: 1000000 [1e6], isVerified: false, totalEarnings: 0, contentCount: 0, subscriberCount: 0, registrationTime: 1, profileData: "Creator 1 Profile", isSuspended: false })
+    ├─ [4334] CreatorRegistry::getCreatorProfile(0x0000000000000000000000000000000000001002) [staticcall]
+    │   └─ ← [Return] Creator({ isRegistered: true, subscriptionPrice: 2000000 [2e6], isVerified: false, totalEarnings: 0, contentCount: 0, subscriberCount: 0, registrationTime: 1, profileData: "Creator 2 Profile", isSuspended: false })
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_PauseUnpause_Success() (gas: 363645)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [389145] CreatorRegistryTest::test_PauseUnpause_Success()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::prank(0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return]
+    ├─ [24187] CreatorRegistry::pause()
+    │   ├─ emit Paused(account: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001002)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xf4844814)
+    │   └─ ← [Return]
+    ├─ [4489] CreatorRegistry::registerCreator(1000000 [1e6], "QmProfileHash123456789012345678901234567890123456789")
+    │   └─ ← [Revert] EnforcedPause()
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::prank(0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return]
+    ├─ [2240] CreatorRegistry::unpause()
+    │   ├─ emit Unpaused(account: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001002)
+    │   └─ ← [Return]
+    ├─ [153404] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001002, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [509] CreatorRegistry::getTotalCreators() [staticcall]
+    │   └─ ← [Return] 2
+    ├─ [0] VM::assertEq(2, 2) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_RegisterCreator_AlreadyRegistered() (gas: 197800)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [200600] CreatorRegistryTest::test_RegisterCreator_AlreadyRegistered()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xc31eb0e0: 779e9ca200000000000000000000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [4745] CreatorRegistry::registerCreator(1000000 [1e6], "QmProfileHash123456789012345678901234567890123456789")
+    │   └─ ← [Revert] CreatorAlreadyRegistered()
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [509] CreatorRegistry::getTotalCreators() [staticcall]
+    │   └─ ← [Return] 1
+    ├─ [0] VM::assertEq(1, 1) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_RegisterCreator_EmptyProfileData() (gas: 27170)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [27170] CreatorRegistryTest::test_RegisterCreator_EmptyProfileData()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xc31eb0e0: e1e909d000000000000000000000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [10812] CreatorRegistry::registerCreator(1000000 [1e6], "")
+    │   └─ ← [Revert] InvalidProfileData()
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [3009] CreatorRegistry::isRegisteredCreator(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] false
+    ├─ [0] VM::assertFalse(false) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_RegisterCreator_MaximumPrice() (gas: 237865)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [240665] CreatorRegistryTest::test_RegisterCreator_MaximumPrice()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [224031] CreatorRegistry::registerCreator(100000000 [1e8], "QmProfileHash123456789012345678901234567890123456789")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 100000000 [1e8], timestamp: 1, profileData: "QmProfileHash123456789012345678901234567890123456789")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [1009] CreatorRegistry::isRegisteredCreator(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] true
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [946] CreatorRegistry::getSubscriptionPrice(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] 100000000 [1e8]
+    ├─ [0] VM::assertEq(100000000 [1e8], 100000000 [1e8]) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_RegisterCreator_MinimumPrice() (gas: 237844)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [240644] CreatorRegistryTest::test_RegisterCreator_MinimumPrice()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [224031] CreatorRegistry::registerCreator(10000 [1e4], "QmProfileHash123456789012345678901234567890123456789")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 10000 [1e4], timestamp: 1, profileData: "QmProfileHash123456789012345678901234567890123456789")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [1009] CreatorRegistry::isRegisteredCreator(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] true
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [946] CreatorRegistry::getSubscriptionPrice(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] 10000 [1e4]
+    ├─ [0] VM::assertEq(10000 [1e4], 10000 [1e4]) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_RegisterCreator_PriceTooHigh() (gas: 27522)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [27522] CreatorRegistryTest::test_RegisterCreator_PriceTooHigh()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xc31eb0e0: 8f09f75600000000000000000000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [10799] CreatorRegistry::registerCreator(100000001 [1e8], "QmProfileHash123456789012345678901234567890123456789")
+    │   └─ ← [Revert] InvalidSubscriptionPrice()
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [3009] CreatorRegistry::isRegisteredCreator(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] false
+    ├─ [0] VM::assertFalse(false) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_RegisterCreator_PriceTooLow() (gas: 31330)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [31330] CreatorRegistryTest::test_RegisterCreator_PriceTooLow()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xc31eb0e0: 8f09f75600000000000000000000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [10788] CreatorRegistry::registerCreator(9999, "QmProfileHash123456789012345678901234567890123456789")
+    │   └─ ← [Revert] InvalidSubscriptionPrice()
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [3009] CreatorRegistry::isRegisteredCreator(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] false
+    ├─ [0] VM::assertFalse(false) [staticcall]
+    │   └─ ← [Return]
+    ├─ [2509] CreatorRegistry::getTotalCreators() [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::assertEq(0, 0) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_RegisterCreator_Success() (gas: 259556)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [262356] CreatorRegistryTest::test_RegisterCreator_Success()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectEmit(true, false, false, true)
+    │   └─ ← [Return]
+    ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "QmProfileHash123456789012345678901234567890123456789")
+    ├─ [224031] CreatorRegistry::registerCreator(1000000 [1e6], "QmProfileHash123456789012345678901234567890123456789")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "QmProfileHash123456789012345678901234567890123456789")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [1009] CreatorRegistry::isRegisteredCreator(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] true
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [946] CreatorRegistry::getSubscriptionPrice(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] 1000000 [1e6]
+    ├─ [0] VM::assertEq(1000000 [1e6], 1000000 [1e6]) [staticcall]
+    │   └─ ← [Return]
+    ├─ [4625] CreatorRegistry::getCreatorProfile(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] Creator({ isRegistered: true, subscriptionPrice: 1000000 [1e6], isVerified: false, totalEarnings: 0, contentCount: 0, subscriberCount: 0, registrationTime: 1, profileData: "QmProfileHash123456789012345678901234567890123456789", isSuspended: false })
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertEq(1000000 [1e6], 1000000 [1e6]) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertFalse(false) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertEq(0, 0) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertEq(0, 0) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertEq(0, 0) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [509] CreatorRegistry::getTotalCreators() [staticcall]
+    │   └─ ← [Return] 1
+    ├─ [0] VM::assertEq(1, 1) [staticcall]
+    │   └─ ← [Return]
+    ├─ [1197] CreatorRegistry::getCreatorByIndex(0) [staticcall]
+    │   └─ ← [Return] 0x0000000000000000000000000000000000001001
+    ├─ [0] VM::assertEq(0x0000000000000000000000000000000000001001, 0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_SetCreatorVerification_OnlyModerator() (gas: 204683)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [207483] CreatorRegistryTest::test_SetCreatorVerification_OnlyModerator()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000002001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xf4844814)
+    │   └─ ← [Return]
+    ├─ [3534] CreatorRegistry::setCreatorVerification(0x0000000000000000000000000000000000001001, true)
+    │   └─ ← [Revert] AccessControlUnauthorizedAccount(0x0000000000000000000000000000000000002001, 0x71f3d55856e4058ed06ee057d79ada615f65cdf5f9ee88181b914225088f834f)
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [4334] CreatorRegistry::getCreatorProfile(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] Creator({ isRegistered: true, subscriptionPrice: 1000000 [1e6], isVerified: false, totalEarnings: 0, contentCount: 0, subscriberCount: 0, registrationTime: 1, profileData: "Default profile", isSuspended: false })
+    ├─ [0] VM::assertFalse(false) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_SetCreatorVerification_RemoveVerification() (gas: 233062)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [295562] CreatorRegistryTest::test_SetCreatorVerification_RemoveVerification()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::prank(0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return]
+    ├─ [69986] CreatorRegistry::setCreatorVerification(0x0000000000000000000000000000000000001001, true)
+    │   ├─ emit CreatorVerified(creator: 0x0000000000000000000000000000000000001001, verified: true)
+    │   └─ ← [Stop]
+    ├─ [4334] CreatorRegistry::getCreatorProfile(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] Creator({ isRegistered: true, subscriptionPrice: 1000000 [1e6], isVerified: true, totalEarnings: 0, contentCount: 0, subscriberCount: 0, registrationTime: 1, profileData: "Default profile", isSuspended: false })
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [531] CreatorRegistry::getVerifiedCreatorCount() [staticcall]
+    │   └─ ← [Return] 1
+    ├─ [0] VM::assertEq(1, 1) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectEmit(true, false, false, true)
+    │   └─ ← [Return]
+    ├─ emit CreatorVerified(creator: 0x0000000000000000000000000000000000001001, verified: false)
+    ├─ [5847] CreatorRegistry::setCreatorVerification(0x0000000000000000000000000000000000001001, false)
+    │   ├─ emit CreatorVerified(creator: 0x0000000000000000000000000000000000001001, verified: false)
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [4334] CreatorRegistry::getCreatorProfile(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] Creator({ isRegistered: true, subscriptionPrice: 1000000 [1e6], isVerified: false, totalEarnings: 0, contentCount: 0, subscriberCount: 0, registrationTime: 1, profileData: "Default profile", isSuspended: false })
+    ├─ [0] VM::assertFalse(false) [staticcall]
+    │   └─ ← [Return]
+    ├─ [531] CreatorRegistry::getVerifiedCreatorCount() [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::assertEq(0, 0) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_SetCreatorVerification_Success() (gas: 278137)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [280937] CreatorRegistryTest::test_SetCreatorVerification_Success()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectEmit(true, false, false, true)
+    │   └─ ← [Return]
+    ├─ emit CreatorVerified(creator: 0x0000000000000000000000000000000000001001, verified: true)
+    ├─ [69986] CreatorRegistry::setCreatorVerification(0x0000000000000000000000000000000000001001, true)
+    │   ├─ emit CreatorVerified(creator: 0x0000000000000000000000000000000000001001, verified: true)
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [4334] CreatorRegistry::getCreatorProfile(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] Creator({ isRegistered: true, subscriptionPrice: 1000000 [1e6], isVerified: true, totalEarnings: 0, contentCount: 0, subscriberCount: 0, registrationTime: 1, profileData: "Default profile", isSuspended: false })
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [531] CreatorRegistry::getVerifiedCreatorCount() [staticcall]
+    │   └─ ← [Return] 1
+    ├─ [0] VM::assertEq(1, 1) [staticcall]
+    │   └─ ← [Return]
+    ├─ [1154] CreatorRegistry::getVerifiedCreatorByIndex(0) [staticcall]
+    │   └─ ← [Return] 0x0000000000000000000000000000000000001001
+    ├─ [0] VM::assertEq(0x0000000000000000000000000000000000001001, 0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_UpdateCreatorStats_OnlyPlatformContract() (gas: 197269)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [200069] CreatorRegistryTest::test_UpdateCreatorStats_OnlyPlatformContract()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000002001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xf4844814)
+    │   └─ ← [Return]
+    ├─ [3868] CreatorRegistry::updateCreatorStats(0x0000000000000000000000000000000000001001, 1000000 [1e6], 1, 1)
+    │   └─ ← [Revert] AccessControlUnauthorizedAccount(0x0000000000000000000000000000000000002001, 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510)
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_UpdateCreatorStats_Success() (gas: 350929)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [353729] CreatorRegistryTest::test_UpdateCreatorStats_Success()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::prank(0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return]
+    ├─ [27522] CreatorRegistry::grantPlatformRole(CreatorRegistryTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: CreatorRegistryTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [0] VM::expectEmit(true, false, false, true)
+    │   └─ ← [Return]
+    ├─ emit CreatorEarningsUpdated(creator: 0x0000000000000000000000000000000000001001, amount: 1000000 [1e6], source: "platform_activity")
+    ├─ [110371] CreatorRegistry::updateCreatorStats(0x0000000000000000000000000000000000001001, 1000000 [1e6], 1, 1)
+    │   ├─ emit CreatorEarningsUpdated(creator: 0x0000000000000000000000000000000000001001, amount: 1000000 [1e6], source: "platform_activity")
+    │   └─ ← [Stop]
+    ├─ [4334] CreatorRegistry::getCreatorProfile(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] Creator({ isRegistered: true, subscriptionPrice: 1000000 [1e6], isVerified: false, totalEarnings: 1000000 [1e6], contentCount: 1, subscriberCount: 1, registrationTime: 1, profileData: "Default profile", isSuspended: false })
+    ├─ [0] VM::assertEq(1000000 [1e6], 1000000 [1e6]) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertEq(1, 1) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertEq(1, 1) [staticcall]
+    │   └─ ← [Return]
+    ├─ [3525] CreatorRegistry::getCreatorEarnings(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] 1000000 [1e6], 1000000 [1e6], 0
+    ├─ [0] VM::assertEq(1000000 [1e6], 1000000 [1e6]) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertEq(1000000 [1e6], 1000000 [1e6]) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertEq(0, 0) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_UpdatePlatformFee_OnlyOwner() (gas: 18041)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [18041] CreatorRegistryTest::test_UpdatePlatformFee_OnlyOwner()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000002001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xf4844814)
+    │   └─ ← [Return]
+    ├─ [2986] CreatorRegistry::updatePlatformFee(300)
+    │   └─ ← [Revert] OwnableUnauthorizedAccount(0x0000000000000000000000000000000000002001)
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [2515] CreatorRegistry::platformFee() [staticcall]
+    │   └─ ← [Return] 250
+    ├─ [0] VM::assertEq(250, 250) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_UpdatePlatformFee_Success() (gas: 27544)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [27544] CreatorRegistryTest::test_UpdatePlatformFee_Success()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectEmit(false, false, false, true)
+    │   └─ ← [Return]
+    ├─ emit PlatformFeeUpdated(oldFee: 250, newFee: 300)
+    ├─ [9327] CreatorRegistry::updatePlatformFee(300)
+    │   ├─ emit PlatformFeeUpdated(oldFee: 250, newFee: 300)
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [515] CreatorRegistry::platformFee() [staticcall]
+    │   └─ ← [Return] 300
+    ├─ [0] VM::assertEq(300, 300) [staticcall]
+    │   └─ ← [Return]
+    ├─ [1232] CreatorRegistry::calculatePlatformFee(1000000 [1e6]) [staticcall]
+    │   └─ ← [Return] 30000 [3e4]
+    ├─ [0] VM::assertEq(30000 [3e4], 30000 [3e4]) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_UpdatePlatformFee_TooHigh() (gas: 18028)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [18028] CreatorRegistryTest::test_UpdatePlatformFee_TooHigh()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xc31eb0e0: 721dbfea00000000000000000000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [2788] CreatorRegistry::updatePlatformFee(1001)
+    │   └─ ← [Revert] InvalidFeePercentage()
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [2515] CreatorRegistry::platformFee() [staticcall]
+    │   └─ ← [Return] 250
+    ├─ [0] VM::assertEq(250, 250) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[FAIL: assertion failed] test_UpdateProfileData_EmptyData() (gas: 207017)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [37978713] CreatorRegistryTest::setUp()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return]
+    ├─ [1138080] → new MockERC20@0x22a7C94543caa0e72439289e039B35a64C79A966
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 5327 bytes of code
+    ├─ [47643] MockERC20::mint(0x0000000000000000000000000000000000003001, 1000000000000 [1e12])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x0000000000000000000000000000000000003001, value: 1000000000000 [1e12])
+    │   └─ ← [Stop]
+    ├─ [1084925] → new MockCommerceProtocol@0xe1796e76a573113CcEDB6D266ae099471117972D
+    │   └─ ← [Return] 5419 bytes of code
+    ├─ [1503810] → new MockQuoterV2@0xCd54ec27b8c42B24BF58244214B5999334C58959
+    │   └─ ← [Return] 6617 bytes of code
+    ├─ [0] console::log("Mock dependencies deployed:") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- Mock USDC:", MockERC20: [0x22a7C94543caa0e72439289e039B35a64C79A966]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- Mock Commerce Protocol:", MockCommerceProtocol: [0xe1796e76a573113CcEDB6D266ae099471117972D]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- Mock Quoter:", MockQuoterV2: [0xCd54ec27b8c42B24BF58244214B5999334C58959]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [1710396] → new PriceOracle@0x2DAc9e8d1275ECC440a35FA04E17995bddAd6B61
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 8313 bytes of code
+    ├─ [4031410] → new CreatorRegistry@0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x71f3d55856e4058ed06ee057d79ada615f65cdf5f9ee88181b914225088f834f, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 19432 bytes of code
+    ├─ [5389674] → new ContentRegistry@0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x71f3d55856e4058ed06ee057d79ada615f65cdf5f9ee88181b914225088f834f, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 25995 bytes of code
+    ├─ [6590652] → new PayPerView@0x49C602668FE7a8B397255d678684323355754631
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0xd7d8b7014b7ed36eb085c9e3e427b642d74cab75ecefda8a757042e63ec59919, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0xc89f08b49c068684bf15b77e68611a9f601e70d1f919059510bccd18e691e535, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 32302 bytes of code
+    ├─ [7122434] → new SubscriptionManager@0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x1fa68478e710912de24d46d09a1aa735096685a61549eeb0fefb3693b245e69c, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x4a2743f41a15276dad6813e73326037e88c2a55ffdd5c4cab4ea1745629b0d34, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 34738 bytes of code
+    ├─ [8485998] → new CommerceProtocolIntegration@0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x501c65bac3e4ac3ac69864ba85559de0249f52b20e002f1e1d1232fd4e169231, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0xe2f4eaae4a9751e85a3e4a7b9587827a877f29914755229b07a7b2da98285f70, account: 0x0000000000000000000000000000000000003003, sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 41307 bytes of code
+    ├─ [0] console::log("Core contracts deployed:") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- CreatorRegistry:", CreatorRegistry: [0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- ContentRegistry:", ContentRegistry: [0x483a0eDa4d8856c61347B0F2e5B84a7af717c308]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- PayPerView:", PayPerView: [0x49C602668FE7a8B397255d678684323355754631]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- SubscriptionManager:", SubscriptionManager: [0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- CommerceIntegration:", CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [25522] CreatorRegistry::grantPlatformRole(PayPerView: [0x49C602668FE7a8B397255d678684323355754631])
+    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: PayPerView: [0x49C602668FE7a8B397255d678684323355754631], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [25522] CreatorRegistry::grantPlatformRole(SubscriptionManager: [0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb])
+    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: SubscriptionManager: [0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [25522] CreatorRegistry::grantPlatformRole(CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B])
+    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [25566] ContentRegistry::grantPurchaseRecorderRole(PayPerView: [0x49C602668FE7a8B397255d678684323355754631])
+    │   ├─ emit RoleGranted(role: 0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, account: PayPerView: [0x49C602668FE7a8B397255d678684323355754631], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [25544] PayPerView::grantPaymentProcessorRole(CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B])
+    │   ├─ emit RoleGranted(role: 0xd7d8b7014b7ed36eb085c9e3e427b642d74cab75ecefda8a757042e63ec59919, account: CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [25544] SubscriptionManager::grantSubscriptionProcessorRole(CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B])
+    │   ├─ emit RoleGranted(role: 0x4a2743f41a15276dad6813e73326037e88c2a55ffdd5c4cab4ea1745629b0d34, account: CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [25735] CommerceProtocolIntegration::setPayPerView(PayPerView: [0x49C602668FE7a8B397255d678684323355754631])
+    │   ├─ emit ContractAddressUpdated(contractName: "PayPerView", oldAddress: 0x0000000000000000000000000000000000000000, newAddress: PayPerView: [0x49C602668FE7a8B397255d678684323355754631])
+    │   └─ ← [Stop]
+    ├─ [25756] CommerceProtocolIntegration::setSubscriptionManager(SubscriptionManager: [0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb])
+    │   ├─ emit ContractAddressUpdated(contractName: "SubscriptionManager", oldAddress: 0x0000000000000000000000000000000000000000, newAddress: SubscriptionManager: [0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb])
+    │   └─ ← [Stop]
+    ├─ [0] console::log("Contract permissions configured") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [25743] MockERC20::mint(0x0000000000000000000000000000000000001001, 1000000000 [1e9])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x0000000000000000000000000000000000001001, value: 1000000000 [1e9])
+    │   └─ ← [Stop]
+    ├─ [0] VM::deal(0x0000000000000000000000000000000000001001, 10000000000000000000 [1e19])
+    │   └─ ← [Return]
+    ├─ [25743] MockERC20::mint(0x0000000000000000000000000000000000001002, 1000000000 [1e9])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x0000000000000000000000000000000000001002, value: 1000000000 [1e9])
+    │   └─ ← [Stop]
+    ├─ [0] VM::deal(0x0000000000000000000000000000000000001002, 10000000000000000000 [1e19])
+    │   └─ ← [Return]
+    ├─ [25743] MockERC20::mint(0x0000000000000000000000000000000000002001, 1000000000 [1e9])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x0000000000000000000000000000000000002001, value: 1000000000 [1e9])
+    │   └─ ← [Stop]
+    ├─ [0] VM::deal(0x0000000000000000000000000000000000002001, 10000000000000000000 [1e19])
+    │   └─ ← [Return]
+    ├─ [25743] MockERC20::mint(0x0000000000000000000000000000000000002002, 1000000000 [1e9])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x0000000000000000000000000000000000002002, value: 1000000000 [1e9])
+    │   └─ ← [Stop]
+    ├─ [0] VM::deal(0x0000000000000000000000000000000000002002, 10000000000000000000 [1e19])
+    │   └─ ← [Return]
+    ├─ [0] console::log("Test users set up with initial balances") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [207017] CreatorRegistryTest::test_UpdateProfileData_EmptyData()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xc31eb0e0: e1e909d000000000000000000000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [4630] CreatorRegistry::updateProfileData("")
+    │   └─ ← [Revert] InvalidProfileData()
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [4334] CreatorRegistry::getCreatorProfile(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] Creator({ isRegistered: true, subscriptionPrice: 1000000 [1e6], isVerified: false, totalEarnings: 0, contentCount: 0, subscriberCount: 0, registrationTime: 1, profileData: "Default profile", isSuspended: false })
+    ├─ [0] VM::assertTrue(false) [staticcall]
+    │   └─ ← [Revert] assertion failed
+    └─ ← [Revert] assertion failed
+
+[PASS] test_UpdateProfileData_Success() (gas: 252402)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [258002] CreatorRegistryTest::test_UpdateProfileData_Success()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [54856] CreatorRegistry::updateProfileData("QmProfileHash987654321098765432109876543210987654321")
+    │   ├─ emit ProfileDataUpdated(creator: 0x0000000000000000000000000000000000001001, oldProfileData: "Default profile", newProfileData: "QmProfileHash987654321098765432109876543210987654321")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [4625] CreatorRegistry::getCreatorProfile(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] Creator({ isRegistered: true, subscriptionPrice: 1000000 [1e6], isVerified: false, totalEarnings: 0, contentCount: 0, subscriberCount: 0, registrationTime: 1, profileData: "QmProfileHash987654321098765432109876543210987654321", isSuspended: false })
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::assertFalse(false) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_UpdateSubscriptionPrice_InvalidPrice() (gas: 197620)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [200420] CreatorRegistryTest::test_UpdateSubscriptionPrice_InvalidPrice()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xc31eb0e0: 8f09f75600000000000000000000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [4108] CreatorRegistry::updateSubscriptionPrice(9999)
+    │   └─ ← [Revert] InvalidSubscriptionPrice()
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [946] CreatorRegistry::getSubscriptionPrice(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] 1000000 [1e6]
+    ├─ [0] VM::assertEq(1000000 [1e6], 1000000 [1e6]) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_UpdateSubscriptionPrice_NotRegistered() (gas: 21516)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [21516] CreatorRegistryTest::test_UpdateSubscriptionPrice_NotRegistered()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xc31eb0e0: 2bad89bb00000000000000000000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [10065] CreatorRegistry::updateSubscriptionPrice(2000000 [2e6])
+    │   └─ ← [Revert] CreatorNotRegistered()
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_UpdateSubscriptionPrice_Success() (gas: 207846)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [213446] CreatorRegistryTest::test_UpdateSubscriptionPrice_Success()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectEmit(true, false, false, true)
+    │   └─ ← [Return]
+    ├─ emit SubscriptionPriceUpdated(creator: 0x0000000000000000000000000000000000001001, oldPrice: 1000000 [1e6], newPrice: 2000000 [2e6])
+    ├─ [6565] CreatorRegistry::updateSubscriptionPrice(2000000 [2e6])
+    │   ├─ emit SubscriptionPriceUpdated(creator: 0x0000000000000000000000000000000000001001, oldPrice: 1000000 [1e6], newPrice: 2000000 [2e6])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [946] CreatorRegistry::getSubscriptionPrice(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] 2000000 [2e6]
+    ├─ [0] VM::assertEq(2000000 [2e6], 2000000 [2e6]) [staticcall]
+    │   └─ ← [Return]
+    ├─ [4334] CreatorRegistry::getCreatorProfile(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] Creator({ isRegistered: true, subscriptionPrice: 2000000 [2e6], isVerified: false, totalEarnings: 0, contentCount: 0, subscriberCount: 0, registrationTime: 1, profileData: "Default profile", isSuspended: false })
+    ├─ [0] VM::assertEq(2000000 [2e6], 2000000 [2e6]) [staticcall]
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[PASS] test_WithdrawCreatorEarnings_NoEarnings() (gas: 196323)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [199123] CreatorRegistryTest::test_WithdrawCreatorEarnings_NoEarnings()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xc31eb0e0: R*ל)
+    │   └─ ← [Return]
+    ├─ [5769] CreatorRegistry::withdrawCreatorEarnings()
+    │   └─ ← [Revert] NoEarningsToWithdraw()
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+[FAIL: OwnableUnauthorizedAccount(0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496)] test_WithdrawCreatorEarnings_Success() (gas: 309865)
+Logs:
+  Mock dependencies deployed:
+  - Mock USDC: 0x22a7C94543caa0e72439289e039B35a64C79A966
+  - Mock Commerce Protocol: 0xe1796e76a573113CcEDB6D266ae099471117972D
+  - Mock Quoter: 0xCd54ec27b8c42B24BF58244214B5999334C58959
+  Core contracts deployed:
+  - CreatorRegistry: 0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+  - ContentRegistry: 0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+  - PayPerView: 0x49C602668FE7a8B397255d678684323355754631
+  - SubscriptionManager: 0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+  - CommerceIntegration: 0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+  Contract permissions configured
+  Test users set up with initial balances
+
+Traces:
+  [37978713] CreatorRegistryTest::setUp()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return]
+    ├─ [1138080] → new MockERC20@0x22a7C94543caa0e72439289e039B35a64C79A966
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 5327 bytes of code
+    ├─ [47643] MockERC20::mint(0x0000000000000000000000000000000000003001, 1000000000000 [1e12])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x0000000000000000000000000000000000003001, value: 1000000000000 [1e12])
+    │   └─ ← [Stop]
+    ├─ [1084925] → new MockCommerceProtocol@0xe1796e76a573113CcEDB6D266ae099471117972D
+    │   └─ ← [Return] 5419 bytes of code
+    ├─ [1503810] → new MockQuoterV2@0xCd54ec27b8c42B24BF58244214B5999334C58959
+    │   └─ ← [Return] 6617 bytes of code
+    ├─ [0] console::log("Mock dependencies deployed:") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- Mock USDC:", MockERC20: [0x22a7C94543caa0e72439289e039B35a64C79A966]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- Mock Commerce Protocol:", MockCommerceProtocol: [0xe1796e76a573113CcEDB6D266ae099471117972D]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- Mock Quoter:", MockQuoterV2: [0xCd54ec27b8c42B24BF58244214B5999334C58959]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [1710396] → new PriceOracle@0x2DAc9e8d1275ECC440a35FA04E17995bddAd6B61
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 8313 bytes of code
+    ├─ [4031410] → new CreatorRegistry@0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x71f3d55856e4058ed06ee057d79ada615f65cdf5f9ee88181b914225088f834f, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 19432 bytes of code
+    ├─ [5389674] → new ContentRegistry@0x483a0eDa4d8856c61347B0F2e5B84a7af717c308
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x71f3d55856e4058ed06ee057d79ada615f65cdf5f9ee88181b914225088f834f, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 25995 bytes of code
+    ├─ [6590652] → new PayPerView@0x49C602668FE7a8B397255d678684323355754631
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0xd7d8b7014b7ed36eb085c9e3e427b642d74cab75ecefda8a757042e63ec59919, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0xc89f08b49c068684bf15b77e68611a9f601e70d1f919059510bccd18e691e535, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 32302 bytes of code
+    ├─ [7122434] → new SubscriptionManager@0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x1fa68478e710912de24d46d09a1aa735096685a61549eeb0fefb3693b245e69c, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x4a2743f41a15276dad6813e73326037e88c2a55ffdd5c4cab4ea1745629b0d34, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 34738 bytes of code
+    ├─ [8485998] → new CommerceProtocolIntegration@0x21CF4161e41997dcb5F326618abF8D9039bC1b5B
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0x501c65bac3e4ac3ac69864ba85559de0249f52b20e002f1e1d1232fd4e169231, account: 0x0000000000000000000000000000000000003001, sender: 0x0000000000000000000000000000000000003001)
+    │   ├─ emit RoleGranted(role: 0xe2f4eaae4a9751e85a3e4a7b9587827a877f29914755229b07a7b2da98285f70, account: 0x0000000000000000000000000000000000003003, sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return] 41307 bytes of code
+    ├─ [0] console::log("Core contracts deployed:") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- CreatorRegistry:", CreatorRegistry: [0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- ContentRegistry:", ContentRegistry: [0x483a0eDa4d8856c61347B0F2e5B84a7af717c308]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- PayPerView:", PayPerView: [0x49C602668FE7a8B397255d678684323355754631]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- SubscriptionManager:", SubscriptionManager: [0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("- CommerceIntegration:", CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [25522] CreatorRegistry::grantPlatformRole(PayPerView: [0x49C602668FE7a8B397255d678684323355754631])
+    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: PayPerView: [0x49C602668FE7a8B397255d678684323355754631], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [25522] CreatorRegistry::grantPlatformRole(SubscriptionManager: [0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb])
+    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: SubscriptionManager: [0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [25522] CreatorRegistry::grantPlatformRole(CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B])
+    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [25566] ContentRegistry::grantPurchaseRecorderRole(PayPerView: [0x49C602668FE7a8B397255d678684323355754631])
+    │   ├─ emit RoleGranted(role: 0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, account: PayPerView: [0x49C602668FE7a8B397255d678684323355754631], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [25544] PayPerView::grantPaymentProcessorRole(CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B])
+    │   ├─ emit RoleGranted(role: 0xd7d8b7014b7ed36eb085c9e3e427b642d74cab75ecefda8a757042e63ec59919, account: CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [25544] SubscriptionManager::grantSubscriptionProcessorRole(CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B])
+    │   ├─ emit RoleGranted(role: 0x4a2743f41a15276dad6813e73326037e88c2a55ffdd5c4cab4ea1745629b0d34, account: CommerceProtocolIntegration: [0x21CF4161e41997dcb5F326618abF8D9039bC1b5B], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [25735] CommerceProtocolIntegration::setPayPerView(PayPerView: [0x49C602668FE7a8B397255d678684323355754631])
+    │   ├─ emit ContractAddressUpdated(contractName: "PayPerView", oldAddress: 0x0000000000000000000000000000000000000000, newAddress: PayPerView: [0x49C602668FE7a8B397255d678684323355754631])
+    │   └─ ← [Stop]
+    ├─ [25756] CommerceProtocolIntegration::setSubscriptionManager(SubscriptionManager: [0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb])
+    │   ├─ emit ContractAddressUpdated(contractName: "SubscriptionManager", oldAddress: 0x0000000000000000000000000000000000000000, newAddress: SubscriptionManager: [0xe8AC70d2b71f604B4C6a97dF31Be19EE13Dae5bb])
+    │   └─ ← [Stop]
+    ├─ [0] console::log("Contract permissions configured") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [25743] MockERC20::mint(0x0000000000000000000000000000000000001001, 1000000000 [1e9])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x0000000000000000000000000000000000001001, value: 1000000000 [1e9])
+    │   └─ ← [Stop]
+    ├─ [0] VM::deal(0x0000000000000000000000000000000000001001, 10000000000000000000 [1e19])
+    │   └─ ← [Return]
+    ├─ [25743] MockERC20::mint(0x0000000000000000000000000000000000001002, 1000000000 [1e9])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x0000000000000000000000000000000000001002, value: 1000000000 [1e9])
+    │   └─ ← [Stop]
+    ├─ [0] VM::deal(0x0000000000000000000000000000000000001002, 10000000000000000000 [1e19])
+    │   └─ ← [Return]
+    ├─ [25743] MockERC20::mint(0x0000000000000000000000000000000000002001, 1000000000 [1e9])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x0000000000000000000000000000000000002001, value: 1000000000 [1e9])
+    │   └─ ← [Stop]
+    ├─ [0] VM::deal(0x0000000000000000000000000000000000002001, 10000000000000000000 [1e19])
+    │   └─ ← [Return]
+    ├─ [25743] MockERC20::mint(0x0000000000000000000000000000000000002002, 1000000000 [1e9])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x0000000000000000000000000000000000002002, value: 1000000000 [1e9])
+    │   └─ ← [Stop]
+    ├─ [0] VM::deal(0x0000000000000000000000000000000000002002, 10000000000000000000 [1e19])
+    │   └─ ← [Return]
+    ├─ [0] console::log("Test users set up with initial balances") [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [309865] CreatorRegistryTest::test_WithdrawCreatorEarnings_Success()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001001)
+    │   └─ ← [Return]
+    ├─ [179304] CreatorRegistry::registerCreator(1000000 [1e6], "Default profile")
+    │   ├─ emit CreatorRegistered(creator: 0x0000000000000000000000000000000000001001, subscriptionPrice: 1000000 [1e6], timestamp: 1, profileData: "Default profile")
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::assertTrue(true) [staticcall]
+    │   └─ ← [Return]
+    ├─ [0] VM::prank(0x0000000000000000000000000000000000003001)
+    │   └─ ← [Return]
+    ├─ [27522] CreatorRegistry::grantPlatformRole(CreatorRegistryTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: CreatorRegistryTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], sender: 0x0000000000000000000000000000000000003001)
+    │   └─ ← [Stop]
+    ├─ [69631] CreatorRegistry::updateCreatorStats(0x0000000000000000000000000000000000001001, 1000000 [1e6], 0, 0)
+    │   ├─ emit CreatorEarningsUpdated(creator: 0x0000000000000000000000000000000000001001, amount: 1000000 [1e6], source: "platform_activity")
+    │   └─ ← [Stop]
+    ├─ [2940] MockERC20::balanceOf(0x0000000000000000000000000000000000001001) [staticcall]
+    │   └─ ← [Return] 1000000000 [1e9]
+    ├─ [2940] MockERC20::balanceOf(CreatorRegistry: [0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [3225] MockERC20::mint(CreatorRegistry: [0xb2AbA3Bc597A0A84438094a65352D0e4B7dd92d4], 1000000 [1e6])
+    │   └─ ← [Revert] OwnableUnauthorizedAccount(0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496)
+    └─ ← [Revert] OwnableUnauthorizedAccount(0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496)
+
+Suite result: FAILED. 25 passed; 2 failed; 0 skipped; finished in 8.74ms (10.09ms CPU time)
+
+Ran 1 test suite in 574.25ms (8.74ms CPU time): 25 tests passed, 2 failed, 0 skipped (27 total tests)
+
+Failing tests:
+Encountered 2 failing tests in test/unit/CreatorRegistry.t.sol:CreatorRegistryTest
+[FAIL: assertion failed] test_UpdateProfileData_EmptyData() (gas: 207017)
+[FAIL: OwnableUnauthorizedAccount(0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496)] test_WithdrawCreatorEarnings_Success() (gas: 309865)
+
+Encountered a total of 2 failing tests, 25 tests succeeded
