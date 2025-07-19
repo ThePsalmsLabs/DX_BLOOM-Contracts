@@ -17,8 +17,8 @@ contract PriceOracle is Ownable {
     IQuoterV2 public quoterV2;
 
     // Token addresses on Base - these can remain constant as they're standard
-    address public constant WETH = 0x4200000000000000000000000000000000000006;
-    address public constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address public immutable WETH;
+    address public immutable USDC;
 
     // Default pool fees for common pairs
     uint24 public constant DEFAULT_POOL_FEE = 3000; // 0.3%
@@ -50,9 +50,13 @@ contract PriceOracle is Ownable {
      * @notice For mainnet: 0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a
      *         For testing: address of MockQuoterV2
      */
-    constructor(address _quoterV2) Ownable(msg.sender) {
+    constructor(address _quoterV2, address _weth, address _usdc) Ownable(msg.sender) {
         if (_quoterV2 == address(0)) revert InvalidQuoterAddress();
+        if (_weth == address(0)) revert("Invalid WETH address");
+        if (_usdc == address(0)) revert("Invalid USDC address");
         quoterV2 = IQuoterV2(_quoterV2);
+        WETH = _weth;
+        USDC = _usdc;
         emit QuoterUpdated(address(0), _quoterV2);
     }
 
@@ -242,7 +246,7 @@ contract PriceOracle is Ownable {
      * @param tokenB Second token
      * @return fee Optimal pool fee
      */
-    function _selectOptimalPoolFee(address tokenA, address tokenB) internal pure returns (uint24 fee) {
+    function _selectOptimalPoolFee(address tokenA, address tokenB) internal view returns (uint24 fee) {
         // Use lower fees for stablecoin pairs
         if ((tokenA == USDC) || (tokenB == USDC)) {
             return STABLE_POOL_FEE;

@@ -52,7 +52,8 @@ contract Deploy is Script {
         console.log("1. Deploying PriceOracle...");
         // For mainnet deployment, use the actual Uniswap V3 QuoterV2 address
         address quoterV2Address = 0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a; // Base mainnet
-        priceOracle = new PriceOracle(quoterV2Address);
+        address WETH_BASE = 0x4200000000000000000000000000000000000006;
+        priceOracle = new PriceOracle(quoterV2Address, WETH_BASE, USDC_BASE);
         console.log("   PriceOracle deployed at:", address(priceOracle));
 
         // 2. Deploy CreatorRegistry
@@ -82,6 +83,7 @@ contract Deploy is Script {
             address(creatorRegistry),
             address(contentRegistry),
             address(priceOracle),
+            USDC_BASE,
             feeRecipient,
             operatorSigner
         );
@@ -195,7 +197,8 @@ contract Deploy is Script {
         console.log("1. Deploying PriceOracle...");
         // For testnet deployment, use the testnet Uniswap V3 QuoterV2 address
         address quoterV2AddressTestnet = 0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a; // Base Sepolia (same as mainnet for now)
-        priceOracle = new PriceOracle(quoterV2AddressTestnet);
+        address WETH_BASE_SEPOLIA = 0x4200000000000000000000000000000000000006;
+        priceOracle = new PriceOracle(quoterV2AddressTestnet, WETH_BASE_SEPOLIA, USDC_BASE_SEPOLIA);
         console.log("   PriceOracle deployed at:", address(priceOracle));
 
         // 2. Deploy CreatorRegistry
@@ -227,6 +230,7 @@ contract Deploy is Script {
             address(creatorRegistry),
             address(contentRegistry),
             address(priceOracle),
+            USDC_BASE_SEPOLIA,
             feeRecipient,
             operatorSigner
         );

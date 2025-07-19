@@ -13,6 +13,7 @@ import {MockERC20} from "../mocks/MockERC20.sol";
 import {MockCommerceProtocol} from "../mocks/MockCommerceProtocol.sol";
 import {MockQuoterV2} from "../mocks/MockQuoterV2.sol";
 import {TestConstants} from "./TestConstants.sol";
+import {ISharedTypes} from "../../src/interfaces/ISharedTypes.sol";
 
 /**
  * @title TestSetup - FIXED VERSION
@@ -20,7 +21,7 @@ import {TestConstants} from "./TestConstants.sol";
  * @notice CRITICAL IMPROVEMENT: This version properly configures all contracts to use mock dependencies
  *         instead of hardcoded mainnet addresses. This is a fundamental principle of isolated unit testing.
  */
-abstract contract TestSetup is Test, TestConstants {
+abstract contract TestSetup is Test, TestConstants, ISharedTypes {
     // ============ CORE CONTRACT INSTANCES ============
 
     CreatorRegistry public creatorRegistry;
@@ -54,7 +55,7 @@ abstract contract TestSetup is Test, TestConstants {
         address indexed creator,
         string ipfsHash,
         string title,
-        ContentRegistry.ContentCategory category,
+        ContentCategory category,
         uint256 payPerViewPrice,
         uint256 timestamp
     );
@@ -135,7 +136,10 @@ abstract contract TestSetup is Test, TestConstants {
 
         // Step 1: Deploy PriceOracle with injected mock quoter
         // FIX: Pass mockQuoter address to constructor instead of using hardcoded constant
-        priceOracle = new PriceOracle(address(mockQuoter));
+        // Use mock addresses for WETH and USDC
+        address mockWETH = address(0x4200000000000000000000000000000000000006);
+        address mockUSDCAddr = address(mockUSDC);
+        priceOracle = new PriceOracle(address(mockQuoter), mockWETH, mockUSDCAddr);
         console.log("- PriceOracle deployed at:", address(priceOracle));
 
         // Step 2: Deploy CreatorRegistry (no external dependencies)
@@ -163,11 +167,12 @@ abstract contract TestSetup is Test, TestConstants {
 
         // Step 6: Deploy CommerceProtocolIntegration (most complex dependencies)
         commerceIntegration = new CommerceProtocolIntegration(
-            address(mockCommerceProtocol), // Use mock instead of mainnet
+            address(mockCommerceProtocol),
             address(creatorRegistry),
             address(contentRegistry),
             address(priceOracle),
             address(mockUSDC),
+            feeRecipient,
             operatorSigner
         );
         console.log("- CommerceIntegration deployed at:", address(commerceIntegration));
@@ -328,7 +333,7 @@ abstract contract TestSetup is Test, TestConstants {
             "ipfs://test-content", // default IPFS hash
             title,
             "Test content description", // description
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             price,
             new string[](0) // empty tags array
         );
@@ -369,5 +374,33 @@ abstract contract TestSetup is Test, TestConstants {
      */
     function stringEqual(string memory a, string memory b) internal pure returns (bool) {
         return keccak256(bytes(a)) == keccak256(bytes(b));
+    }
+
+    /**
+     * @dev Helper to create properly typed payment requests
+     * @notice This prevents enum conversion errors in tests
+     */
+    function createPaymentRequest(
+        PaymentType paymentType,
+        address creator,
+        uint256 contentId
+    ) internal pure returns (bytes memory) {
+        // Encode with proper typing
+        return abi.encode(uint8(paymentType), creator, contentId);
+    }
+
+    /**
+     * @dev Safely decode payment data from external calls
+     */
+    function decodePaymentData(bytes memory data)
+        internal
+        pure
+        returns (PaymentType paymentType, address creator, uint256 contentId)
+    {
+        uint8 rawType;
+        (rawType, creator, contentId) = abi.decode(data, (uint8, address, uint256));
+        // Validate and convert
+        require(rawType <= uint8(PaymentType.Donation), "Invalid payment type");
+        paymentType = PaymentType(rawType);
     }
 }

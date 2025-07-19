@@ -33,7 +33,7 @@ contract CommerceProtocolFlowTest is TestSetup {
         address paymentToken;
         uint256 tokenAmount;
         uint256 usdcEquivalent;
-        CommerceProtocolIntegration.PaymentType paymentType;
+        PaymentType paymentType;
         uint256 contentId;
     }
 
@@ -98,7 +98,7 @@ contract CommerceProtocolFlowTest is TestSetup {
             paymentToken: address(testToken),
             tokenAmount: 1e18, // 1 TEST token = $2, content costs $2
             usdcEquivalent: 2e6,
-            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            paymentType: PaymentType.PayPerView,
             contentId: testContentId
         });
 
@@ -138,7 +138,7 @@ contract CommerceProtocolFlowTest is TestSetup {
             paymentToken: address(altToken),
             tokenAmount: 20e6, // 20 ALT tokens = $10
             usdcEquivalent: 10e6,
-            paymentType: CommerceProtocolIntegration.PaymentType.Subscription,
+            paymentType: PaymentType.Subscription,
             contentId: 0
         });
 
@@ -178,7 +178,7 @@ contract CommerceProtocolFlowTest is TestSetup {
             paymentToken: address(testToken),
             tokenAmount: 1e18,
             usdcEquivalent: 2e6,
-            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            paymentType: PaymentType.PayPerView,
             contentId: testContentId
         });
 
@@ -205,7 +205,7 @@ contract CommerceProtocolFlowTest is TestSetup {
             paymentToken: address(testToken),
             tokenAmount: 1e18,
             usdcEquivalent: 2e6,
-            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            paymentType: PaymentType.PayPerView,
             contentId: testContentId
         });
 
@@ -262,7 +262,7 @@ contract CommerceProtocolFlowTest is TestSetup {
             paymentToken: address(testToken),
             tokenAmount: 1e18,
             usdcEquivalent: 2e6,
-            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            paymentType: PaymentType.PayPerView,
             contentId: testContentId
         });
 
@@ -303,7 +303,7 @@ contract CommerceProtocolFlowTest is TestSetup {
             paymentToken: address(testToken),
             tokenAmount: 5e18, // 5 TEST = $10 for subscription
             usdcEquivalent: 10e6,
-            paymentType: CommerceProtocolIntegration.PaymentType.Subscription,
+            paymentType: PaymentType.Subscription,
             contentId: 0
         });
 
@@ -345,7 +345,7 @@ contract CommerceProtocolFlowTest is TestSetup {
             paymentToken: address(testToken),
             tokenAmount: 1e18,
             usdcEquivalent: 2e6,
-            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            paymentType: PaymentType.PayPerView,
             contentId: testContentId
         });
 
@@ -390,7 +390,7 @@ contract CommerceProtocolFlowTest is TestSetup {
             paymentToken: address(testToken),
             tokenAmount: 1e18,
             usdcEquivalent: 2e6,
-            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            paymentType: PaymentType.PayPerView,
             contentId: testContentId
         });
 
@@ -400,7 +400,7 @@ contract CommerceProtocolFlowTest is TestSetup {
             paymentToken: address(altToken),
             tokenAmount: 20e6,
             usdcEquivalent: 10e6,
-            paymentType: CommerceProtocolIntegration.PaymentType.Subscription,
+            paymentType: PaymentType.Subscription,
             contentId: 0
         });
 
@@ -455,7 +455,7 @@ contract CommerceProtocolFlowTest is TestSetup {
             paymentToken: address(testToken),
             tokenAmount: 1e18,
             usdcEquivalent: 2e6,
-            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            paymentType: PaymentType.PayPerView,
             contentId: testContentId
         });
 

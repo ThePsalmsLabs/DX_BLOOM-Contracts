@@ -16,6 +16,7 @@ import {SubscriptionManager} from "./SubscriptionManager.sol";
 import {PriceOracle} from "./PriceOracle.sol";
 import {ICommercePaymentsProtocol} from "./interfaces/IPlatformInterfaces.sol";
 import {IntentIdManager} from "./IntentIdManager.sol";
+import {ISharedTypes} from "./interfaces/ISharedTypes.sol";
 
 /**
  * @title CommerceProtocolIntegration
@@ -23,7 +24,7 @@ import {IntentIdManager} from "./IntentIdManager.sol";
  * @notice This contract acts as an operator in the Commerce Protocol to facilitate
  *         content purchases and subscriptions with advanced payment options
  */
-contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard, Pausable, EIP712 {
+contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard, Pausable, EIP712, ISharedTypes {
     using ECDSA for bytes32;
     using SafeERC20 for IERC20;
     using IntentIdManager for *;
@@ -46,7 +47,6 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
     IERC20 public immutable usdcToken;
 
     // Protocol configuration
-    address public constant USDC_TOKEN = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913; // Base USDC
     address public operatorFeeDestination; // Where our operator fees go
     uint256 public operatorFeeRate = 50; // 0.5% operator fee in basis points
 
@@ -122,12 +122,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
     /**
      * @dev Types of payments our platform supports
      */
-    enum PaymentType {
-        ContentPurchase, // One-time content purchase
-        Subscription, // Monthly creator subscription
-        SubscriptionRenewal // Auto-renewal of existing subscription
-
-    }
+    // All usages of PaymentType remain the same, as the type is now inherited from ISharedTypes.
 
     /**
      * @dev Structure for creating payment intents on our platform
@@ -249,6 +244,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         address _creatorRegistry,
         address _contentRegistry,
         address _priceOracle,
+        address _usdcToken,
         address _operatorFeeDestination,
         address _operatorSigner
     ) Ownable(msg.sender) EIP712("ContentPlatformOperator", "1") {
@@ -256,6 +252,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         require(_creatorRegistry != address(0), "Invalid creator registry");
         require(_contentRegistry != address(0), "Invalid content registry");
         require(_priceOracle != address(0), "Invalid price oracle");
+        require(_usdcToken != address(0), "Invalid USDC token");
         require(_operatorFeeDestination != address(0), "Invalid fee destination");
         require(_operatorSigner != address(0), "Invalid operator signer");
 
@@ -263,9 +260,9 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         creatorRegistry = CreatorRegistry(_creatorRegistry);
         contentRegistry = ContentRegistry(_contentRegistry);
         priceOracle = PriceOracle(_priceOracle);
+        usdcToken = IERC20(_usdcToken);
         operatorFeeDestination = _operatorFeeDestination;
         operatorSigner = _operatorSigner;
-        usdcToken = IERC20(USDC_TOKEN);
 
         // Set up roles
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -422,11 +419,11 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         if (uint8(context.paymentType) > 2) revert InvalidPaymentType();
         refund.processed = true;
 
-        if (context.paymentType == PaymentType.ContentPurchase && address(payPerView) != address(0)) {
+        if (context.paymentType == PaymentType.PayPerView && address(payPerView) != address(0)) {
             try payPerView.handleExternalRefund(intentId, refund.user, context.contentId) {} catch {}
         } else if (
-            (context.paymentType == PaymentType.Subscription || context.paymentType == PaymentType.SubscriptionRenewal)
-                && address(subscriptionManager) != address(0)
+            (context.paymentType == PaymentType.Subscription)
+            && address(subscriptionManager) != address(0)
         ) {
             try subscriptionManager.handleExternalRefund(intentId, refund.user, context.creator) {} catch {}
         }
@@ -463,7 +460,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
             recipientAmount: context.creatorAmount,
             deadline: intentDeadlines[intentId],
             recipient: payable(context.creator),
-            recipientCurrency: USDC_TOKEN,
+            recipientCurrency: address(usdcToken), // Use the configured USDC token
             refundDestination: context.user,
             feeAmount: context.platformFee + context.operatorFee,
             id: intentId,
@@ -631,7 +628,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
             recipientAmount: amounts.adjustedCreatorAmount,
             deadline: request.deadline,
             recipient: payable(request.creator),
-            recipientCurrency: USDC_TOKEN,
+            recipientCurrency: address(usdcToken), // Use the configured USDC token
             refundDestination: msg.sender,
             feeAmount: amounts.platformFee + amounts.operatorFee,
             id: intentId,
@@ -768,10 +765,10 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         uint256 amountPaid
     ) internal {
         // Grant access based on payment type
-        if (context.paymentType == PaymentType.ContentPurchase) {
+        if (context.paymentType == PaymentType.PayPerView) {
             _grantContentAccess(context.user, context.contentId, intentId, paymentToken, amountPaid);
         } else if (
-            context.paymentType == PaymentType.Subscription || context.paymentType == PaymentType.SubscriptionRenewal
+            context.paymentType == PaymentType.Subscription
         ) {
             _grantSubscriptionAccess(context.user, context.creator, intentId, paymentToken, amountPaid);
         }
@@ -791,7 +788,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         try creatorRegistry.updateCreatorStats(
             context.creator,
             context.creatorAmount,
-            context.paymentType == PaymentType.ContentPurchase ? int256(1) : int256(0),
+            context.paymentType == PaymentType.PayPerView ? int256(1) : int256(0),
             context.paymentType == PaymentType.Subscription ? int256(1) : int256(0)
         ) {
             // Stats updated successfully
@@ -833,7 +830,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         if (!creatorRegistry.isRegisteredCreator(request.creator)) revert InvalidCreator();
 
         // Validate content exists for content purchases
-        if (request.paymentType == PaymentType.ContentPurchase) {
+        if (request.paymentType == PaymentType.PayPerView) {
             if (request.contentId == 0) revert InvalidPaymentRequest();
 
             ContentRegistry.Content memory content = contentRegistry.getContent(request.contentId);
@@ -844,7 +841,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         if (request.deadline <= block.timestamp) revert DeadlineExpired();
 
         // Validate payment token
-        if (request.paymentToken == address(0) && request.paymentType != PaymentType.ContentPurchase) {
+        if (request.paymentToken == address(0) && request.paymentType != PaymentType.PayPerView) {
             revert InvalidPaymentRequest(); // ETH payments only for content purchases
         }
     }
@@ -857,7 +854,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         view
         returns (uint256 totalAmount, uint256 creatorAmount, uint256 platformFee)
     {
-        if (request.paymentType == PaymentType.ContentPurchase) {
+        if (request.paymentType == PaymentType.PayPerView) {
             // Get content price
             ContentRegistry.Content memory content = contentRegistry.getContent(request.contentId);
             totalAmount = content.payPerViewPrice;
@@ -880,7 +877,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         internal
         returns (uint256)
     {
-        if (paymentToken == USDC_TOKEN) {
+        if (paymentToken == address(usdcToken)) {
             return usdcAmount;
         } else if (paymentToken == address(0)) {
             // ETH
@@ -904,12 +901,10 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
     {
         uint256 nonce = ++userNonces[user];
         IntentIdManager.IntentType intentType;
-        if (request.paymentType == PaymentType.ContentPurchase) {
+        if (request.paymentType == PaymentType.PayPerView) {
             intentType = IntentIdManager.IntentType.CONTENT_PURCHASE;
         } else if (request.paymentType == PaymentType.Subscription) {
             intentType = IntentIdManager.IntentType.SUBSCRIPTION;
-        } else if (request.paymentType == PaymentType.SubscriptionRenewal) {
-            intentType = IntentIdManager.IntentType.SUBSCRIPTION_RENEWAL;
         }
         return
             IntentIdManager.generateIntentId(user, request.creator, request.contentId, intentType, nonce, address(this));

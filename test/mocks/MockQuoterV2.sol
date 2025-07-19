@@ -176,27 +176,33 @@ contract MockQuoterV2 is IQuoterV2 {
      * @return amountOut The calculated output amount
      * @notice This handles the decimal differences between different tokens
      */
-    function _calculateOutputAmount(address tokenIn, address tokenOut, uint256 amountIn, uint256 price)
-        internal
-        pure
-        returns (uint256 amountOut)
-    {
-        // Get token decimals (simplified for testing)
-        uint8 tokenInDecimals = _getTokenDecimals(tokenIn);
-        uint8 tokenOutDecimals = _getTokenDecimals(tokenOut);
-
-        // Calculate output amount considering decimal differences
-        // Formula: amountOut = (amountIn * price) / (10^tokenInDecimals) * (10^tokenOutDecimals) / (10^18)
-        // Simplified: amountOut = (amountIn * price) * (10^tokenOutDecimals) / (10^tokenInDecimals) / (10^18)
-
-        if (tokenInDecimals >= tokenOutDecimals) {
-            uint256 decimalDiff = tokenInDecimals - tokenOutDecimals;
-            amountOut = (amountIn * price) / (10 ** (18 + decimalDiff));
+    function _calculateOutputAmount(
+        address tokenIn,
+        address tokenOut, 
+        uint256 amountIn,
+        uint256 price
+    ) internal pure returns (uint256 amountOut) {
+        // Handle decimal differences between tokens
+        uint8 decimalsIn = _getTokenDecimals(tokenIn);
+        uint8 decimalsOut = _getTokenDecimals(tokenOut);
+        // Price is stored as output tokens per 1 unit of input token
+        // Need to adjust for decimal differences
+        if (decimalsIn > decimalsOut) {
+            // Input has more decimals (e.g., WETH 18 -> USDC 6)
+            uint256 decimalDiff = 10 ** (decimalsIn - decimalsOut);
+            amountOut = (amountIn * price) / decimalDiff / 1e18;
+        } else if (decimalsOut > decimalsIn) {
+            // Output has more decimals (e.g., USDC 6 -> WETH 18)
+            uint256 decimalDiff = 10 ** (decimalsOut - decimalsIn);
+            amountOut = (amountIn * price * decimalDiff) / 1e18;
         } else {
-            uint256 decimalDiff = tokenOutDecimals - tokenInDecimals;
-            amountOut = (amountIn * price * (10 ** decimalDiff)) / (10 ** 18);
+            // Same decimals
+            amountOut = (amountIn * price) / 1e18;
         }
-
+        // Ensure we never return 0 for non-zero input (prevents division by zero downstream)
+        if (amountIn > 0 && amountOut == 0) {
+            amountOut = 1; // Minimum output to prevent downstream issues
+        }
         return amountOut;
     }
 
@@ -206,10 +212,13 @@ contract MockQuoterV2 is IQuoterV2 {
      * @return decimals The number of decimals
      */
     function _getTokenDecimals(address token) internal pure returns (uint8 decimals) {
-        if (token == address(0)) return 18; // ETH
-        if (token == WETH) return 18; // WETH
-        if (token == USDC) return 6; // USDC
-        return 18; // Default for other tokens
+        if (token == USDC) {
+            return 6; // USDC has 6 decimals
+        } else if (token == WETH || token == address(0)) {
+            return 18; // WETH and ETH have 18 decimals
+        } else {
+            return 18; // Default to 18 for unknown tokens
+        }
     }
 
     /**

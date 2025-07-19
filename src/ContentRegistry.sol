@@ -6,13 +6,14 @@ import "lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
 import "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {CreatorRegistry} from "./CreatorRegistry.sol";
+import {ISharedTypes} from "./interfaces/ISharedTypes.sol";
 
 /**
  * @title ContentRegistry
  * @dev Manages content metadata, IPFS storage, and pay-per-view pricing with enhanced moderation
  * @notice This contract stores content information and integrates with IPFS for decentralized storage
  */
-contract ContentRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
+contract ContentRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable, ISharedTypes {
     // Role definitions
     bytes32 public constant PURCHASE_RECORDER_ROLE = keccak256("PURCHASE_RECORDER_ROLE");
     bytes32 public constant MODERATOR_ROLE = keccak256("MODERATOR_ROLE");
@@ -26,20 +27,6 @@ contract ContentRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable {
 
     // Content ID tracking
     uint256 public nextContentId = 1; // Start from 1 to avoid confusion with default values
-
-    /**
-     * @dev Content categories for better organization and filtering
-     */
-    enum ContentCategory {
-        Article, // Written content like blog posts, guides
-        Video, // Video content and tutorials
-        Audio, // Podcasts, music, audio content
-        Image, // Photography, digital art
-        Document, // PDFs, presentations, documents
-        Course, // Educational course materials
-        Other // Miscellaneous content types
-
-    }
 
     /**
      * @dev Content structure containing all metadata and pricing information

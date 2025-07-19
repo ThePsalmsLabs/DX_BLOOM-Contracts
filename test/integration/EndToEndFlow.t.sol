@@ -105,7 +105,7 @@ contract EndToEndFlowTest is TestSetup {
             "QmNewContentHash123",
             title,
             "Learn the basics in this comprehensive guide",
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             price,
             tags
         );
@@ -133,7 +133,7 @@ contract EndToEndFlowTest is TestSetup {
         returns (PaymentIntentData memory intentData)
     {
         CommerceProtocolIntegration.PlatformPaymentRequest memory request;
-        request.paymentType = CommerceProtocolIntegration.PaymentType.Subscription;
+        request.paymentType = PaymentType.Subscription;
         request.creator = creator;
         request.contentId = 0;
         request.paymentToken = paymentToken;
@@ -150,7 +150,7 @@ contract EndToEndFlowTest is TestSetup {
         returns (PaymentIntentData memory intentData)
     {
         CommerceProtocolIntegration.PlatformPaymentRequest memory request;
-        request.paymentType = CommerceProtocolIntegration.PaymentType.ContentPurchase;
+        request.paymentType = PaymentType.PayPerView;
         request.creator = creator;
         request.contentId = contentId;
         request.paymentToken = paymentToken;
@@ -183,7 +183,7 @@ contract EndToEndFlowTest is TestSetup {
 
     function _verifyPaymentIntentSuccess(
         PaymentIntentData memory intentData,
-        CommerceProtocolIntegration.PaymentType expectedType
+        PaymentType expectedType
     ) private view {
         assertTrue(intentData.context.paymentType == expectedType);
         assertEq(intentData.context.creator, intentData.context.creator);
@@ -363,7 +363,7 @@ contract EndToEndFlowTest is TestSetup {
 
         // Phase 1: Create payment intent
         PaymentIntentData memory intentData = _createSubscriptionPaymentIntent(user2, creator2, customToken);
-        _verifyPaymentIntentSuccess(intentData, CommerceProtocolIntegration.PaymentType.Subscription);
+        _verifyPaymentIntentSuccess(intentData, PaymentType.Subscription);
 
         // Phase 2: Process payment
         _executePaymentIntent(intentData.intentId, user2, customToken, 10e18, 10e6);

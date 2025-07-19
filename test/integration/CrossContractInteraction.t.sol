@@ -273,7 +273,7 @@ contract CrossContractInteractionTest is TestSetup {
         approveUSDC(user1, address(commerceIntegration), 1e6);
 
         CommerceProtocolIntegration.PlatformPaymentRequest memory request;
-        request.paymentType = CommerceProtocolIntegration.PaymentType.ContentPurchase;
+        request.paymentType = PaymentType.PayPerView;
         request.creator = creator1;
         request.contentId = testContentId1;
         request.paymentToken = address(mockUSDC);

@@ -50,7 +50,7 @@ contract ContentRegistryTest is TestSetup {
         string memory ipfsHash = SAMPLE_IPFS_HASH;
         string memory title = SAMPLE_CONTENT_TITLE;
         string memory description = SAMPLE_CONTENT_DESCRIPTION;
-        ContentRegistry.ContentCategory category = ContentRegistry.ContentCategory.Article;
+        ContentCategory category = ContentCategory.Article;
         uint256 price = DEFAULT_CONTENT_PRICE;
         string[] memory tags = createSampleTags();
 
@@ -123,7 +123,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH,
             SAMPLE_CONTENT_TITLE,
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             DEFAULT_CONTENT_PRICE,
             createSampleTags()
         );
@@ -149,7 +149,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH,
             SAMPLE_CONTENT_TITLE,
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             invalidPrice,
             createSampleTags()
         );
@@ -171,7 +171,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH,
             SAMPLE_CONTENT_TITLE,
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             invalidPrice,
             createSampleTags()
         );
@@ -193,7 +193,7 @@ contract ContentRegistryTest is TestSetup {
             invalidHash,
             SAMPLE_CONTENT_TITLE,
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             DEFAULT_CONTENT_PRICE,
             createSampleTags()
         );
@@ -215,7 +215,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH,
             emptyTitle,
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             DEFAULT_CONTENT_PRICE,
             createSampleTags()
         );
@@ -240,7 +240,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH,
             SAMPLE_CONTENT_TITLE,
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             DEFAULT_CONTENT_PRICE,
             tooManyTags
         );
@@ -253,14 +253,12 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_RegisterContent_DifferentCategories() public {
         // Arrange: Test each category type
-        ContentRegistry.ContentCategory[] memory categories = new ContentRegistry.ContentCategory[](7);
-        categories[0] = ContentRegistry.ContentCategory.Article;
-        categories[1] = ContentRegistry.ContentCategory.Video;
-        categories[2] = ContentRegistry.ContentCategory.Audio;
-        categories[3] = ContentRegistry.ContentCategory.Image;
-        categories[4] = ContentRegistry.ContentCategory.Document;
-        categories[5] = ContentRegistry.ContentCategory.Course;
-        categories[6] = ContentRegistry.ContentCategory.Other;
+        ContentCategory[] memory categories = new ContentCategory[](5);
+        categories[0] = ContentCategory.Article;
+        categories[1] = ContentCategory.Video;
+        categories[2] = ContentCategory.Course;
+        categories[3] = ContentCategory.Music;
+        categories[4] = ContentCategory.Podcast;
 
         vm.startPrank(creator1);
 
@@ -289,7 +287,7 @@ contract ContentRegistryTest is TestSetup {
 
         // Verify total content count
         (uint256 totalContent,,,) = contentRegistry.getPlatformStats();
-        assertEq(totalContent, 7);
+        assertEq(totalContent, 5);
     }
 
     // ============ CONTENT UPDATE TESTS ============
@@ -653,7 +651,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH,
             "Article Title",
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             DEFAULT_CONTENT_PRICE,
             createSampleTags()
         );
@@ -662,7 +660,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH_2,
             "Video Title",
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Video,
+            ContentCategory.Video,
             DEFAULT_CONTENT_PRICE * 2,
             createSampleTags()
         );
@@ -670,8 +668,8 @@ contract ContentRegistryTest is TestSetup {
         vm.stopPrank();
 
         // Act: Get content by category
-        uint256[] memory articles = contentRegistry.getContentByCategory(ContentRegistry.ContentCategory.Article);
-        uint256[] memory videos = contentRegistry.getContentByCategory(ContentRegistry.ContentCategory.Video);
+        uint256[] memory articles = contentRegistry.getContentByCategory(ContentCategory.Article);
+        uint256[] memory videos = contentRegistry.getContentByCategory(ContentCategory.Video);
 
         // Assert: Verify the correct content is returned
         assertEq(articles.length, 1);
@@ -701,7 +699,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH,
             "Blockchain Tutorial",
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             DEFAULT_CONTENT_PRICE,
             tags1
         );
@@ -710,7 +708,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH_2,
             "Advanced Blockchain",
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             DEFAULT_CONTENT_PRICE * 2,
             tags2
         );
@@ -786,7 +784,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH,
             "This is spam content",
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             DEFAULT_CONTENT_PRICE,
             createSampleTags()
         );
@@ -818,7 +816,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH,
             SAMPLE_CONTENT_TITLE,
             "This will help you get rich quick with crypto",
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             DEFAULT_CONTENT_PRICE,
             createSampleTags()
         );
@@ -840,7 +838,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH,
             "Article",
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             DEFAULT_CONTENT_PRICE,
             createSampleTags()
         );
@@ -849,7 +847,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH_2,
             "Video",
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Video,
+            ContentCategory.Video,
             DEFAULT_CONTENT_PRICE * 2,
             createSampleTags()
         );
@@ -901,7 +899,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH_2,
             "New Content",
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             DEFAULT_CONTENT_PRICE,
             createSampleTags()
         );
@@ -941,7 +939,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH,
             "Min Price Content",
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             MIN_CONTENT_PRICE,
             createSampleTags()
         );
@@ -951,7 +949,7 @@ contract ContentRegistryTest is TestSetup {
             SAMPLE_IPFS_HASH_2,
             "Max Price Content",
             SAMPLE_CONTENT_DESCRIPTION,
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             MAX_CONTENT_PRICE,
             createSampleTags()
         );

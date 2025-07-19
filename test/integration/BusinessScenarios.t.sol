@@ -512,7 +512,7 @@ contract BusinessScenariosTest is TestSetup {
             string(abi.encodePacked("QmHash", _toString(uint256(uint160(creator))))),
             title,
             "Business scenario test content",
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             price,
             tags
         );

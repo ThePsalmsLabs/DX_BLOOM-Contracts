@@ -32,7 +32,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
         address paymentToken; // What token they're paying with
         uint256 paymentAmount; // How much of that token
         uint256 expectedUsdcAmount; // Expected USDC equivalent
-        CommerceProtocolIntegration.PaymentType paymentType; // Content vs subscription
+        PaymentType paymentType; // Content vs subscription
         uint256 contentId; // If buying content
         uint256 maxSlippage; // Slippage tolerance
         uint256 deadline; // Payment deadline
@@ -242,7 +242,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
             paymentToken: address(mockUSDC),
             paymentAmount: contentPrice,
             expectedUsdcAmount: contentPrice,
-            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            paymentType: PaymentType.PayPerView,
             contentId: testContentId,
             maxSlippage: 100, // 1%
             deadline: block.timestamp + 1 hours,
@@ -282,7 +282,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
             paymentToken: address(volatileToken),
             paymentAmount: 6e18, // 6 VOL tokens = $3 USDC
             expectedUsdcAmount: 3e6,
-            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            paymentType: PaymentType.PayPerView,
             contentId: testContentId,
             maxSlippage: 200, // 2%
             deadline: block.timestamp + 30 minutes,
@@ -498,7 +498,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
             paymentToken: address(volatileToken),
             paymentAmount: 20e18, // 20 VOL tokens
             expectedUsdcAmount: 10e6, // Should equal $10 USDC
-            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            paymentType: PaymentType.PayPerView,
             contentId: testContentId,
             maxSlippage: 300, // 3%
             deadline: block.timestamp + 45 minutes,
@@ -546,7 +546,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
         // (This would exploit reentrancy if not properly protected)
 
         CommerceProtocolIntegration.PlatformPaymentRequest memory attackRequest;
-        attackRequest.paymentType = CommerceProtocolIntegration.PaymentType.ContentPurchase;
+        attackRequest.paymentType = PaymentType.PayPerView;
         attackRequest.creator = creator1;
         attackRequest.contentId = testContentId;
         attackRequest.paymentToken = address(attackerToken);
@@ -633,7 +633,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
             paymentToken: address(volatileToken),
             paymentAmount: 10e18,
             expectedUsdcAmount: 5e6,
-            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            paymentType: PaymentType.PayPerView,
             contentId: testContentId,
             maxSlippage: 500, // 5% - makes front-running more attractive
             deadline: block.timestamp + 1 hours,
@@ -765,8 +765,8 @@ contract CommerceProtocolIntegrationTest is TestSetup {
                 paymentAmount: (i + 1) * 1e6, // $1, $2, $3, etc.
                 expectedUsdcAmount: (i + 1) * 1e6,
                 paymentType: i % 3 == 0
-                    ? CommerceProtocolIntegration.PaymentType.Subscription
-                    : CommerceProtocolIntegration.PaymentType.ContentPurchase,
+                    ? PaymentType.Subscription
+                    : PaymentType.PayPerView,
                 contentId: testContentId,
                 maxSlippage: 100,
                 deadline: block.timestamp + 2 hours,
@@ -832,7 +832,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
         // Create a payment request
         CommerceProtocolIntegration.PlatformPaymentRequest memory request = CommerceProtocolIntegration
             .PlatformPaymentRequest({
-            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            paymentType: PaymentType.PayPerView,
             contentId: testContentId,
             creator: creator1,
             paymentToken: address(mockUSDC),
@@ -883,7 +883,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
             paymentToken: address(mockUSDC),
             paymentAmount: 3e6, // $3 for content
             expectedUsdcAmount: 3e6,
-            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            paymentType: PaymentType.PayPerView,
             contentId: testContentId,
             maxSlippage: 100, // 1%
             deadline: block.timestamp + 1 hours,
@@ -969,7 +969,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
         snapshot.userUsdcBalance = mockUSDC.balanceOf(scenario.user);
         snapshot.creatorUsdcBalance = mockUSDC.balanceOf(scenario.creator);
 
-        if (scenario.paymentType == CommerceProtocolIntegration.PaymentType.ContentPurchase) {
+        if (scenario.paymentType == PaymentType.PayPerView) {
             (snapshot.creatorEarningsInContract,) = payPerView.getCreatorEarnings(scenario.creator);
         } else {
             (snapshot.creatorEarningsInContract,) = subscriptionManager.getCreatorSubscriptionEarnings(scenario.creator);
@@ -1026,7 +1026,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
             "QmTestHash123456789",
             title,
             "Test description",
-            ContentRegistry.ContentCategory.Article,
+            ContentCategory.Article,
             price,
             new string[](0)
         ) returns (uint256 id) {
