@@ -60,7 +60,7 @@ contract EndToEndFlowTest is TestSetup {
 
     // ============ PRIVATE SETUP HELPERS ============
 
-    function _setupMockPrices() private {
+    function _setupMockPrices() internal override {
         mockQuoter.setMockPrice(priceOracle.WETH(), priceOracle.USDC(), 3000, 2000e6);
         mockQuoter.setMockPrice(priceOracle.USDC(), priceOracle.WETH(), 3000, 0.0005e18);
     }

@@ -10,7 +10,7 @@ import {SubscriptionManager} from "../../src/SubscriptionManager.sol";
 import {PayPerView} from "../../src/PayPerView.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {ECDSA} from "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
- import "forge-std/console.sol";
+import "forge-std/console.sol";
 
 /**
  * @title CommerceProtocolIntegrationTest - FIXED VERSION
@@ -102,7 +102,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
 
     /**
      * @dev FIXED: Enhanced setUp with proper permission management
-     * @notice The key insight here is that access control is like a chain - 
+     * @notice The key insight here is that access control is like a chain -
      *         if any link is missing, the whole chain breaks
      */
     function setUp() public override {
@@ -164,24 +164,18 @@ contract CommerceProtocolIntegrationTest is TestSetup {
         // These are like double-checking that other security badges are properly assigned
 
         // Verify PayPerView has platform role
-        bool payPerViewHasPlatformRole = creatorRegistry.hasRole(
-            creatorRegistry.PLATFORM_CONTRACT_ROLE(), 
-            address(payPerView)
-        );
+        bool payPerViewHasPlatformRole =
+            creatorRegistry.hasRole(creatorRegistry.PLATFORM_CONTRACT_ROLE(), address(payPerView));
         require(payPerViewHasPlatformRole, "PayPerView missing platform role");
 
-        // Verify SubscriptionManager has platform role  
-        bool subscriptionMgrHasPlatformRole = creatorRegistry.hasRole(
-            creatorRegistry.PLATFORM_CONTRACT_ROLE(), 
-            address(subscriptionManager)
-        );
+        // Verify SubscriptionManager has platform role
+        bool subscriptionMgrHasPlatformRole =
+            creatorRegistry.hasRole(creatorRegistry.PLATFORM_CONTRACT_ROLE(), address(subscriptionManager));
         require(subscriptionMgrHasPlatformRole, "SubscriptionManager missing platform role");
 
         // Verify CommerceIntegration has platform role
-        bool commerceIntegrationHasPlatformRole = creatorRegistry.hasRole(
-            creatorRegistry.PLATFORM_CONTRACT_ROLE(), 
-            address(commerceIntegration)
-        );
+        bool commerceIntegrationHasPlatformRole =
+            creatorRegistry.hasRole(creatorRegistry.PLATFORM_CONTRACT_ROLE(), address(commerceIntegration));
         require(commerceIntegrationHasPlatformRole, "CommerceIntegration missing platform role");
 
         console.log(" All platform roles verified");
@@ -204,10 +198,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
 
         // FIX: The test was trying to grant SIGNER_ROLE manually, but updateOperatorSigner already does this
         // We can verify the role was granted properly
-        bool signerHasRole = commerceIntegration.hasRole(
-            commerceIntegration.SIGNER_ROLE(), 
-            realOperatorSigner
-        );
+        bool signerHasRole = commerceIntegration.hasRole(commerceIntegration.SIGNER_ROLE(), realOperatorSigner);
         require(signerHasRole, "Operator signer missing SIGNER_ROLE");
 
         console.log(" Cryptographic infrastructure configured");
@@ -824,10 +815,10 @@ contract CommerceProtocolIntegrationTest is TestSetup {
     function test_ContentRegistration_Success() public {
         // This test should now pass because ContentRegistry can update CreatorRegistry stats
         uint256 contentId = _registerContentHelper(creator1, 5e6, "Test Content");
-        
+
         // Verify content was registered
         assertGt(contentId, 0);
-        
+
         // Verify creator stats were updated (this was failing before the fix)
         CreatorRegistry.Creator memory creator = creatorRegistry.getCreatorProfile(creator1);
         assertEq(creator.contentCount, 3); // 2 from setup + 1 from this test
@@ -839,20 +830,19 @@ contract CommerceProtocolIntegrationTest is TestSetup {
      */
     function test_PaymentIntentCreation_Success() public {
         // Create a payment request
-        CommerceProtocolIntegration.PlatformPaymentRequest memory request = 
-            CommerceProtocolIntegration.PlatformPaymentRequest({
-                paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
-                contentId: testContentId,
-                creator: creator1,
-                paymentToken: address(mockUSDC),
-                maxSlippage: 100,
-                deadline: block.timestamp + 3600
-            });
+        CommerceProtocolIntegration.PlatformPaymentRequest memory request = CommerceProtocolIntegration
+            .PlatformPaymentRequest({
+            paymentType: CommerceProtocolIntegration.PaymentType.ContentPurchase,
+            contentId: testContentId,
+            creator: creator1,
+            paymentToken: address(mockUSDC),
+            maxSlippage: 100,
+            deadline: block.timestamp + 3600
+        });
 
         // This should now work because our signer is properly configured
         vm.prank(user1);
-        (ICommercePaymentsProtocol.TransferIntent memory intent, ) = 
-            commerceIntegration.createPaymentIntent(request);
+        (ICommercePaymentsProtocol.TransferIntent memory intent,) = commerceIntegration.createPaymentIntent(request);
 
         // Verify intent was created
         assertGt(intent.recipientAmount, 0);
@@ -1002,7 +992,11 @@ contract CommerceProtocolIntegrationTest is TestSetup {
     /**
      * @dev Enhanced registerCreator helper with better error messages
      */
-    function _registerCreatorHelper(address creator, uint256 price, string memory profile) internal returns (bool) {
+    function _registerCreatorHelper(address creator, uint256 price, string memory profile)
+        internal
+        override
+        returns (bool)
+    {
         vm.startPrank(creator);
         bool result;
         try creatorRegistry.registerCreator(price, profile) {
@@ -1021,7 +1015,11 @@ contract CommerceProtocolIntegrationTest is TestSetup {
     /**
      * @dev Enhanced registerContent helper with better error handling
      */
-    function _registerContentHelper(address creator, uint256 price, string memory title) internal returns (uint256) {
+    function _registerContentHelper(address creator, uint256 price, string memory title)
+        internal
+        override
+        returns (uint256)
+    {
         vm.startPrank(creator);
         uint256 contentId;
         try contentRegistry.registerContent(

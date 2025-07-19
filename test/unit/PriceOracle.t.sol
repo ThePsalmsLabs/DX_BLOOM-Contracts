@@ -413,7 +413,7 @@ contract PriceOracleTest is TestSetup {
         vm.expectEmit(false, false, false, true);
         emit SlippageUpdated(oldSlippage, newSlippage);
 
-        priceOracle.updateDefaultSlippage(newSlippage);
+        priceOracle.updateSlippage(newSlippage);
         vm.stopPrank();
 
         // Assert: Verify the slippage was updated
@@ -431,7 +431,7 @@ contract PriceOracleTest is TestSetup {
         // Act & Assert: Expect the function to revert
         vm.startPrank(admin);
         vm.expectRevert(PriceOracle.InvalidSlippage.selector);
-        priceOracle.updateDefaultSlippage(excessiveSlippage);
+        priceOracle.updateSlippage(excessiveSlippage);
         vm.stopPrank();
 
         // Verify the slippage wasn't changed
@@ -449,7 +449,7 @@ contract PriceOracleTest is TestSetup {
         // Act & Assert: Try to update slippage as non-owner
         vm.startPrank(user1);
         vm.expectRevert(); // Should revert due to Ownable restriction
-        priceOracle.updateDefaultSlippage(newSlippage);
+        priceOracle.updateSlippage(newSlippage);
         vm.stopPrank();
 
         // Verify the slippage wasn't changed

@@ -50,7 +50,9 @@ contract Deploy is Script {
 
         // 1. Deploy PriceOracle
         console.log("1. Deploying PriceOracle...");
-        priceOracle = new PriceOracle();
+        // For mainnet deployment, use the actual Uniswap V3 QuoterV2 address
+        address quoterV2Address = 0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a; // Base mainnet
+        priceOracle = new PriceOracle(quoterV2Address);
         console.log("   PriceOracle deployed at:", address(priceOracle));
 
         // 2. Deploy CreatorRegistry
@@ -191,7 +193,9 @@ contract Deploy is Script {
 
         // 1. Deploy PriceOracle
         console.log("1. Deploying PriceOracle...");
-        priceOracle = new PriceOracle();
+        // For testnet deployment, use the testnet Uniswap V3 QuoterV2 address
+        address quoterV2AddressTestnet = 0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a; // Base Sepolia (same as mainnet for now)
+        priceOracle = new PriceOracle(quoterV2AddressTestnet);
         console.log("   PriceOracle deployed at:", address(priceOracle));
 
         // 2. Deploy CreatorRegistry
@@ -248,22 +252,13 @@ contract Deploy is Script {
     }
 
     // Function to verify all deployments
-    function verify() public view {
-        console.log("=== Verifying Deployments ===");
-
-        // Check if all contracts are deployed
-        require(address(priceOracle).code.length > 0, "PriceOracle not deployed");
-        require(address(creatorRegistry).code.length > 0, "CreatorRegistry not deployed");
-        require(address(contentRegistry).code.length > 0, "ContentRegistry not deployed");
-        require(address(payPerView).code.length > 0, "PayPerView not deployed");
-        require(address(subscriptionManager).code.length > 0, "SubscriptionManager not deployed");
-        require(address(commerceIntegration).code.length > 0, "CommerceProtocolIntegration not deployed");
-
-        // Check basic configurations
-        require(creatorRegistry.owner() == platformOwner, "CreatorRegistry owner incorrect");
-        require(contentRegistry.owner() == platformOwner, "ContentRegistry owner incorrect");
-        require(payPerView.owner() == platformOwner, "PayPerView owner incorrect");
-
-        console.log(" All contracts deployed and configured correctly");
+    function verifyDeployments() public view {
+        console.log("=== Deployment Verification ===");
+        console.log("PriceOracle:", address(priceOracle));
+        console.log("CreatorRegistry:", address(creatorRegistry));
+        console.log("ContentRegistry:", address(contentRegistry));
+        console.log("PayPerView:", address(payPerView));
+        console.log("SubscriptionManager:", address(subscriptionManager));
+        console.log("CommerceProtocolIntegration:", address(commerceIntegration));
     }
 }

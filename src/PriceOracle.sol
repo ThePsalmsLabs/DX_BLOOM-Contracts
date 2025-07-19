@@ -12,7 +12,7 @@ import {IQuoterV2} from "./interfaces/IPlatformInterfaces.sol";
  */
 contract PriceOracle is Ownable {
     // ============ STATE VARIABLES ============
-    
+
     // Configurable Uniswap V3 Quoter contract (FIXED: No longer constant)
     IQuoterV2 public quoterV2;
 
@@ -32,13 +32,13 @@ contract PriceOracle is Ownable {
     mapping(address => mapping(address => uint24)) public customPoolFees;
 
     // ============ EVENTS ============
-    
+
     event SlippageUpdated(uint256 oldSlippage, uint256 newSlippage);
     event CustomPoolFeeSet(address indexed tokenA, address indexed tokenB, uint24 fee);
     event QuoterUpdated(address indexed oldQuoter, address indexed newQuoter);
 
     // ============ ERRORS ============
-    
+
     error InvalidSlippage();
     error InvalidPoolFee();
     error QuoteReverted();
@@ -179,7 +179,7 @@ contract PriceOracle is Ownable {
         returns (uint256[3] memory quotes)
     {
         uint24[3] memory fees = [uint24(500), uint24(3000), uint24(10000)];
-        
+
         for (uint256 i = 0; i < 3; i++) {
             try quoterV2.quoteExactInputSingle(
                 IQuoterV2.QuoteExactInputSingleParams({
@@ -216,10 +216,10 @@ contract PriceOracle is Ownable {
      */
     function setCustomPoolFee(address tokenA, address tokenB, uint24 fee) external onlyOwner {
         if (fee != 500 && fee != 3000 && fee != 10000) revert InvalidPoolFee();
-        
+
         customPoolFees[tokenA][tokenB] = fee;
         customPoolFees[tokenB][tokenA] = fee; // Set both directions
-        
+
         emit CustomPoolFeeSet(tokenA, tokenB, fee);
     }
 
@@ -247,12 +247,12 @@ contract PriceOracle is Ownable {
         if ((tokenA == USDC) || (tokenB == USDC)) {
             return STABLE_POOL_FEE;
         }
-        
+
         // Use default fee for WETH pairs
         if (tokenA == WETH || tokenB == WETH) {
             return DEFAULT_POOL_FEE;
         }
-        
+
         // Use higher fee for exotic pairs
         return HIGH_FEE;
     }
@@ -266,7 +266,7 @@ contract PriceOracle is Ownable {
     function _getTokenAmountViaWETH(address tokenIn, uint256 usdcAmount) internal returns (uint256 tokenAmount) {
         // First get WETH amount needed for USDC
         uint256 wethNeeded = this.getETHPrice(usdcAmount);
-        
+
         // Then get token amount needed for that WETH
         try quoterV2.quoteExactInputSingle(
             IQuoterV2.QuoteExactInputSingleParams({

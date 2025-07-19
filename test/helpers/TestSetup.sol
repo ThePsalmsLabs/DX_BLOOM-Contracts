@@ -22,7 +22,7 @@ import {TestConstants} from "./TestConstants.sol";
  */
 abstract contract TestSetup is Test, TestConstants {
     // ============ CORE CONTRACT INSTANCES ============
-    
+
     CreatorRegistry public creatorRegistry;
     ContentRegistry public contentRegistry;
     PayPerView public payPerView;
@@ -31,13 +31,13 @@ abstract contract TestSetup is Test, TestConstants {
     PriceOracle public priceOracle;
 
     // ============ MOCK DEPENDENCIES ============
-    
+
     MockERC20 public mockUSDC;
     MockCommerceProtocol public mockCommerceProtocol;
     MockQuoterV2 public mockQuoter;
 
     // ============ TEST USER ADDRESSES ============
-    
+
     address public creator1 = address(0x1001);
     address public creator2 = address(0x1002);
     address public user1 = address(0x2001);
@@ -47,7 +47,7 @@ abstract contract TestSetup is Test, TestConstants {
     address public operatorSigner = address(0x3003);
 
     // ============ EVENTS FOR TESTING ============
-    
+
     event CreatorRegistered(address indexed creator, uint256 subscriptionPrice, uint256 timestamp, string profileData);
     event ContentRegistered(
         uint256 indexed contentId,
@@ -105,7 +105,7 @@ abstract contract TestSetup is Test, TestConstants {
      */
     function _deployMockDependencies() internal {
         console.log("Deploying mock dependencies...");
-        
+
         // Deploy mock USDC with proper ERC20 configuration
         // DETAIL: 6 decimals matches real USDC, 1M supply for extensive testing
         mockUSDC = new MockERC20("Mock USDC", "USDC", 6);
@@ -157,11 +157,8 @@ abstract contract TestSetup is Test, TestConstants {
         console.log("- PayPerView deployed at:", address(payPerView));
 
         // Step 5: Deploy SubscriptionManager
-        subscriptionManager = new SubscriptionManager(
-            address(creatorRegistry),
-            address(contentRegistry),
-            address(mockUSDC)
-        );
+        subscriptionManager =
+            new SubscriptionManager(address(creatorRegistry), address(contentRegistry), address(mockUSDC));
         console.log("- SubscriptionManager deployed at:", address(subscriptionManager));
 
         // Step 6: Deploy CommerceProtocolIntegration (most complex dependencies)
@@ -188,18 +185,17 @@ abstract contract TestSetup is Test, TestConstants {
 
         // Configure CreatorRegistry permissions
         // PRINCIPLE: Grant minimum necessary permissions for each operation
-        creatorRegistry.grantRole(creatorRegistry.CONTENT_MANAGER_ROLE(), address(contentRegistry));
-        creatorRegistry.grantRole(creatorRegistry.PAYMENT_PROCESSOR_ROLE(), address(payPerView));
-        creatorRegistry.grantRole(creatorRegistry.PAYMENT_PROCESSOR_ROLE(), address(subscriptionManager));
-        creatorRegistry.grantRole(creatorRegistry.PAYMENT_PROCESSOR_ROLE(), address(commerceIntegration));
+        creatorRegistry.grantPlatformRole(address(contentRegistry));
+        creatorRegistry.grantPlatformRole(address(payPerView));
+        creatorRegistry.grantPlatformRole(address(subscriptionManager));
+        creatorRegistry.grantPlatformRole(address(commerceIntegration));
 
         // Configure ContentRegistry permissions
-        contentRegistry.grantRole(contentRegistry.PURCHASE_MANAGER_ROLE(), address(payPerView));
-        contentRegistry.grantRole(contentRegistry.PURCHASE_MANAGER_ROLE(), address(commerceIntegration));
+        contentRegistry.grantRole(contentRegistry.PURCHASE_RECORDER_ROLE(), address(payPerView));
+        contentRegistry.grantRole(contentRegistry.PURCHASE_RECORDER_ROLE(), address(commerceIntegration));
 
         // Configure PayPerView contract addresses
-        // IMPORTANT: This allows PayPerView to communicate with other platform contracts
-        payPerView.setCommerceIntegration(address(commerceIntegration));
+        // IMPORTANT: PayPerView is already configured with all necessary contracts in constructor
 
         // Configure CommerceProtocolIntegration with all necessary contract addresses
         // ARCHITECTURAL NOTE: This creates the complete dependency graph
@@ -222,11 +218,11 @@ abstract contract TestSetup is Test, TestConstants {
         console.log("Setting up test users...");
 
         address[4] memory users = [creator1, creator2, user1, user2];
-        
+
         for (uint256 i = 0; i < users.length; i++) {
             // Give each user 1000 USDC for testing payments
             mockUSDC.mint(users[i], 1000e6);
-            
+
             // Give each user 10 ETH for gas and ETH-based payments
             vm.deal(users[i], 10 ether);
         }
@@ -239,10 +235,10 @@ abstract contract TestSetup is Test, TestConstants {
      * @notice EDUCATIONAL: This function demonstrates how to configure mock contracts
      *         with realistic market data for comprehensive testing scenarios.
      */
-    function _setupMockPrices() internal {
+    function _setupMockPrices() internal virtual {
         // Set up realistic ETH/USDC prices for different fee tiers
         // EXPLANATION: Different fee tiers often have slightly different prices due to liquidity
-        
+
         // 0.05% fee tier (most liquid, best price)
         mockQuoter.setMockPrice(
             0x4200000000000000000000000000000000000006, // WETH
@@ -285,52 +281,59 @@ abstract contract TestSetup is Test, TestConstants {
     }
 
     /**
-     * @dev Registers test creators with the platform
-     * @notice HELPER FUNCTION: This simplifies test setup by pre-registering creators
-     *         with realistic subscription prices and profiles.
+     * @dev Registers a creator for testing. Returns true if successful, false otherwise.
      */
-    function _registerTestCreators() internal {
-        vm.startPrank(creator1);
-        creatorRegistry.registerCreator(
-            5e6, // 5 USDC subscription price
-            "ipfs://creator1-profile",
-            "Test Creator 1"
-        );
-        vm.stopPrank();
+    function registerCreator(address creator, uint256 price, string memory name) internal returns (bool) {
+        return _registerCreatorHelper(creator, price, name);
+    }
 
-        vm.startPrank(creator2);
-        creatorRegistry.registerCreator(
-            10e6, // 10 USDC subscription price
-            "ipfs://creator2-profile",
-            "Test Creator 2"
-        );
+    /**
+     * @dev Overloaded function for registering creators with default values
+     */
+    function registerCreator(address creator) internal returns (bool) {
+        return _registerCreatorHelper(creator, 10e6, "Test Creator"); // Default 10 USDC subscription
+    }
+
+    function _registerCreatorHelper(address creator, uint256 price, string memory name)
+        internal
+        virtual
+        returns (bool)
+    {
+        vm.startPrank(creator);
+        creatorRegistry.registerCreator(price, name);
         vm.stopPrank();
     }
 
     /**
-     * @dev Creates test content for various testing scenarios
-     * @notice UTILITY: Pre-populates the platform with content for comprehensive testing
+     * @dev Registers content for testing. Returns the contentId if successful, 0 otherwise.
      */
-    function _createTestContent() internal {
-        _registerTestCreators();
+    function registerContent(address creator, uint256 price, string memory title) internal returns (uint256) {
+        return _registerContentHelper(creator, price, title);
+    }
 
-        vm.startPrank(creator1);
-        contentRegistry.registerContent(
-            "ipfs://test-content-1",
-            "Test Content 1",
-            ContentRegistry.ContentCategory.VIDEO,
-            2e6 // 2 USDC per view
+    /**
+     * @dev Overloaded function for registering content with default values
+     */
+    function registerContent(address creator) internal returns (uint256) {
+        return _registerContentHelper(creator, 5e6, "Test Content"); // Default 5 USDC content
+    }
+
+    function _registerContentHelper(address creator, uint256 price, string memory title)
+        internal
+        virtual
+        returns (uint256)
+    {
+        vm.startPrank(creator);
+        uint256 contentId = contentRegistry.registerContent(
+            "ipfs://test-content", // default IPFS hash
+            title,
+            "Test content description", // description
+            ContentRegistry.ContentCategory.Article,
+            price,
+            new string[](0) // empty tags array
         );
         vm.stopPrank();
-
-        vm.startPrank(creator2);
-        contentRegistry.registerContent(
-            "ipfs://test-content-2", 
-            "Test Content 2",
-            ContentRegistry.ContentCategory.ARTICLE,
-            1e6 // 1 USDC per view
-        );
-        vm.stopPrank();
+        return contentId;
     }
 
     /**
@@ -340,5 +343,31 @@ abstract contract TestSetup is Test, TestConstants {
     function _customSetup() internal virtual {
         // Default implementation does nothing
         // Individual test contracts can override this
+    }
+
+    /**
+     * @dev Advances the block timestamp by the given number of seconds.
+     * @param secondsToAdvance Number of seconds to advance.
+     */
+    function advanceTime(uint256 secondsToAdvance) internal {
+        vm.warp(block.timestamp + secondsToAdvance);
+    }
+
+    /**
+     * @dev Approves USDC for a user to a spender.
+     * @param user The address performing the approval.
+     * @param spender The address being approved.
+     * @param amount The amount to approve.
+     */
+    function approveUSDC(address user, address spender, uint256 amount) internal {
+        vm.prank(user);
+        mockUSDC.approve(spender, amount);
+    }
+
+    /**
+     * @dev Compares two strings for equality.
+     */
+    function stringEqual(string memory a, string memory b) internal pure returns (bool) {
+        return keccak256(bytes(a)) == keccak256(bytes(b));
     }
 }
