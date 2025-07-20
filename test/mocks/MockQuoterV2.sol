@@ -42,7 +42,7 @@ contract MockQuoterV2 is IQuoterV2 {
     }
 
     /**
-     * @dev Mock implementation of quoteExactInputSingle - FIXED VERSION
+     * @dev Mock implementation of quoteExactInputSingle - ENHANCED VERSION WITH DEBUGGING
      * @param params The quote parameters
      * @return amountOut The output amount
      * @return sqrtPriceX96After The price after the swap (mock value)
@@ -50,6 +50,8 @@ contract MockQuoterV2 is IQuoterV2 {
      * @return gasEstimate The gas estimate (mock value)
      * @notice This function simulates how Uniswap would calculate the output amount
      *         for a given input amount and token pair
+     *         
+     * ENHANCED: Now provides detailed debugging information when quotes fail
      */
     function quoteExactInputSingle(QuoteExactInputSingleParams memory params)
         external
@@ -66,15 +68,24 @@ contract MockQuoterV2 is IQuoterV2 {
         // Get the mock price for this token pair and fee tier
         uint256 price = mockPrices[params.tokenIn][params.tokenOut][params.fee];
 
-        // FIXED: Complete the conditional logic with proper syntax
+        // ENHANCED: Complete the conditional logic with proper syntax and detailed fallback
         // If no specific price is set, try to use default price logic
         if (price == 0) {
             price = _getDefaultPrice(params.tokenIn, params.tokenOut);
         }
 
-        // If still no price available, revert (simulating no liquidity)
+        // If still no price available, provide detailed error message for debugging
         if (price == 0) {
-            revert("MockQuoterV2: No liquidity");
+            // Enhanced error message that helps with debugging
+            string memory errorMsg = string(abi.encodePacked(
+                "MockQuoterV2: No liquidity for pair. TokenIn: ",
+                _addressToString(params.tokenIn),
+                " TokenOut: ",
+                _addressToString(params.tokenOut),
+                " Fee: ",
+                _uint24ToString(params.fee)
+            ));
+            revert(errorMsg);
         }
 
         // Calculate output amount based on input amount and price
@@ -120,32 +131,74 @@ contract MockQuoterV2 is IQuoterV2 {
     }
 
     /**
-     * @dev Sets up default prices for common token pairs
-     * @notice This establishes realistic baseline prices for testing
+     * @dev Sets up default prices for common token pairs - ENHANCED VERSION
+     * @notice This establishes realistic baseline prices for testing with comprehensive coverage
+     *         
+     * CRITICAL ENHANCEMENT: Now covers ALL fee tiers (500, 3000, 10000) and BOTH directions
+     * for each token pair. This ensures auto pool fee detection works correctly.
      */
     function _setDefaultPrices() internal {
-        // ETH/WETH to USDC prices (1 ETH = 2000 USDC)
-        mockPrices[WETH][USDC][500] = DEFAULT_WETH_USDC_PRICE;
-        mockPrices[WETH][USDC][3000] = DEFAULT_WETH_USDC_PRICE;
-        mockPrices[WETH][USDC][10000] = DEFAULT_WETH_USDC_PRICE;
+        // ============ WETH/USDC PAIRS (ALL FEE TIERS) ============
+        // WETH -> USDC: 1 WETH = 2000 USDC
+        mockPrices[WETH][USDC][500] = DEFAULT_WETH_USDC_PRICE;    // 0.05% pool
+        mockPrices[WETH][USDC][3000] = DEFAULT_WETH_USDC_PRICE;  // 0.3% pool  
+        mockPrices[WETH][USDC][10000] = DEFAULT_WETH_USDC_PRICE; // 1% pool
 
-        // USDC to ETH/WETH prices (1 USDC = 0.0005 ETH)
-        mockPrices[USDC][WETH][500] = 0.0005e18; // 1 USDC = 0.0005 WETH
-        mockPrices[USDC][WETH][3000] = 0.0005e18;
-        mockPrices[USDC][WETH][10000] = 0.0005e18;
+        // USDC -> WETH: 1 USDC = 0.0005 WETH (reverse direction)
+        mockPrices[USDC][WETH][500] = 0.0005e18;   // 0.05% pool
+        mockPrices[USDC][WETH][3000] = 0.0005e18;  // 0.3% pool
+        mockPrices[USDC][WETH][10000] = 0.0005e18; // 1% pool
 
-        // For testing, we'll also set some prices for a mock token
+        // ============ MOCK_TOKEN/USDC PAIRS (ALL FEE TIERS) ============
+        // This is CRITICAL for the failing tests - they use MOCK_TOKEN
         address mockToken = address(0x1234567890123456789012345678901234567890);
-        mockPrices[mockToken][USDC][3000] = 1e6; // 1 MockToken = 1 USDC
-        mockPrices[USDC][mockToken][3000] = 1e18; // 1 USDC = 1 MockToken
+        
+        // MOCK_TOKEN -> USDC: 1 MOCK = 1 USDC
+        mockPrices[mockToken][USDC][500] = 1e6;    // 0.05% pool (auto-selected for stablecoin pairs!)
+        mockPrices[mockToken][USDC][3000] = 1e6;   // 0.3% pool
+        mockPrices[mockToken][USDC][10000] = 1e6;  // 1% pool
+
+        // USDC -> MOCK_TOKEN: 1 USDC = 1 MOCK (reverse direction)
+        mockPrices[USDC][mockToken][500] = 1e18;   // 0.05% pool
+        mockPrices[USDC][mockToken][3000] = 1e18;  // 0.3% pool
+        mockPrices[USDC][mockToken][10000] = 1e18; // 1% pool
+
+        // ============ MOCK_TOKEN/WETH PAIRS (FOR ROUTING) ============
+        // These support routing through WETH when direct pairs aren't available
+        
+        // MOCK_TOKEN -> WETH: 1 MOCK = 0.0005 WETH (same as 1 USDC)
+        mockPrices[mockToken][WETH][500] = 0.0005e18;
+        mockPrices[mockToken][WETH][3000] = 0.0005e18;
+        mockPrices[mockToken][WETH][10000] = 0.0005e18;
+
+        // WETH -> MOCK_TOKEN: 1 WETH = 2000 MOCK (reverse direction)
+        mockPrices[WETH][mockToken][500] = 2000e18;
+        mockPrices[WETH][mockToken][3000] = 2000e18;
+        mockPrices[WETH][mockToken][10000] = 2000e18;
+
+        // ============ ETH (address(0)) SPECIAL HANDLING ============
+        // Handle native ETH (address(0)) for tests that use it
+        
+        // ETH -> USDC: 1 ETH = 2000 USDC
+        mockPrices[address(0)][USDC][500] = DEFAULT_ETH_USDC_PRICE;
+        mockPrices[address(0)][USDC][3000] = DEFAULT_ETH_USDC_PRICE;
+        mockPrices[address(0)][USDC][10000] = DEFAULT_ETH_USDC_PRICE;
+
+        // USDC -> ETH: 1 USDC = 0.0005 ETH
+        mockPrices[USDC][address(0)][500] = 0.0005e18;
+        mockPrices[USDC][address(0)][3000] = 0.0005e18;
+        mockPrices[USDC][address(0)][10000] = 0.0005e18;
     }
 
     /**
-     * @dev NEWLY IMPLEMENTED: Gets default price for common token pairs
+     * @dev NEWLY IMPLEMENTED: Gets default price for common token pairs - ENHANCED VERSION
      * @param tokenIn The input token
      * @param tokenOut The output token
      * @return price The default price
      * @notice This provides fallback prices when specific pool prices aren't set
+     *         
+     * EDUCATIONAL NOTE: This function serves as a safety net with more comprehensive
+     * fallback logic. It handles edge cases and provides debugging information.
      */
     function _getDefaultPrice(address tokenIn, address tokenOut) internal pure returns (uint256 price) {
         // Handle ETH (address(0)) to USDC
@@ -153,7 +206,7 @@ contract MockQuoterV2 is IQuoterV2 {
             return DEFAULT_ETH_USDC_PRICE;
         }
 
-        // Handle WETH to USDC
+        // Handle WETH to USDC  
         if (tokenIn == WETH && tokenOut == USDC) {
             return DEFAULT_WETH_USDC_PRICE;
         }
@@ -166,6 +219,25 @@ contract MockQuoterV2 is IQuoterV2 {
         // Handle USDC to WETH
         if (tokenIn == USDC && tokenOut == WETH) {
             return 0.0005e18; // 1 USDC = 0.0005 WETH
+        }
+
+        // Handle MOCK_TOKEN cases (this is critical for failing tests)
+        address mockToken = address(0x1234567890123456789012345678901234567890);
+        
+        if (tokenIn == mockToken && tokenOut == USDC) {
+            return 1e6; // 1 MOCK = 1 USDC
+        }
+        
+        if (tokenIn == USDC && tokenOut == mockToken) {
+            return 1e18; // 1 USDC = 1 MOCK
+        }
+        
+        if (tokenIn == mockToken && tokenOut == WETH) {
+            return 0.0005e18; // 1 MOCK = 0.0005 WETH
+        }
+        
+        if (tokenIn == WETH && tokenOut == mockToken) {
+            return 2000e18; // 1 WETH = 2000 MOCK
         }
 
         // Handle same token (should return 1:1 ratio)
@@ -252,5 +324,58 @@ contract MockQuoterV2 is IQuoterV2 {
         // Apply slippage (reduce output by slippage amount)
         adjustedPrice = basePrice - (basePrice * slippageBps) / 10000;
         return adjustedPrice;
+    }
+
+    // ============ DEBUGGING HELPER FUNCTIONS ============
+    // These functions help create detailed error messages for better troubleshooting
+
+    /**
+     * @dev Converts address to string for debugging
+     * @param addr The address to convert
+     * @return result The address as a string
+     */
+    function _addressToString(address addr) internal pure returns (string memory result) {
+        if (addr == address(0)) return "0x0000000000000000000000000000000000000000";
+        
+        bytes memory buffer = new bytes(42);
+        buffer[0] = '0';
+        buffer[1] = 'x';
+        
+        for (uint256 i = 0; i < 20; i++) {
+            uint8 byteValue = uint8(uint160(addr) >> (8 * (19 - i)));
+            uint8 high = byteValue >> 4;
+            uint8 low = byteValue & 0x0f;
+            
+            buffer[2 + i * 2] = bytes1(high < 10 ? high + 48 : high + 87);
+            buffer[3 + i * 2] = bytes1(low < 10 ? low + 48 : low + 87);
+        }
+        
+        return string(buffer);
+    }
+
+    /**
+     * @dev Converts uint24 to string for debugging
+     * @param value The uint24 to convert
+     * @return result The uint24 as a string
+     */
+    function _uint24ToString(uint24 value) internal pure returns (string memory result) {
+        if (value == 0) return "0";
+        
+        uint24 temp = value;
+        uint256 digits;
+        
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        
+        return string(buffer);
     }
 }
