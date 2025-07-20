@@ -335,7 +335,7 @@ contract CrossContractInteractionTest is TestSetup {
             subscriptionManager.getSubscriptionDetails(user1, creator1);
 
         // Phase 2: Trigger first auto-renewal
-        advanceTime(SUBSCRIPTION_DURATION + 1);
+        warpForward(SUBSCRIPTION_DURATION + 1);
 
         vm.prank(user1);
         subscriptionManager.executeAutoRenewal(user1, creator1);
@@ -558,7 +558,7 @@ contract CrossContractInteractionTest is TestSetup {
 
         // Phase 3: Perform bulk operations and verify consistency maintained
         // Advance time to expire some subscriptions
-        advanceTime(SUBSCRIPTION_DURATION + 1);
+        warpForward(SUBSCRIPTION_DURATION + 1);
 
         // Check that expired subscriptions are properly reflected
         assertFalse(subscriptionManager.isSubscribed(user1, creator1));

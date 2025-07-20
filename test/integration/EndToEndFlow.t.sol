@@ -60,7 +60,7 @@ contract EndToEndFlowTest is TestSetup {
 
     // ============ PRIVATE SETUP HELPERS ============
 
-    function _setupMockPrices() internal override {
+    function _setupMockPrices() internal {
         mockQuoter.setMockPrice(priceOracle.WETH(), priceOracle.USDC(), 3000, 2000e6);
         mockQuoter.setMockPrice(priceOracle.USDC(), priceOracle.WETH(), 3000, 0.0005e18);
     }
@@ -274,7 +274,7 @@ contract EndToEndFlowTest is TestSetup {
     }
 
     function _executeAutoRenewal(address user, address creator) private {
-        advanceTime(SUBSCRIPTION_DURATION + 1);
+        warpForward(SUBSCRIPTION_DURATION + 1);
 
         vm.prank(user);
         subscriptionManager.executeAutoRenewal(user, creator);
@@ -398,7 +398,7 @@ contract EndToEndFlowTest is TestSetup {
         _verifySubscriptionActive(user1, creator1);
 
         // Phase 5: Test subscription expiry
-        advanceTime(SUBSCRIPTION_DURATION + 1);
+        warpForward(SUBSCRIPTION_DURATION + 1);
         assertFalse(subscriptionManager.isSubscribed(user1, creator1));
 
         // Historical earnings should be preserved
@@ -426,7 +426,7 @@ contract EndToEndFlowTest is TestSetup {
         _verifySubscriptionActive(user1, creator1);
 
         // Phase 4: Verify no more renewals
-        advanceTime(SUBSCRIPTION_DURATION + 1);
+        warpForward(SUBSCRIPTION_DURATION + 1);
         assertFalse(subscriptionManager.isSubscribed(user1, creator1));
     }
 

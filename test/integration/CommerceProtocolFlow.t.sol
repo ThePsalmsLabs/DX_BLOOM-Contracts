@@ -77,7 +77,7 @@ contract CommerceProtocolFlowTest is TestSetup {
         testContentId = registerContent(creator1, 2e6, "Test Content");
     }
 
-    function _configureMockPrices() private {
+    function _configureMockPrices() internal override {
         // Set up realistic token prices for testing
         mockQuoter.setMockPrice(address(testToken), priceOracle.USDC(), 3000, 2e6); // 1 TEST = $2
         mockQuoter.setMockPrice(address(altToken), priceOracle.USDC(), 3000, 0.5e6); // 1 ALT = $0.50

@@ -33,8 +33,13 @@ contract ContentRegistryTest is TestSetup {
 
         // Register creators that we'll use in content tests
         // This is important because only registered creators can publish content
-        assertTrue(registerCreator(creator1));
-        assertTrue(registerCreator(creator2));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
+        assertTrue(registerCreator(creator2, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 2"));
+    }
+
+    // Helper for string equality
+    function stringEqual(string memory a, string memory b) internal pure returns (bool) {
+        return keccak256(bytes(a)) == keccak256(bytes(b));
     }
 
     // ============ CONTENT REGISTRATION TESTS ============
@@ -298,7 +303,7 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_UpdateContent_PriceUpdate() public {
         // Arrange: Register content first
-        uint256 contentId = registerContent(creator1);
+        uint256 contentId = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content");
         uint256 newPrice = DEFAULT_CONTENT_PRICE * 2; // Double the price
 
         // Act: Update the content price
@@ -323,7 +328,7 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_UpdateContent_Deactivation() public {
         // Arrange: Register content first
-        uint256 contentId = registerContent(creator1);
+        uint256 contentId = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content");
 
         // Verify content is initially active
         assertTrue(contentRegistry.getContent(contentId).isActive);
@@ -353,7 +358,7 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_UpdateContent_OnlyCreator() public {
         // Arrange: Register content as creator1
-        uint256 contentId = registerContent(creator1);
+        uint256 contentId = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content");
 
         // Act & Assert: Try to update as creator2 (should fail)
         vm.startPrank(creator2);
@@ -372,7 +377,7 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_UpdateContent_InvalidPrice() public {
         // Arrange: Register content first
-        uint256 contentId = registerContent(creator1);
+        uint256 contentId = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content");
         uint256 invalidPrice = MIN_CONTENT_PRICE - 1;
 
         // Act & Assert: Try to update with invalid price
@@ -394,7 +399,7 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_RecordPurchase_Success() public {
         // Arrange: Register content first
-        uint256 contentId = registerContent(creator1);
+        uint256 contentId = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content");
 
         // Give the test contract the purchase recorder role
         vm.prank(admin);
@@ -402,7 +407,7 @@ contract ContentRegistryTest is TestSetup {
 
         // Act: Record a purchase
         vm.expectEmit(true, true, false, true);
-        emit ContentPurchased(contentId, user1, DEFAULT_CONTENT_PRICE, block.timestamp);
+        emit ContentRegistry.ContentPurchased(contentId, user1, DEFAULT_CONTENT_PRICE, block.timestamp);
 
         contentRegistry.recordPurchase(contentId, user1);
 
@@ -417,7 +422,7 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_RecordPurchase_OnlyAuthorized() public {
         // Arrange: Register content first
-        uint256 contentId = registerContent(creator1);
+        uint256 contentId = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content");
 
         // Act & Assert: Try to record purchase without authorization
         vm.startPrank(user1);
@@ -436,7 +441,7 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_RecordPurchase_InactiveContent() public {
         // Arrange: Register content and deactivate it
-        uint256 contentId = registerContent(creator1);
+        uint256 contentId = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content");
 
         vm.prank(creator1);
         contentRegistry.updateContent(contentId, 0, false);
@@ -458,7 +463,7 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_ReportContent_Success() public {
         // Arrange: Register content first
-        uint256 contentId = registerContent(creator1);
+        uint256 contentId = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content");
         string memory reportReason = "Inappropriate content";
 
         // Act: Report the content
@@ -492,7 +497,7 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_ReportContent_AlreadyReported() public {
         // Arrange: Register content and report it once
-        uint256 contentId = registerContent(creator1);
+        uint256 contentId = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content");
 
         vm.prank(user1);
         contentRegistry.reportContent(contentId, "First report");
@@ -514,7 +519,7 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_ReportContent_AutoModeration() public {
         // Arrange: Register content first
-        uint256 contentId = registerContent(creator1);
+        uint256 contentId = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content");
 
         // Create multiple user addresses for reporting
         address[] memory reporters = new address[](5);
@@ -540,7 +545,7 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_ResolveReport_Success() public {
         // Arrange: Register content and report it
-        uint256 contentId = registerContent(creator1);
+        uint256 contentId = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content");
 
         vm.prank(user1);
         contentRegistry.reportContent(contentId, "Test report");
@@ -567,7 +572,7 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_ResolveReport_RemoveContent() public {
         // Arrange: Register content and report it
-        uint256 contentId = registerContent(creator1);
+        uint256 contentId = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content");
 
         vm.prank(user1);
         contentRegistry.reportContent(contentId, "Harmful content");
@@ -886,7 +891,7 @@ contract ContentRegistryTest is TestSetup {
      */
     function test_PauseUnpause_Success() public {
         // Arrange: Register content first
-        uint256 contentId = registerContent(creator1);
+        uint256 contentId = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content");
 
         // Act: Pause the contract
         vm.prank(admin);

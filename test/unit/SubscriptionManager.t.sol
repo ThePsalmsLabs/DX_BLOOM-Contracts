@@ -76,7 +76,7 @@ contract SubscriptionManagerTest is TestSetup {
 
         // Expect the Subscribed event
         vm.expectEmit(true, true, false, true);
-        emit Subscribed(user1, creator1, DEFAULT_SUBSCRIPTION_PRICE, platformFee, creatorEarning, startTime, endTime);
+        emit SubscriptionManager.Subscribed(user1, creator1, DEFAULT_SUBSCRIPTION_PRICE, platformFee, creatorEarning, startTime, endTime);
 
         subscriptionManager.subscribeToCreator(creator1);
         vm.stopPrank();
@@ -193,7 +193,7 @@ contract SubscriptionManagerTest is TestSetup {
         subscriptionManager.subscribeToCreator(creator1);
 
         // Advance time to let subscription expire
-        advanceTime(SUBSCRIPTION_DURATION + 1);
+        warpForward(SUBSCRIPTION_DURATION + 1);
 
         // Set up for renewal
         approveUSDC(user1, address(subscriptionManager), DEFAULT_SUBSCRIPTION_PRICE);
@@ -331,7 +331,7 @@ contract SubscriptionManagerTest is TestSetup {
         );
 
         // Advance time to renewal window
-        advanceTime(SUBSCRIPTION_DURATION - 1 days + 1); // Within renewal window
+        warpForward(SUBSCRIPTION_DURATION - 1 days + 1); // Within renewal window
 
         // Act: Execute auto-renewal
         vm.startPrank(admin); // Admin has RENEWAL_BOT_ROLE
@@ -369,7 +369,7 @@ contract SubscriptionManagerTest is TestSetup {
         subscriptionManager.subscribeToCreator(creator1);
 
         // Advance time to renewal window
-        advanceTime(SUBSCRIPTION_DURATION - 1 days + 1);
+        warpForward(SUBSCRIPTION_DURATION - 1 days + 1);
 
         // Act & Assert: Expect the transaction to revert
         vm.startPrank(admin);
@@ -398,7 +398,7 @@ contract SubscriptionManagerTest is TestSetup {
         );
 
         // Advance time to renewal window
-        advanceTime(SUBSCRIPTION_DURATION - 1 days + 1);
+        warpForward(SUBSCRIPTION_DURATION - 1 days + 1);
 
         // Act: Execute auto-renewal
         vm.startPrank(admin);
@@ -434,7 +434,7 @@ contract SubscriptionManagerTest is TestSetup {
         creatorRegistry.updateSubscriptionPrice(DEFAULT_SUBSCRIPTION_PRICE * 2);
 
         // Advance time to renewal window
-        advanceTime(SUBSCRIPTION_DURATION - 1 days + 1);
+        warpForward(SUBSCRIPTION_DURATION - 1 days + 1);
 
         // Act: Execute auto-renewal
         vm.startPrank(admin);
@@ -468,7 +468,7 @@ contract SubscriptionManagerTest is TestSetup {
         );
 
         // Advance time to renewal window
-        advanceTime(SUBSCRIPTION_DURATION - 1 days + 1);
+        warpForward(SUBSCRIPTION_DURATION - 1 days + 1);
 
         // Act: Try to execute auto-renewal multiple times
         vm.startPrank(admin);
@@ -578,7 +578,7 @@ contract SubscriptionManagerTest is TestSetup {
         subscriptionManager.subscribeToCreator(creator1);
 
         // Advance time past expiry
-        advanceTime(SUBSCRIPTION_DURATION + 1);
+        warpForward(SUBSCRIPTION_DURATION + 1);
 
         // Act & Assert: Try to cancel expired subscription
         vm.startPrank(user1);
@@ -608,7 +608,7 @@ contract SubscriptionManagerTest is TestSetup {
         assertEq(subscriptionManager.getCreatorSubscribers(creator1).length, 2);
 
         // Advance time past expiry + grace period
-        advanceTime(SUBSCRIPTION_DURATION + GRACE_PERIOD + 1);
+        warpForward(SUBSCRIPTION_DURATION + GRACE_PERIOD + 1);
 
         // Act: Cleanup expired subscriptions
         vm.expectEmit(true, false, false, true);
@@ -640,7 +640,7 @@ contract SubscriptionManagerTest is TestSetup {
         subscriptionManager.subscribeToCreator(creator1);
 
         // Advance time past expiry
-        advanceTime(SUBSCRIPTION_DURATION + GRACE_PERIOD + 1);
+        warpForward(SUBSCRIPTION_DURATION + GRACE_PERIOD + 1);
 
         // Act: First cleanup should succeed
         subscriptionManager.cleanupExpiredSubscriptions(creator1);
@@ -666,7 +666,7 @@ contract SubscriptionManagerTest is TestSetup {
         subscriptionManager.subscribeToCreator(creator1);
 
         // Advance time past expiry + grace period
-        advanceTime(SUBSCRIPTION_DURATION + GRACE_PERIOD + 1);
+        warpForward(SUBSCRIPTION_DURATION + GRACE_PERIOD + 1);
 
         // Act: Enhanced cleanup
         address[] memory cleanedUsers = subscriptionManager.cleanupExpiredSubscriptionsEnhanced(creator1);
@@ -981,7 +981,7 @@ contract SubscriptionManagerTest is TestSetup {
         assertEq(gracePeriodEnd, endTime + GRACE_PERIOD);
 
         // Advance time past expiry but within grace period
-        advanceTime(SUBSCRIPTION_DURATION + 1);
+        warpForward(SUBSCRIPTION_DURATION + 1);
 
         // Act & Assert: Check subscription in grace period
         (isActive, inGracePeriod, endTime, gracePeriodEnd) = subscriptionManager.getSubscriptionStatus(user1, creator1);
@@ -990,7 +990,7 @@ contract SubscriptionManagerTest is TestSetup {
         assertTrue(inGracePeriod);
 
         // Advance time past grace period
-        advanceTime(GRACE_PERIOD + 1);
+        warpForward(GRACE_PERIOD + 1);
 
         // Act & Assert: Check expired subscription
         (isActive, inGracePeriod, endTime, gracePeriodEnd) = subscriptionManager.getSubscriptionStatus(user1, creator1);
@@ -1082,11 +1082,11 @@ contract SubscriptionManagerTest is TestSetup {
         assertTrue(subscriptionManager.isSubscribed(user1, creator1));
 
         // Advance time to just before expiry
-        advanceTime(SUBSCRIPTION_DURATION - 1);
+        warpForward(SUBSCRIPTION_DURATION - 1);
         assertTrue(subscriptionManager.isSubscribed(user1, creator1));
 
         // Advance time to exact expiry
-        advanceTime(1);
+        warpForward(1);
         assertFalse(subscriptionManager.isSubscribed(user1, creator1));
     }
 

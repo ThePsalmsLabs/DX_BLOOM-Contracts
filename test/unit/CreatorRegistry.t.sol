@@ -30,6 +30,11 @@ contract CreatorRegistryTest is TestSetup {
         // Any additional setup specific to CreatorRegistry tests can go here
     }
 
+    // Helper for string equality
+    function stringEqual(string memory a, string memory b) internal pure returns (bool) {
+        return keccak256(bytes(a)) == keccak256(bytes(b));
+    }
+
     // ============ CREATOR REGISTRATION TESTS ============
 
     /**
@@ -139,7 +144,7 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_RegisterCreator_AlreadyRegistered() public {
         // Arrange: Register a creator first
-        assertTrue(registerCreator(creator1));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
 
         // Act & Assert: Try to register the same creator again
         vm.startPrank(creator1);
@@ -197,7 +202,7 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_UpdateSubscriptionPrice_Success() public {
         // Arrange: Register a creator first
-        assertTrue(registerCreator(creator1));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
         uint256 oldPrice = DEFAULT_SUBSCRIPTION_PRICE;
         uint256 newPrice = 2e6; // $2 USDC
 
@@ -240,7 +245,7 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_UpdateSubscriptionPrice_InvalidPrice() public {
         // Arrange: Register a creator first
-        assertTrue(registerCreator(creator1));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
         uint256 invalidPrice = MIN_SUBSCRIPTION_PRICE - 1;
 
         // Act & Assert: Expect the transaction to revert
@@ -261,7 +266,7 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_UpdateProfileData_Success() public {
         // Arrange: Register a creator first
-        assertTrue(registerCreator(creator1));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
         string memory oldProfileData = SAMPLE_PROFILE_DATA;
         string memory newProfileData = SAMPLE_PROFILE_DATA_2;
 
@@ -282,7 +287,7 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_UpdateProfileData_EmptyData() public {
         // Arrange: Register a creator first
-        assertTrue(registerCreator(creator1));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
         string memory emptyData = "";
 
         // Act & Assert: Expect the transaction to revert
@@ -304,7 +309,7 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_SetCreatorVerification_Success() public {
         // Arrange: Register a creator first
-        assertTrue(registerCreator(creator1));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
 
         // Act: Verify the creator as admin
         vm.startPrank(admin);
@@ -331,7 +336,7 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_SetCreatorVerification_RemoveVerification() public {
         // Arrange: Register and verify a creator first
-        assertTrue(registerCreator(creator1));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
         vm.prank(admin);
         creatorRegistry.setCreatorVerification(creator1, true);
 
@@ -363,7 +368,7 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_SetCreatorVerification_OnlyModerator() public {
         // Arrange: Register a creator first
-        assertTrue(registerCreator(creator1));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
 
         // Act & Assert: Try to verify as a regular user
         vm.startPrank(user1);
@@ -384,7 +389,7 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_UpdateCreatorStats_Success() public {
         // Arrange: Register a creator first
-        assertTrue(registerCreator(creator1));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
 
         // Give the test contract platform role to update stats
         vm.prank(admin);
@@ -419,7 +424,7 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_UpdateCreatorStats_OnlyPlatformContract() public {
         // Arrange: Register a creator first
-        assertTrue(registerCreator(creator1));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
 
         // Act & Assert: Try to update stats without platform role
         vm.startPrank(user1);
@@ -434,7 +439,7 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_WithdrawCreatorEarnings_Success() public {
         // Arrange: Register a creator and give them earnings
-        assertTrue(registerCreator(creator1));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
 
         // Give the test contract platform role to update stats
         vm.prank(admin);
@@ -476,7 +481,7 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_WithdrawCreatorEarnings_NoEarnings() public {
         // Arrange: Register a creator with no earnings
-        assertTrue(registerCreator(creator1));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
 
         // Act & Assert: Try to withdraw with no earnings
         vm.startPrank(creator1);
@@ -559,8 +564,8 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_GetPlatformStats_Success() public {
         // Arrange: Register multiple creators with different verification status
-        assertTrue(registerCreator(creator1));
-        assertTrue(registerCreator(creator2));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
+        assertTrue(registerCreator(creator2, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 2"));
 
         // Verify one creator
         vm.prank(admin);
@@ -596,8 +601,8 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_MultipleCreators_Success() public {
         // Arrange: Register multiple creators
-        assertTrue(registerCreator(creator1, 1e6, "Creator 1 Profile"));
-        assertTrue(registerCreator(creator2, 2e6, "Creator 2 Profile"));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
+        assertTrue(registerCreator(creator2, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 2"));
 
         // Act & Assert: Verify both creators are registered
         assertEq(creatorRegistry.getTotalCreators(), 2);
@@ -607,15 +612,15 @@ contract CreatorRegistryTest is TestSetup {
         assertEq(creatorRegistry.getCreatorByIndex(1), creator2);
 
         // Verify their individual settings
-        assertEq(creatorRegistry.getSubscriptionPrice(creator1), 1e6);
-        assertEq(creatorRegistry.getSubscriptionPrice(creator2), 2e6);
+        assertEq(creatorRegistry.getSubscriptionPrice(creator1), DEFAULT_SUBSCRIPTION_PRICE);
+        assertEq(creatorRegistry.getSubscriptionPrice(creator2), DEFAULT_SUBSCRIPTION_PRICE);
 
         // Verify their profiles are correct
         CreatorRegistry.Creator memory c1 = creatorRegistry.getCreatorProfile(creator1);
         CreatorRegistry.Creator memory c2 = creatorRegistry.getCreatorProfile(creator2);
 
-        assertTrue(stringEqual(c1.profileData, "Creator 1 Profile"));
-        assertTrue(stringEqual(c2.profileData, "Creator 2 Profile"));
+        assertTrue(stringEqual(c1.profileData, "Test Profile 1"));
+        assertTrue(stringEqual(c2.profileData, "Test Profile 2"));
     }
 
     // ============ EDGE CASE TESTS ============
@@ -626,7 +631,7 @@ contract CreatorRegistryTest is TestSetup {
      */
     function test_PauseUnpause_Success() public {
         // Arrange: Register a creator first
-        assertTrue(registerCreator(creator1));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
 
         // Act: Pause the contract
         vm.prank(admin);
@@ -643,7 +648,7 @@ contract CreatorRegistryTest is TestSetup {
         creatorRegistry.unpause();
 
         // Assert: Registration should work again
-        assertTrue(registerCreator(creator2));
+        assertTrue(registerCreator(creator2, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 2"));
         assertEq(creatorRegistry.getTotalCreators(), 2);
     }
 

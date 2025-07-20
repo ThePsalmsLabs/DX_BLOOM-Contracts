@@ -72,8 +72,8 @@ contract PayPerViewTest is TestSetup {
         super.setUp();
 
         // Register creators for testing
-        assertTrue(registerCreator(creator1));
-        assertTrue(registerCreator(creator2));
+        assertTrue(registerCreator(creator1, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 1"));
+        assertTrue(registerCreator(creator2, DEFAULT_SUBSCRIPTION_PRICE, "Test Profile 2"));
 
         // Register test content
         testContentId1 = registerContent(creator1, DEFAULT_CONTENT_PRICE, "Test Content 1");
@@ -477,7 +477,7 @@ contract PayPerViewTest is TestSetup {
         payPerView.grantPaymentProcessorRole(address(this));
 
         // Act: Advance time past deadline
-        advanceTime(2 hours);
+        warpForward(2 hours);
 
         // Assert: Expect completion to revert
         vm.expectRevert("Purchase expired");
@@ -532,7 +532,7 @@ contract PayPerViewTest is TestSetup {
         payPerView.purchaseContentDirect(testContentId1);
 
         // Act: Advance time past refund window
-        advanceTime(25 hours); // Past 24 hour refund window
+        warpForward(25 hours); // Past 24 hour refund window
 
         // Assert: Expect refund request to revert
         vm.startPrank(user1);

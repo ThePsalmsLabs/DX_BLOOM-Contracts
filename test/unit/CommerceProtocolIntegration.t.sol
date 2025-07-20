@@ -994,7 +994,6 @@ contract CommerceProtocolIntegrationTest is TestSetup {
      */
     function _registerCreatorHelper(address creator, uint256 price, string memory profile)
         internal
-        override
         returns (bool)
     {
         vm.startPrank(creator);
@@ -1017,7 +1016,6 @@ contract CommerceProtocolIntegrationTest is TestSetup {
      */
     function _registerContentHelper(address creator, uint256 price, string memory title)
         internal
-        override
         returns (uint256)
     {
         vm.startPrank(creator);
