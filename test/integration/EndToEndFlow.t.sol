@@ -181,10 +181,7 @@ contract EndToEndFlowTest is TestSetup {
         commerceIntegration.processCompletedPayment(bytes16(intentId), user, paymentToken, tokenAmount, true, "");
     }
 
-    function _verifyPaymentIntentSuccess(
-        PaymentIntentData memory intentData,
-        PaymentType expectedType
-    ) private view {
+    function _verifyPaymentIntentSuccess(PaymentIntentData memory intentData, PaymentType expectedType) private view {
         assertTrue(intentData.context.paymentType == expectedType);
         assertEq(intentData.context.creator, intentData.context.creator);
     }

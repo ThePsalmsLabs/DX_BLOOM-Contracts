@@ -76,7 +76,9 @@ contract SubscriptionManagerTest is TestSetup {
 
         // Expect the Subscribed event
         vm.expectEmit(true, true, false, true);
-        emit SubscriptionManager.Subscribed(user1, creator1, DEFAULT_SUBSCRIPTION_PRICE, platformFee, creatorEarning, startTime, endTime);
+        emit SubscriptionManager.Subscribed(
+            user1, creator1, DEFAULT_SUBSCRIPTION_PRICE, platformFee, creatorEarning, startTime, endTime
+        );
 
         subscriptionManager.subscribeToCreator(creator1);
         vm.stopPrank();

@@ -115,9 +115,9 @@ abstract contract TestSetup is Test, TestConstants, ISharedTypes {
         // Deploy PriceOracle with mock quoter and token addresses
         // FIX: Pass the mock quoter address instead of relying on hardcoded mainnet address
         priceOracle = new PriceOracle(
-            address(mockQuoter),  // Use mock quoter for testing
-            WETH_BASE,           // Standard WETH address on Base
-            address(mockUSDC)    // Use mock USDC for testing
+            address(mockQuoter), // Use mock quoter for testing
+            WETH_BASE, // Standard WETH address on Base
+            address(mockUSDC) // Use mock USDC for testing
         );
         console.log("- PriceOracle deployed at:", address(priceOracle));
 
@@ -130,20 +130,13 @@ abstract contract TestSetup is Test, TestConstants, ISharedTypes {
         console.log("- ContentRegistry deployed at:", address(contentRegistry));
 
         // Deploy PayPerView with all dependencies
-        payPerView = new PayPerView(
-            address(creatorRegistry),
-            address(contentRegistry),
-            address(priceOracle),
-            address(mockUSDC)
-        );
+        payPerView =
+            new PayPerView(address(creatorRegistry), address(contentRegistry), address(priceOracle), address(mockUSDC));
         console.log("- PayPerView deployed at:", address(payPerView));
 
         // Deploy SubscriptionManager
-        subscriptionManager = new SubscriptionManager(
-            address(creatorRegistry),
-            address(contentRegistry),
-            address(mockUSDC)
-        );
+        subscriptionManager =
+            new SubscriptionManager(address(creatorRegistry), address(contentRegistry), address(mockUSDC));
         console.log("- SubscriptionManager deployed at:", address(subscriptionManager));
 
         // Deploy CommerceProtocolIntegration
@@ -255,9 +248,9 @@ abstract contract TestSetup is Test, TestConstants, ISharedTypes {
     /**
      * @dev Helper to register a creator with custom subscription price
      */
-    function registerCreator(address creator, uint256 subscriptionPrice, string memory profileData) 
-        internal 
-        returns (bool) 
+    function registerCreator(address creator, uint256 subscriptionPrice, string memory profileData)
+        internal
+        returns (bool)
     {
         vm.prank(creator);
         creatorRegistry.registerCreator(subscriptionPrice, profileData);
@@ -267,18 +260,10 @@ abstract contract TestSetup is Test, TestConstants, ISharedTypes {
     /**
      * @dev Helper to register content for a creator
      */
-    function registerContent(address creator, uint256 price, string memory title) 
-        internal 
-        returns (uint256) 
-    {
+    function registerContent(address creator, uint256 price, string memory title) internal returns (uint256) {
         vm.prank(creator);
         return contentRegistry.registerContent(
-            "QmTestHash",
-            title,
-            "Test description",
-            ContentCategory.Article,
-            price,
-            new string[](0)
+            "QmTestHash", title, "Test description", ContentCategory.Article, price, new string[](0)
         );
     }
 

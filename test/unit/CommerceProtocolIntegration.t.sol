@@ -764,9 +764,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
                 paymentToken: address(mockUSDC),
                 paymentAmount: (i + 1) * 1e6, // $1, $2, $3, etc.
                 expectedUsdcAmount: (i + 1) * 1e6,
-                paymentType: i % 3 == 0
-                    ? PaymentType.Subscription
-                    : PaymentType.PayPerView,
+                paymentType: i % 3 == 0 ? PaymentType.Subscription : PaymentType.PayPerView,
                 contentId: testContentId,
                 maxSlippage: 100,
                 deadline: block.timestamp + 2 hours,
@@ -992,10 +990,7 @@ contract CommerceProtocolIntegrationTest is TestSetup {
     /**
      * @dev Enhanced registerCreator helper with better error messages
      */
-    function _registerCreatorHelper(address creator, uint256 price, string memory profile)
-        internal
-        returns (bool)
-    {
+    function _registerCreatorHelper(address creator, uint256 price, string memory profile) internal returns (bool) {
         vm.startPrank(creator);
         bool result;
         try creatorRegistry.registerCreator(price, profile) {
@@ -1014,19 +1009,11 @@ contract CommerceProtocolIntegrationTest is TestSetup {
     /**
      * @dev Enhanced registerContent helper with better error handling
      */
-    function _registerContentHelper(address creator, uint256 price, string memory title)
-        internal
-        returns (uint256)
-    {
+    function _registerContentHelper(address creator, uint256 price, string memory title) internal returns (uint256) {
         vm.startPrank(creator);
         uint256 contentId;
         try contentRegistry.registerContent(
-            "QmTestHash123456789",
-            title,
-            "Test description",
-            ContentCategory.Article,
-            price,
-            new string[](0)
+            "QmTestHash123456789", title, "Test description", ContentCategory.Article, price, new string[](0)
         ) returns (uint256 id) {
             contentId = id;
         } catch Error(string memory reason) {

@@ -421,10 +421,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
 
         if (context.paymentType == PaymentType.PayPerView && address(payPerView) != address(0)) {
             try payPerView.handleExternalRefund(intentId, refund.user, context.contentId) {} catch {}
-        } else if (
-            (context.paymentType == PaymentType.Subscription)
-            && address(subscriptionManager) != address(0)
-        ) {
+        } else if ((context.paymentType == PaymentType.Subscription) && address(subscriptionManager) != address(0)) {
             try subscriptionManager.handleExternalRefund(intentId, refund.user, context.creator) {} catch {}
         }
 
@@ -767,9 +764,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         // Grant access based on payment type
         if (context.paymentType == PaymentType.PayPerView) {
             _grantContentAccess(context.user, context.contentId, intentId, paymentToken, amountPaid);
-        } else if (
-            context.paymentType == PaymentType.Subscription
-        ) {
+        } else if (context.paymentType == PaymentType.Subscription) {
             _grantSubscriptionAccess(context.user, context.creator, intentId, paymentToken, amountPaid);
         }
 

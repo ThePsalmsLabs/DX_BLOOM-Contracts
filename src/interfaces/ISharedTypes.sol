@@ -13,31 +13,34 @@ interface ISharedTypes {
      * @notice CRITICAL: All contracts must use this single definition
      */
     enum PaymentType {
-        PayPerView,      // 0
-        Subscription,    // 1
-        Tip,            // 2
-        Donation        // 3
+        PayPerView, // 0
+        Subscription, // 1
+        Tip, // 2
+        Donation // 3
+
     }
-    
+
     /**
      * @dev Content categories for classification
      * @notice Ensure consistent ordering across all contracts
      */
     enum ContentCategory {
-        Article,        // 0
-        Video,          // 1
-        Course,         // 2
-        Music,          // 3
-        Podcast         // 4
+        Article, // 0
+        Video, // 1
+        Course, // 2
+        Music, // 3
+        Podcast // 4
+
     }
-    
+
     /**
      * @dev Subscription status tracking
      */
     enum SubscriptionStatus {
-        Inactive,       // 0
-        Active,         // 1
-        Paused,         // 2
-        Cancelled       // 3
+        Inactive, // 0
+        Active, // 1
+        Paused, // 2
+        Cancelled // 3
+
     }
-} 
+}
