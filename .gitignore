@@ -12,3 +12,8 @@ docs/
 
 # Dotenv file
 .env
+
+# Ignore test output files
+output.txt
+output_CommerceProtocolIntegration.txt
+output*
