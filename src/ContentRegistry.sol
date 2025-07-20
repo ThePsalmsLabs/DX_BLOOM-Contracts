@@ -576,12 +576,12 @@ contract ContentRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable, I
     {
         totalContent = totalContentCount;
         activeContent = activeContentCount;
-        categoryCounts = new uint256[](8); // Number of categories
-        activeCategoryCounts = new uint256[](8);
+        categoryCounts = new uint256[](uint8(ISharedTypes.ContentCategory.Podcast) + 1); // Number of categories
+        activeCategoryCounts = new uint256[](uint8(ISharedTypes.ContentCategory.Podcast) + 1);
 
-        for (uint256 i = 0; i < 8; i++) {
-            categoryCounts[i] = categoryCount[ContentCategory(i)];
-            activeCategoryCounts[i] = activeCategoryCount[ContentCategory(i)];
+        for (uint8 i = 0; i <= uint8(ISharedTypes.ContentCategory.Podcast); i++) {
+            categoryCounts[i] = categoryCount[ISharedTypes.ContentCategory(i)];
+            activeCategoryCounts[i] = activeCategoryCount[ISharedTypes.ContentCategory(i)];
         }
 
         return (totalContent, activeContent, categoryCounts, activeCategoryCounts);

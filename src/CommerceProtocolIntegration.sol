@@ -309,8 +309,8 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         whenNotPaused
         returns (ICommercePaymentsProtocol.TransferIntent memory intent, PaymentContext memory context)
     {
-        // Validate payment type is within enum range
-        if (uint8(request.paymentType) > 2) revert InvalidPaymentType();
+        // Validate payment type is within enum range - FIXED
+        if (uint8(request.paymentType) > uint8(PaymentType.Donation)) revert InvalidPaymentType();
         _validatePaymentRequest(request);
 
         PaymentAmounts memory amounts = _calculateAllPaymentAmounts(request);
@@ -343,8 +343,8 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         PaymentContext storage context = paymentContexts[intentId];
         if (context.user == address(0)) revert PaymentContextNotFound();
 
-        // Validate payment type is within enum range
-        if (uint8(context.paymentType) > 2) revert InvalidPaymentType();
+        // Validate payment type is within enum range - FIXED
+        if (uint8(context.paymentType) > uint8(PaymentType.Donation)) revert InvalidPaymentType();
 
         // Check if intent has expired
         if (block.timestamp > intentDeadlines[intentId]) revert IntentExpired();
@@ -415,8 +415,8 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         require(!refund.processed, "Already processed");
 
         PaymentContext memory context = paymentContexts[intentId];
-        // Validate payment type is within enum range
-        if (uint8(context.paymentType) > 2) revert InvalidPaymentType();
+        // Validate payment type is within enum range - FIXED
+        if (uint8(context.paymentType) > uint8(PaymentType.Donation)) revert InvalidPaymentType();
         refund.processed = true;
 
         if (context.paymentType == PaymentType.PayPerView && address(payPerView) != address(0)) {
@@ -448,8 +448,8 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
     {
         require(intentReadyForExecution[intentId], "Intent not ready for execution");
         PaymentContext memory context = paymentContexts[intentId];
-        // Validate payment type is within enum range
-        if (uint8(context.paymentType) > 2) revert InvalidPaymentType();
+        // Validate payment type is within enum range - FIXED
+        if (uint8(context.paymentType) > uint8(PaymentType.Donation)) revert InvalidPaymentType();
         require(context.user == msg.sender, "Not intent creator");
         require(block.timestamp <= intentDeadlines[intentId], "Intent expired");
         // Reconstruct intent with real signature

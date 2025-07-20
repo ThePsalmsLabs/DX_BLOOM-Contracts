@@ -274,4 +274,40 @@ abstract contract TestSetup is Test, TestConstants, ISharedTypes {
         vm.prank(owner);
         mockUSDC.approve(spender, amount);
     }
+
+    /**
+     * @dev Safely creates a PaymentType from uint8 for testing
+     * @param value The payment type as uint8 (0-3)
+     * @return paymentType The validated PaymentType enum
+     * @notice This prevents test failures due to enum conversion issues
+     */
+    function createPaymentType(uint8 value) internal pure returns (PaymentType paymentType) {
+        require(value <= 3, "Invalid payment type value"); // PaymentType goes 0-3
+        return PaymentType(value);
+    }
+
+    /**
+     * @dev Creates a payment request with proper enum validation
+     * @param paymentTypeValue The payment type as uint8 (0=PayPerView, 1=Subscription, 2=Tip, 3=Donation)
+     * @param creator The creator address
+     * @param contentId The content ID (0 for subscriptions)
+     * @return request The properly constructed payment request
+     */
+    function createValidatedPaymentRequest(
+        uint8 paymentTypeValue,
+        address creator, 
+        uint256 contentId
+    ) internal view returns (CommerceProtocolIntegration.PlatformPaymentRequest memory request) {
+        // Validate enum value before using it
+        require(paymentTypeValue <= uint8(PaymentType.Donation), "Invalid payment type");
+        
+        request.paymentType = PaymentType(paymentTypeValue);
+        request.creator = creator;
+        request.contentId = contentId;
+        request.paymentToken = address(0); // Will be set by caller
+        request.maxSlippage = 100; // 1% default
+        request.deadline = block.timestamp + 1 hours; // Default deadline
+        
+        return request;
+    }
 }
