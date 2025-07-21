@@ -225,6 +225,9 @@ contract BusinessScenariosTest is TestSetup {
     function test_ContentPurchaseWithEarningsVerification() public {
         uint256 purchasePrice = 2e6; // $2
 
+        // Get initial creator profile BEFORE registering new content
+        CreatorRegistry.Creator memory initialProfile = creatorRegistry.getCreatorProfile(creator1);
+
         // Register content with specific price
         vm.prank(creator1);
         uint256 contentId = contentRegistry.registerContent(
@@ -236,9 +239,8 @@ contract BusinessScenariosTest is TestSetup {
             new string[](0)
         );
 
-        // Get initial creator earnings
-        CreatorRegistry.Creator memory initialProfile = creatorRegistry.getCreatorProfile(creator1);
-        uint256 initialEarnings = initialProfile.totalEarnings;
+        // Get initial creator earnings (after content registration)
+        uint256 initialEarnings = creatorRegistry.getCreatorProfile(creator1).totalEarnings;
 
         // User purchases content
         approveUSDC(user1, address(payPerView), purchasePrice);
