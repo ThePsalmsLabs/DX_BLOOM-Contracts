@@ -152,42 +152,107 @@ contract Deploy is Script {
     }
 
     function _setupPermissions() internal {
-        console.log("");
-        console.log("=== Setting up contract permissions ===");
-
-        // Grant platform contract roles to CreatorRegistry
+        // CRITICAL: This was the missing link!
+        creatorRegistry.grantPlatformRole(address(contentRegistry));
+        
+        // Complete permission setup
         creatorRegistry.grantPlatformRole(address(payPerView));
         creatorRegistry.grantPlatformRole(address(subscriptionManager));
         creatorRegistry.grantPlatformRole(address(commerceIntegration));
-
-        // Grant purchase recorder role to PayPerView
+        
         contentRegistry.grantPurchaseRecorderRole(address(payPerView));
-
-        // Grant payment processor role to CommerceIntegration
+        contentRegistry.grantPurchaseRecorderRole(address(commerceIntegration));
+        
         payPerView.grantPaymentProcessorRole(address(commerceIntegration));
-
-        // Grant subscription processor role to CommerceIntegration
         subscriptionManager.grantSubscriptionProcessorRole(address(commerceIntegration));
+        
+        commerceIntegration.grantRole(commerceIntegration.PAYMENT_MONITOR_ROLE(), msg.sender);
 
-        console.log("✅ Permissions configured successfully");
+        // Verify all role assignments
+        _verifyRoles();
+    }
+
+    function _verifyRoles() internal view {
+        // Verify CreatorRegistry platform roles
+        require(
+            creatorRegistry.hasRole(creatorRegistry.PLATFORM_CONTRACT_ROLE(), address(contentRegistry)),
+            "ContentRegistry missing platform role"
+        );
+        require(
+            creatorRegistry.hasRole(creatorRegistry.PLATFORM_CONTRACT_ROLE(), address(payPerView)),
+            "PayPerView missing platform role"
+        );
+        require(
+            creatorRegistry.hasRole(creatorRegistry.PLATFORM_CONTRACT_ROLE(), address(subscriptionManager)),
+            "SubscriptionManager missing platform role"
+        );
+        require(
+            creatorRegistry.hasRole(creatorRegistry.PLATFORM_CONTRACT_ROLE(), address(commerceIntegration)),
+            "CommerceProtocolIntegration missing platform role"
+        );
+
+        // Verify ContentRegistry purchase recorder roles
+        require(
+            contentRegistry.hasRole(contentRegistry.PURCHASE_RECORDER_ROLE(), address(payPerView)),
+            "PayPerView missing purchase recorder role"
+        );
+        require(
+            contentRegistry.hasRole(contentRegistry.PURCHASE_RECORDER_ROLE(), address(commerceIntegration)),
+            "CommerceProtocolIntegration missing purchase recorder role"
+        );
+
+        // Verify PayPerView payment processor role
+        require(
+            payPerView.hasRole(payPerView.PAYMENT_PROCESSOR_ROLE(), address(commerceIntegration)),
+            "CommerceProtocolIntegration missing payment processor role"
+        );
+
+        // Verify SubscriptionManager subscription processor role
+        require(
+            subscriptionManager.hasRole(subscriptionManager.SUBSCRIPTION_PROCESSOR_ROLE(), address(commerceIntegration)),
+            "CommerceProtocolIntegration missing subscription processor role"
+        );
+
+        // Verify CommerceProtocolIntegration payment monitor role
+        require(
+            commerceIntegration.hasRole(commerceIntegration.PAYMENT_MONITOR_ROLE(), platformOwner),
+            "Deployer missing payment monitor role"
+        );
     }
 
     function _configureIntegrations() internal {
-        console.log("=== Configuring contract integrations ===");
+        // Configure CommerceProtocolIntegration with contract addresses
+        commerceIntegration.setPayPerView(address(payPerView));
+        commerceIntegration.setSubscriptionManager(address(subscriptionManager));
         
-        // Configure payment flow integrations
-        // Add any specific integration logic here
-        
-        console.log("✅ Integrations configured successfully");
+        // Verify integrations worked
+        _verifyIntegrations();
+    }
+
+    function _verifyIntegrations() internal view {
+        require(
+            address(commerceIntegration.payPerView()) == address(payPerView),
+            "PayPerView integration not set correctly"
+        );
+        require(
+            address(commerceIntegration.subscriptionManager()) == address(subscriptionManager),
+            "SubscriptionManager integration not set correctly"
+        );
     }
 
     function _registerOperator() internal {
-        console.log("=== Registering Commerce Protocol operator ===");
-        
-        // Register as operator in Commerce Protocol
-        // This may require additional steps depending on Commerce Protocol requirements
-        
-        console.log("✅ Operator registration completed");
+        try commerceIntegration.registerAsOperator() {
+            // After registration, verify the operatorSigner has the SIGNER_ROLE
+            require(
+                commerceIntegration.hasRole(commerceIntegration.SIGNER_ROLE(), operatorSigner),
+                "Operator signer missing SIGNER_ROLE after registration"
+            );
+            console.log("Successfully registered as Commerce Protocol operator");
+        } catch Error(string memory reason) {
+            revert(string(abi.encodePacked("Operator registration failed: ", reason)));
+        } catch {
+            revert("Operator registration failed with unknown error");
+        }
     }
 
     function _printDeploymentSummary() internal view {
@@ -207,7 +272,7 @@ contract Deploy is Script {
         console.log("Operator Signer:", operatorSigner);
     }
 
-    function _printPostDeploymentInstructions() internal view {
+    function _printPostDeploymentInstructions() internal pure {
         console.log("Post-Deployment Instructions:");
         console.log("============================");
         console.log("1. Update frontend with new contract addresses");

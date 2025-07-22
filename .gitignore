@@ -12,6 +12,7 @@ docs/
 
 # Dotenv file
 .env
+.env*
 
 # Ignore test output files
 output.txt
