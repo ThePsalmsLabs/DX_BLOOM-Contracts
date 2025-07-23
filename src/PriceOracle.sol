@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import {IQuoterV2} from "./interfaces/IPlatformInterfaces.sol";
+import { IQuoterV2 } from "./interfaces/IPlatformInterfaces.sol";
 
 /**
  * @title PriceOracle - FIXED VERSION

@@ -9,14 +9,14 @@ import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {CreatorRegistry} from "./CreatorRegistry.sol";
-import {ContentRegistry} from "./ContentRegistry.sol";
-import {PayPerView} from "./PayPerView.sol";
-import {SubscriptionManager} from "./SubscriptionManager.sol";
-import {PriceOracle} from "./PriceOracle.sol";
-import {ICommercePaymentsProtocol} from "./interfaces/IPlatformInterfaces.sol";
-import {IntentIdManager} from "./IntentIdManager.sol";
-import {ISharedTypes} from "./interfaces/ISharedTypes.sol";
+import { CreatorRegistry } from "./CreatorRegistry.sol";
+import { ContentRegistry } from "./ContentRegistry.sol";
+import { PayPerView } from "./PayPerView.sol";
+import { SubscriptionManager } from "./SubscriptionManager.sol";
+import { PriceOracle } from "./PriceOracle.sol";
+import { ICommercePaymentsProtocol } from "./interfaces/IPlatformInterfaces.sol";
+import { IntentIdManager } from "./IntentIdManager.sol";
+import { ISharedTypes } from "./interfaces/ISharedTypes.sol";
 
 /**
  * @title CommerceProtocolIntegration
@@ -420,9 +420,9 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         refund.processed = true;
 
         if (context.paymentType == PaymentType.PayPerView && address(payPerView) != address(0)) {
-            try payPerView.handleExternalRefund(intentId, refund.user, context.contentId) {} catch {}
+            try payPerView.handleExternalRefund(intentId, refund.user, context.contentId) { } catch { }
         } else if ((context.paymentType == PaymentType.Subscription) && address(subscriptionManager) != address(0)) {
-            try subscriptionManager.handleExternalRefund(intentId, refund.user, context.creator) {} catch {}
+            try subscriptionManager.handleExternalRefund(intentId, refund.user, context.creator) { } catch { }
         }
 
         if (pendingRefunds[refund.user] >= refund.amount) {
@@ -659,7 +659,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
             paymentToken: request.paymentToken,
             expectedAmount: amounts.expectedAmount,
             intentId: intentId // Store the original intent ID
-        });
+         });
 
         return context;
     }

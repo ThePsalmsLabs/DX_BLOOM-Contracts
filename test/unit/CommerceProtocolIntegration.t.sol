@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {TestSetup} from "../helpers/TestSetup.sol";
-import {CommerceProtocolIntegration} from "../../src/CommerceProtocolIntegration.sol";
-import {ICommercePaymentsProtocol} from "../../src/interfaces/IPlatformInterfaces.sol";
-import {ContentRegistry} from "../../src/ContentRegistry.sol";
-import {CreatorRegistry} from "../../src/CreatorRegistry.sol";
-import {SubscriptionManager} from "../../src/SubscriptionManager.sol";
-import {PayPerView} from "../../src/PayPerView.sol";
-import {MockERC20} from "../mocks/MockERC20.sol";
-import {ECDSA} from "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import { TestSetup } from "../helpers/TestSetup.sol";
+import { CommerceProtocolIntegration } from "../../src/CommerceProtocolIntegration.sol";
+import { ICommercePaymentsProtocol } from "../../src/interfaces/IPlatformInterfaces.sol";
+import { ContentRegistry } from "../../src/ContentRegistry.sol";
+import { CreatorRegistry } from "../../src/CreatorRegistry.sol";
+import { SubscriptionManager } from "../../src/SubscriptionManager.sol";
+import { PayPerView } from "../../src/PayPerView.sol";
+import { MockERC20 } from "../mocks/MockERC20.sol";
+import { ECDSA } from "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "forge-std/console.sol";
 
 /**

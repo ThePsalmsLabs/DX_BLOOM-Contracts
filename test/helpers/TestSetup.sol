@@ -3,17 +3,17 @@ pragma solidity ^0.8.23;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import {CreatorRegistry} from "../../src/CreatorRegistry.sol";
-import {ContentRegistry} from "../../src/ContentRegistry.sol";
-import {PayPerView} from "../../src/PayPerView.sol";
-import {SubscriptionManager} from "../../src/SubscriptionManager.sol";
-import {CommerceProtocolIntegration} from "../../src/CommerceProtocolIntegration.sol";
-import {PriceOracle} from "../../src/PriceOracle.sol";
-import {MockERC20} from "../mocks/MockERC20.sol";
-import {MockCommerceProtocol} from "../mocks/MockCommerceProtocol.sol";
-import {MockQuoterV2} from "../mocks/MockQuoterV2.sol";
-import {TestConstants} from "./TestConstants.sol";
-import {ISharedTypes} from "../../src/interfaces/ISharedTypes.sol";
+import { CreatorRegistry } from "../../src/CreatorRegistry.sol";
+import { ContentRegistry } from "../../src/ContentRegistry.sol";
+import { PayPerView } from "../../src/PayPerView.sol";
+import { SubscriptionManager } from "../../src/SubscriptionManager.sol";
+import { CommerceProtocolIntegration } from "../../src/CommerceProtocolIntegration.sol";
+import { PriceOracle } from "../../src/PriceOracle.sol";
+import { MockERC20 } from "../mocks/MockERC20.sol";
+import { MockCommerceProtocol } from "../mocks/MockCommerceProtocol.sol";
+import { MockQuoterV2 } from "../mocks/MockQuoterV2.sol";
+import { TestConstants } from "./TestConstants.sol";
+import { ISharedTypes } from "../../src/interfaces/ISharedTypes.sol";
 
 /**
  * @title TestSetup - FIXED VERSION
@@ -293,21 +293,21 @@ abstract contract TestSetup is Test, TestConstants, ISharedTypes {
      * @param contentId The content ID (0 for subscriptions)
      * @return request The properly constructed payment request
      */
-    function createValidatedPaymentRequest(
-        uint8 paymentTypeValue,
-        address creator, 
-        uint256 contentId
-    ) internal view returns (CommerceProtocolIntegration.PlatformPaymentRequest memory request) {
+    function createValidatedPaymentRequest(uint8 paymentTypeValue, address creator, uint256 contentId)
+        internal
+        view
+        returns (CommerceProtocolIntegration.PlatformPaymentRequest memory request)
+    {
         // Validate enum value before using it
         require(paymentTypeValue <= uint8(PaymentType.Donation), "Invalid payment type");
-        
+
         request.paymentType = PaymentType(paymentTypeValue);
         request.creator = creator;
         request.contentId = contentId;
         request.paymentToken = address(0); // Will be set by caller
         request.maxSlippage = 100; // 1% default
         request.deadline = block.timestamp + 1 hours; // Default deadline
-        
+
         return request;
     }
 }

@@ -42,11 +42,6 @@ contract Deploy is Script {
     mapping(uint256 => NetworkConfig) public networkConfigs;
 
     function setUp() public {
-        // Set deployment parameters
-        platformOwner = msg.sender;
-        feeRecipient = msg.sender; // Can be changed later
-        operatorSigner = msg.sender; // Should be a dedicated signing key in production
-
         // Configure networks
         _configureNetworks();
     }
@@ -80,24 +75,36 @@ contract Deploy is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
+        // Set addresses based on network
+        platformOwner = msg.sender;
+        
+        if (block.chainid == 8453) {
+            // Base Mainnet - Production addresses
+            feeRecipient = vm.envAddress("MAINNET_FEE_RECIPIENT");
+            operatorSigner = vm.envAddress("MAINNET_OPERATOR_SIGNER");
+        } else if (block.chainid == 84532) {
+            // Base Sepolia - Test addresses
+            feeRecipient = vm.envOr("TESTNET_FEE_RECIPIENT", msg.sender);
+            operatorSigner = vm.envOr("TESTNET_OPERATOR_SIGNER", msg.sender);
+        } else {
+            revert("Unsupported network");
+        }
+
         console.log("=== Deploying Onchain Content Subscription Platform ===");
         console.log("Network:", config.name);
         console.log("Chain ID:", config.chainId);
-        console.log("Deployer:", msg.sender);
+        console.log("Deployer:", platformOwner);
+        console.log("Fee Recipient:", feeRecipient);
+        console.log("Operator Signer:", operatorSigner);
         console.log("");
 
-        // Deploy all contracts
         _deployContracts(config);
-
-        // Setup permissions and configurations
         _setupPermissions();
         _configureIntegrations();
         _registerOperator();
 
         vm.stopBroadcast();
-
-        console.log("");
-        console.log("=== Deployment Complete ===");
+        
         _printDeploymentSummary();
         _printPostDeploymentInstructions();
     }
@@ -120,21 +127,13 @@ contract Deploy is Script {
 
         // 4. Deploy PayPerView
         console.log("4. Deploying PayPerView...");
-        payPerView = new PayPerView(
-            address(creatorRegistry), 
-            address(contentRegistry), 
-            address(priceOracle), 
-            config.usdc
-        );
+        payPerView =
+            new PayPerView(address(creatorRegistry), address(contentRegistry), address(priceOracle), config.usdc);
         console.log("   PayPerView deployed at:", address(payPerView));
 
         // 5. Deploy SubscriptionManager
         console.log("5. Deploying SubscriptionManager...");
-        subscriptionManager = new SubscriptionManager(
-            address(creatorRegistry), 
-            address(contentRegistry), 
-            config.usdc
-        );
+        subscriptionManager = new SubscriptionManager(address(creatorRegistry), address(contentRegistry), config.usdc);
         console.log("   SubscriptionManager deployed at:", address(subscriptionManager));
 
         // 6. Deploy CommerceProtocolIntegration
@@ -154,18 +153,18 @@ contract Deploy is Script {
     function _setupPermissions() internal {
         // CRITICAL: This was the missing link!
         creatorRegistry.grantPlatformRole(address(contentRegistry));
-        
+
         // Complete permission setup
         creatorRegistry.grantPlatformRole(address(payPerView));
         creatorRegistry.grantPlatformRole(address(subscriptionManager));
         creatorRegistry.grantPlatformRole(address(commerceIntegration));
-        
+
         contentRegistry.grantPurchaseRecorderRole(address(payPerView));
         contentRegistry.grantPurchaseRecorderRole(address(commerceIntegration));
-        
+
         payPerView.grantPaymentProcessorRole(address(commerceIntegration));
         subscriptionManager.grantSubscriptionProcessorRole(address(commerceIntegration));
-        
+
         commerceIntegration.grantRole(commerceIntegration.PAYMENT_MONITOR_ROLE(), msg.sender);
 
         // Verify all role assignments
@@ -224,15 +223,14 @@ contract Deploy is Script {
         // Configure CommerceProtocolIntegration with contract addresses
         commerceIntegration.setPayPerView(address(payPerView));
         commerceIntegration.setSubscriptionManager(address(subscriptionManager));
-        
+
         // Verify integrations worked
         _verifyIntegrations();
     }
 
     function _verifyIntegrations() internal view {
         require(
-            address(commerceIntegration.payPerView()) == address(payPerView),
-            "PayPerView integration not set correctly"
+            address(commerceIntegration.payPerView()) == address(payPerView), "PayPerView integration not set correctly"
         );
         require(
             address(commerceIntegration.subscriptionManager()) == address(subscriptionManager),
@@ -245,8 +243,13 @@ contract Deploy is Script {
         // This can be done manually after deployment or via a separate transaction
         console.log("Skipping operator registration during deployment");
         console.log("You can register manually later using:");
-        console.log("cast send", address(commerceIntegration), "registerAsOperator()", "--rpc-url base_sepolia --account deployer");
-        
+        console.log(
+            "cast send",
+            address(commerceIntegration),
+            "registerAsOperator()",
+            "--rpc-url base_sepolia --account deployer"
+        );
+
         // Alternatively, make it optional with an environment variable
         if (vm.envOr("REGISTER_OPERATOR", false)) {
             try commerceIntegration.registerAsOperator() {
@@ -304,7 +307,7 @@ contract Deploy is Script {
         console.log("PayPerView:", address(payPerView));
         console.log("SubscriptionManager:", address(subscriptionManager));
         console.log("CommerceProtocolIntegration:", address(commerceIntegration));
-        
+
         // Verify network configuration
         NetworkConfig memory config = networkConfigs[block.chainid];
         console.log("Network:", config.name);

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {TestSetup} from "../helpers/TestSetup.sol";
-import {PayPerView} from "../../src/PayPerView.sol";
-import {CreatorRegistry} from "../../src/CreatorRegistry.sol";
-import {ContentRegistry} from "../../src/ContentRegistry.sol";
+import { TestSetup } from "../helpers/TestSetup.sol";
+import { PayPerView } from "../../src/PayPerView.sol";
+import { CreatorRegistry } from "../../src/CreatorRegistry.sol";
+import { ContentRegistry } from "../../src/ContentRegistry.sol";
 
 /**
  * @title PayPerViewTest

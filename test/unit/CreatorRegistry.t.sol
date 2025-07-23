@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {TestSetup} from "../helpers/TestSetup.sol";
-import {CreatorRegistry} from "../../src/CreatorRegistry.sol";
+import { TestSetup } from "../helpers/TestSetup.sol";
+import { CreatorRegistry } from "../../src/CreatorRegistry.sol";
 
 /**
  * @title CreatorRegistryTest - FIXED VERSION

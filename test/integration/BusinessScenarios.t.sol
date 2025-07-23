@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {TestSetup} from "../helpers/TestSetup.sol";
-import {CreatorRegistry} from "../../src/CreatorRegistry.sol";
+import { TestSetup } from "../helpers/TestSetup.sol";
+import { CreatorRegistry } from "../../src/CreatorRegistry.sol";
 
 /**
- * @title BusinessScenariosTest - FIXED VERSION  
+ * @title BusinessScenariosTest - FIXED VERSION
  * @dev Integration tests for complete business workflows - all access control issues fixed
  * @notice This test suite validates real-world usage scenarios including:
  *         - Creator onboarding and content publication
  *         - User subscription and content access flows
- *         - Multi-token payment scenarios  
+ *         - Multi-token payment scenarios
  *         - Creator earnings and withdrawal
  */
 contract BusinessScenariosTest is TestSetup {
@@ -143,7 +143,7 @@ contract BusinessScenariosTest is TestSetup {
             // FIXED: Mint tokens using admin permissions
             vm.prank(admin);
             mockUSDC.mint(buyers[i], 10e6);
-            
+
             approveUSDC(buyers[i], address(payPerView), contentPrice);
 
             vm.prank(buyers[i]);
@@ -172,11 +172,11 @@ contract BusinessScenariosTest is TestSetup {
         // Create new content
         vm.prank(creator1);
         uint256 newContentId = contentRegistry.registerContent(
-            "QmNewContent", 
-            "New Content", 
-            "Description", 
+            "QmNewContent",
+            "New Content",
+            "Description",
             ContentCategory.Article, // FIXED: Ensure proper enum usage
-            1e6, 
+            1e6,
             new string[](0)
         );
 
@@ -194,19 +194,19 @@ contract BusinessScenariosTest is TestSetup {
      */
     function test_MultiUserSubscriptions() public {
         address[3] memory subscribers = [user1, user2, address(0x6001)];
-        
+
         // Setup multiple subscribers
         for (uint256 i = 0; i < subscribers.length; i++) {
             // Fund each subscriber
             vm.prank(admin);
             mockUSDC.mint(subscribers[i], 50e6);
-            
+
             // Subscribe to creator1
             approveUSDC(subscribers[i], address(subscriptionManager), creatorSubscriptionPrice);
-            
+
             vm.prank(subscribers[i]);
             subscriptionManager.subscribeToCreator(creator1);
-            
+
             // Verify subscription
             assertTrue(subscriptionManager.isSubscribed(subscribers[i], creator1));
         }
@@ -280,12 +280,7 @@ contract BusinessScenariosTest is TestSetup {
         assertTrue(creatorRegistry.getCreatorProfile(creator1).isVerified);
 
         // Check updated platform stats
-        (
-            uint256 finalTotalCreators,
-            uint256 finalVerifiedCreators,
-            ,
-            ,
-        ) = creatorRegistry.getPlatformStats();
+        (uint256 finalTotalCreators, uint256 finalVerifiedCreators,,,) = creatorRegistry.getPlatformStats();
 
         // Should have same total creators but one more verified
         assertEq(finalTotalCreators, initialTotalCreators);
@@ -298,31 +293,31 @@ contract BusinessScenariosTest is TestSetup {
     function test_SubscriptionRenewalScenario() public {
         // Initial subscription
         approveUSDC(user1, address(subscriptionManager), creatorSubscriptionPrice);
-        
+
         vm.prank(user1);
         subscriptionManager.subscribeToCreator(creator1);
-        
+
         // Verify active subscription
         assertTrue(subscriptionManager.isSubscribed(user1, creator1));
 
         // Fast forward to near expiration
         vm.warp(block.timestamp + 29 days);
-        
+
         // Should still be active
         assertTrue(subscriptionManager.isSubscribed(user1, creator1));
 
         // Fast forward past expiration
         vm.warp(block.timestamp + 2 days); // Total 31 days
-        
+
         // Should now be expired
         assertFalse(subscriptionManager.isSubscribed(user1, creator1));
 
         // Renew subscription (handled by subscribing again)
         approveUSDC(user1, address(subscriptionManager), creatorSubscriptionPrice);
-        
+
         vm.prank(user1);
         subscriptionManager.subscribeToCreator(creator1);
-        
+
         // Verify renewed subscription
         assertTrue(subscriptionManager.isSubscribed(user1, creator1));
     }

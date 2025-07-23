@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {TestSetup} from "../helpers/TestSetup.sol";
-import {CommerceProtocolIntegration} from "../../src/CommerceProtocolIntegration.sol";
-import {ICommercePaymentsProtocol} from "../../src/interfaces/IPlatformInterfaces.sol";
-import {ContentRegistry} from "../../src/ContentRegistry.sol";
-import {SubscriptionManager} from "../../src/SubscriptionManager.sol";
-import {CreatorRegistry} from "../../src/CreatorRegistry.sol";
-import {PayPerView} from "../../src/PayPerView.sol";
+import { TestSetup } from "../helpers/TestSetup.sol";
+import { CommerceProtocolIntegration } from "../../src/CommerceProtocolIntegration.sol";
+import { ICommercePaymentsProtocol } from "../../src/interfaces/IPlatformInterfaces.sol";
+import { ContentRegistry } from "../../src/ContentRegistry.sol";
+import { SubscriptionManager } from "../../src/SubscriptionManager.sol";
+import { CreatorRegistry } from "../../src/CreatorRegistry.sol";
+import { PayPerView } from "../../src/PayPerView.sol";
 
 /**
  * @title CrossContractInteractionTest
@@ -485,7 +485,7 @@ contract CrossContractInteractionTest is TestSetup {
             contentAccessCount: accessCount,
             activeSubscriptions: activeCount,
             totalSpent: 0 // Would calculate from purchase history in real implementation
-        });
+         });
     }
 
     // ============ PLATFORM-WIDE CONSISTENCY TESTS ============

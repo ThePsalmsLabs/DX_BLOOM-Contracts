@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {ISharedTypes} from "../interfaces/ISharedTypes.sol";
+import { ISharedTypes } from "../interfaces/ISharedTypes.sol";
 
 library EnumValidation {
     /**
@@ -13,25 +13,25 @@ library EnumValidation {
     function isValidPaymentType(uint8 value) internal pure returns (bool isValid) {
         return value <= uint8(ISharedTypes.PaymentType.Donation); // 0-3 are valid
     }
-    
+
     /**
      * @dev Validates ContentCategory enum value
-     * @param value The uint8 value to validate  
+     * @param value The uint8 value to validate
      * @return isValid True if the value is a valid ContentCategory
      */
     function isValidContentCategory(uint8 value) internal pure returns (bool isValid) {
         return value <= uint8(ISharedTypes.ContentCategory.Podcast); // 0-4 are valid
     }
-    
+
     /**
      * @dev Validates SubscriptionStatus enum value
      * @param value The uint8 value to validate
-     * @return isValid True if the value is a valid SubscriptionStatus  
+     * @return isValid True if the value is a valid SubscriptionStatus
      */
     function isValidSubscriptionStatus(uint8 value) internal pure returns (bool isValid) {
         return value <= uint8(ISharedTypes.SubscriptionStatus.Cancelled); // 0-3 are valid
     }
-    
+
     /**
      * @dev Safe casting from uint8 to PaymentType with validation
      * @param value The uint8 value to cast
@@ -44,7 +44,7 @@ library EnumValidation {
         }
         return ISharedTypes.PaymentType(value);
     }
-    
+
     /**
      * @dev Safe casting from uint8 to ContentCategory with validation
      * @param value The uint8 value to cast
@@ -56,9 +56,9 @@ library EnumValidation {
         }
         return ISharedTypes.ContentCategory(value);
     }
-    
+
     // Custom errors for better debugging
     error InvalidPaymentType();
     error InvalidContentCategory();
     error InvalidSubscriptionStatus();
-} 
+}

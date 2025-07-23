@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {IQuoterV2} from "../../src/interfaces/IPlatformInterfaces.sol";
+import { IQuoterV2 } from "../../src/interfaces/IPlatformInterfaces.sol";
 
 /**
  * @title MockQuoterV2 - FIXED COMPLETE IMPLEMENTATION
@@ -9,7 +9,7 @@ import {IQuoterV2} from "../../src/interfaces/IPlatformInterfaces.sol";
  * @notice This mock allows us to test our PriceOracle without depending on actual
  *         Uniswap pools. We can set predictable prices, simulate different market
  *         conditions, and test edge cases like price slippage and liquidity issues.
- * 
+ *
  * CRITICAL FIXES APPLIED:
  * 1. Fixed incomplete if statement syntax error
  * 2. Implemented missing _getDefaultPrice() function
@@ -50,7 +50,7 @@ contract MockQuoterV2 is IQuoterV2 {
      * @return gasEstimate The gas estimate (mock value)
      * @notice This function simulates how Uniswap would calculate the output amount
      *         for a given input amount and token pair
-     *         
+     *
      * ENHANCED: Now provides detailed debugging information when quotes fail
      */
     function quoteExactInputSingle(QuoteExactInputSingleParams memory params)
@@ -77,14 +77,16 @@ contract MockQuoterV2 is IQuoterV2 {
         // If still no price available, provide detailed error message for debugging
         if (price == 0) {
             // Enhanced error message that helps with debugging
-            string memory errorMsg = string(abi.encodePacked(
-                "MockQuoterV2: No liquidity for pair. TokenIn: ",
-                _addressToString(params.tokenIn),
-                " TokenOut: ",
-                _addressToString(params.tokenOut),
-                " Fee: ",
-                _uint24ToString(params.fee)
-            ));
+            string memory errorMsg = string(
+                abi.encodePacked(
+                    "MockQuoterV2: No liquidity for pair. TokenIn: ",
+                    _addressToString(params.tokenIn),
+                    " TokenOut: ",
+                    _addressToString(params.tokenOut),
+                    " Fee: ",
+                    _uint24ToString(params.fee)
+                )
+            );
             revert(errorMsg);
         }
 
@@ -133,39 +135,39 @@ contract MockQuoterV2 is IQuoterV2 {
     /**
      * @dev Sets up default prices for common token pairs - ENHANCED VERSION
      * @notice This establishes realistic baseline prices for testing with comprehensive coverage
-     *         
+     *
      * CRITICAL ENHANCEMENT: Now covers ALL fee tiers (500, 3000, 10000) and BOTH directions
      * for each token pair. This ensures auto pool fee detection works correctly.
      */
     function _setDefaultPrices() internal {
         // ============ WETH/USDC PAIRS (ALL FEE TIERS) ============
         // WETH -> USDC: 1 WETH = 2000 USDC
-        mockPrices[WETH][USDC][500] = DEFAULT_WETH_USDC_PRICE;    // 0.05% pool
-        mockPrices[WETH][USDC][3000] = DEFAULT_WETH_USDC_PRICE;  // 0.3% pool  
+        mockPrices[WETH][USDC][500] = DEFAULT_WETH_USDC_PRICE; // 0.05% pool
+        mockPrices[WETH][USDC][3000] = DEFAULT_WETH_USDC_PRICE; // 0.3% pool
         mockPrices[WETH][USDC][10000] = DEFAULT_WETH_USDC_PRICE; // 1% pool
 
         // USDC -> WETH: 1 USDC = 0.0005 WETH (reverse direction)
-        mockPrices[USDC][WETH][500] = 0.0005e18;   // 0.05% pool
-        mockPrices[USDC][WETH][3000] = 0.0005e18;  // 0.3% pool
+        mockPrices[USDC][WETH][500] = 0.0005e18; // 0.05% pool
+        mockPrices[USDC][WETH][3000] = 0.0005e18; // 0.3% pool
         mockPrices[USDC][WETH][10000] = 0.0005e18; // 1% pool
 
         // ============ MOCK_TOKEN/USDC PAIRS (ALL FEE TIERS) ============
         // This is CRITICAL for the failing tests - they use MOCK_TOKEN
         address mockToken = address(0x1234567890123456789012345678901234567890);
-        
+
         // MOCK_TOKEN -> USDC: 1 MOCK = 1 USDC
-        mockPrices[mockToken][USDC][500] = 1e6;    // 0.05% pool (auto-selected for stablecoin pairs!)
-        mockPrices[mockToken][USDC][3000] = 1e6;   // 0.3% pool
-        mockPrices[mockToken][USDC][10000] = 1e6;  // 1% pool
+        mockPrices[mockToken][USDC][500] = 1e6; // 0.05% pool (auto-selected for stablecoin pairs!)
+        mockPrices[mockToken][USDC][3000] = 1e6; // 0.3% pool
+        mockPrices[mockToken][USDC][10000] = 1e6; // 1% pool
 
         // USDC -> MOCK_TOKEN: 1 USDC = 1 MOCK (reverse direction)
-        mockPrices[USDC][mockToken][500] = 1e18;   // 0.05% pool
-        mockPrices[USDC][mockToken][3000] = 1e18;  // 0.3% pool
+        mockPrices[USDC][mockToken][500] = 1e18; // 0.05% pool
+        mockPrices[USDC][mockToken][3000] = 1e18; // 0.3% pool
         mockPrices[USDC][mockToken][10000] = 1e18; // 1% pool
 
         // ============ MOCK_TOKEN/WETH PAIRS (FOR ROUTING) ============
         // These support routing through WETH when direct pairs aren't available
-        
+
         // MOCK_TOKEN -> WETH: 1 MOCK = 0.0005 WETH (same as 1 USDC)
         mockPrices[mockToken][WETH][500] = 0.0005e18;
         mockPrices[mockToken][WETH][3000] = 0.0005e18;
@@ -178,7 +180,7 @@ contract MockQuoterV2 is IQuoterV2 {
 
         // ============ ETH (address(0)) SPECIAL HANDLING ============
         // Handle native ETH (address(0)) for tests that use it
-        
+
         // ETH -> USDC: 1 ETH = 2000 USDC
         mockPrices[address(0)][USDC][500] = DEFAULT_ETH_USDC_PRICE;
         mockPrices[address(0)][USDC][3000] = DEFAULT_ETH_USDC_PRICE;
@@ -196,7 +198,7 @@ contract MockQuoterV2 is IQuoterV2 {
      * @param tokenOut The output token
      * @return price The default price
      * @notice This provides fallback prices when specific pool prices aren't set
-     *         
+     *
      * EDUCATIONAL NOTE: This function serves as a safety net with more comprehensive
      * fallback logic. It handles edge cases and provides debugging information.
      */
@@ -206,7 +208,7 @@ contract MockQuoterV2 is IQuoterV2 {
             return DEFAULT_ETH_USDC_PRICE;
         }
 
-        // Handle WETH to USDC  
+        // Handle WETH to USDC
         if (tokenIn == WETH && tokenOut == USDC) {
             return DEFAULT_WETH_USDC_PRICE;
         }
@@ -223,19 +225,19 @@ contract MockQuoterV2 is IQuoterV2 {
 
         // Handle MOCK_TOKEN cases (this is critical for failing tests)
         address mockToken = address(0x1234567890123456789012345678901234567890);
-        
+
         if (tokenIn == mockToken && tokenOut == USDC) {
             return 1e6; // 1 MOCK = 1 USDC
         }
-        
+
         if (tokenIn == USDC && tokenOut == mockToken) {
             return 1e18; // 1 USDC = 1 MOCK
         }
-        
+
         if (tokenIn == mockToken && tokenOut == WETH) {
             return 0.0005e18; // 1 MOCK = 0.0005 WETH
         }
-        
+
         if (tokenIn == WETH && tokenOut == mockToken) {
             return 2000e18; // 1 WETH = 2000 MOCK
         }
@@ -264,16 +266,15 @@ contract MockQuoterV2 is IQuoterV2 {
      * - When converting between them, we must adjust for decimal differences
      * - The price parameter represents "how much tokenOut per 1 unit of tokenIn"
      */
-    function _calculateOutputAmount(
-        address tokenIn,
-        address tokenOut, 
-        uint256 amountIn,
-        uint256 price
-    ) internal pure returns (uint256 amountOut) {
+    function _calculateOutputAmount(address tokenIn, address tokenOut, uint256 amountIn, uint256 price)
+        internal
+        pure
+        returns (uint256 amountOut)
+    {
         // Handle decimal differences between tokens
         uint8 decimalsIn = _getTokenDecimals(tokenIn);
         uint8 decimalsOut = _getTokenDecimals(tokenOut);
-        
+
         // Price is stored as output tokens per 1 unit of input token
         // Need to adjust for decimal differences
         if (decimalsIn > decimalsOut) {
@@ -288,12 +289,12 @@ contract MockQuoterV2 is IQuoterV2 {
             // Same decimals
             amountOut = (amountIn * price) / 1e18;
         }
-        
+
         // Ensure we never return 0 for non-zero input (prevents division by zero downstream)
         if (amountIn > 0 && amountOut == 0) {
             amountOut = 1; // Minimum output to prevent downstream issues
         }
-        
+
         return amountOut;
     }
 
@@ -336,20 +337,20 @@ contract MockQuoterV2 is IQuoterV2 {
      */
     function _addressToString(address addr) internal pure returns (string memory result) {
         if (addr == address(0)) return "0x0000000000000000000000000000000000000000";
-        
+
         bytes memory buffer = new bytes(42);
-        buffer[0] = '0';
-        buffer[1] = 'x';
-        
+        buffer[0] = "0";
+        buffer[1] = "x";
+
         for (uint256 i = 0; i < 20; i++) {
             uint8 byteValue = uint8(uint160(addr) >> (8 * (19 - i)));
             uint8 high = byteValue >> 4;
             uint8 low = byteValue & 0x0f;
-            
+
             buffer[2 + i * 2] = bytes1(high < 10 ? high + 48 : high + 87);
             buffer[3 + i * 2] = bytes1(low < 10 ? low + 48 : low + 87);
         }
-        
+
         return string(buffer);
     }
 
@@ -360,22 +361,22 @@ contract MockQuoterV2 is IQuoterV2 {
      */
     function _uint24ToString(uint24 value) internal pure returns (string memory result) {
         if (value == 0) return "0";
-        
+
         uint24 temp = value;
         uint256 digits;
-        
+
         while (temp != 0) {
             digits++;
             temp /= 10;
         }
-        
+
         bytes memory buffer = new bytes(digits);
         while (value != 0) {
             digits -= 1;
             buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
             value /= 10;
         }
-        
+
         return string(buffer);
     }
 }

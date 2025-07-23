@@ -7,11 +7,11 @@ import "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {CreatorRegistry} from "./CreatorRegistry.sol";
-import {ContentRegistry} from "./ContentRegistry.sol";
-import {PriceOracle} from "./PriceOracle.sol";
-import {ICommercePaymentsProtocol} from "./interfaces/IPlatformInterfaces.sol";
-import {IntentIdManager} from "./IntentIdManager.sol";
+import { CreatorRegistry } from "./CreatorRegistry.sol";
+import { ContentRegistry } from "./ContentRegistry.sol";
+import { PriceOracle } from "./PriceOracle.sol";
+import { ICommercePaymentsProtocol } from "./interfaces/IPlatformInterfaces.sol";
+import { IntentIdManager } from "./IntentIdManager.sol";
 
 /**
  * @title PayPerView
@@ -370,7 +370,7 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
         totalPurchases++;
 
         // Record in content registry
-        try contentRegistry.recordPurchase(contentId, msg.sender) {} catch {}
+        try contentRegistry.recordPurchase(contentId, msg.sender) { } catch { }
 
         emit DirectPurchaseCompleted(contentId, msg.sender, content.creator, contentPrice, platformFee, creatorEarning);
     }
