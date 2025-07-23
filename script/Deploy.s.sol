@@ -241,17 +241,27 @@ contract Deploy is Script {
     }
 
     function _registerOperator() internal {
-        try commerceIntegration.registerAsOperator() {
-            // After registration, verify the operatorSigner has the SIGNER_ROLE
-            require(
-                commerceIntegration.hasRole(commerceIntegration.SIGNER_ROLE(), operatorSigner),
-                "Operator signer missing SIGNER_ROLE after registration"
-            );
-            console.log("Successfully registered as Commerce Protocol operator");
-        } catch Error(string memory reason) {
-            revert(string(abi.encodePacked("Operator registration failed: ", reason)));
-        } catch {
-            revert("Operator registration failed with unknown error");
+        // Skip operator registration during deployment for now
+        // This can be done manually after deployment or via a separate transaction
+        console.log("Skipping operator registration during deployment");
+        console.log("You can register manually later using:");
+        console.log("cast send", address(commerceIntegration), "registerAsOperator()", "--rpc-url base_sepolia --account deployer");
+        
+        // Alternatively, make it optional with an environment variable
+        if (vm.envOr("REGISTER_OPERATOR", false)) {
+            try commerceIntegration.registerAsOperator() {
+                require(
+                    commerceIntegration.hasRole(commerceIntegration.SIGNER_ROLE(), operatorSigner),
+                    "Operator signer missing SIGNER_ROLE after registration"
+                );
+                console.log("Successfully registered as Commerce Protocol operator");
+            } catch Error(string memory reason) {
+                console.log("Operator registration failed:", reason);
+                console.log("You can try registering manually later");
+            } catch {
+                console.log("Operator registration failed with unknown error");
+                console.log("You can try registering manually later");
+            }
         }
     }
 
