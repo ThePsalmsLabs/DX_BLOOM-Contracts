@@ -73,10 +73,10 @@ contract Deploy is Script {
         require(config.chainId != 0, "Unsupported network");
         
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        vm.startBroadcast(deployerPrivateKey);
 
-        // Set addresses based on network
-        platformOwner = msg.sender;
+        platformOwner = vm.addr(deployerPrivateKey);
+
+        vm.startBroadcast(deployerPrivateKey);
         
         if (block.chainid == 8453) {
             // Base Mainnet - Production addresses

@@ -1,10 +1,10 @@
-Compiling 7 files with Solc 0.8.23
-Solc 0.8.23 finished in 3.90s
-Compiler run successful!
+No files changed, compilation skipped
 Traces:
-  [20426742] Deploy::run()
+  [20427216] Deploy::run()
     ├─ [0] VM::envUint("PRIVATE_KEY") [staticcall]
     │   └─ ← [Return] <env var value>
+    ├─ [0] VM::addr(<pk>) [staticcall]
+    │   └─ ← [Return] 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a
     ├─ [0] VM::startBroadcast(<pk>)
     │   └─ ← [Return]
     ├─ [0] VM::envOr("TESTNET_FEE_RECIPIENT", DefaultSender: [0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38]) [staticcall]
@@ -17,7 +17,7 @@ Traces:
     │   └─ ← [Stop]
     ├─ [0] console::log("Chain ID:", 84532 [8.453e4]) [staticcall]
     │   └─ ← [Stop]
-    ├─ [0] console::log("Deployer:", DefaultSender: [0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38]) [staticcall]
+    ├─ [0] console::log("Deployer:", 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a) [staticcall]
     │   └─ ← [Stop]
     ├─ [0] console::log("Fee Recipient:", 0xc506F778Ff3Ea8da02d8b466a5e9E6F1E04748f7) [staticcall]
     │   └─ ← [Stop]
@@ -27,83 +27,83 @@ Traces:
     │   └─ ← [Stop]
     ├─ [0] console::log("1. Deploying PriceOracle...") [staticcall]
     │   └─ ← [Stop]
-    ├─ [948009] → new PriceOracle@0x2627F8a5fcD2Cbf0C90Ce8383fE029B8Da316D58
+    ├─ [948009] → new PriceOracle@0x521f25C63FCCD2ff3c30d8B0F73291457d34c476
     │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit QuoterUpdated(oldQuoter: 0x0000000000000000000000000000000000000000, newQuoter: 0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a)
     │   └─ ← [Return] 4384 bytes of code
-    ├─ [0] console::log("   PriceOracle deployed at:", PriceOracle: [0x2627F8a5fcD2Cbf0C90Ce8383fE029B8Da316D58]) [staticcall]
+    ├─ [0] console::log("   PriceOracle deployed at:", PriceOracle: [0x521f25C63FCCD2ff3c30d8B0F73291457d34c476]) [staticcall]
     │   └─ ← [Stop]
     ├─ [0] console::log("2. Deploying CreatorRegistry...") [staticcall]
     │   └─ ← [Stop]
-    ├─ [2282538] → new CreatorRegistry@0x9b6323F62c43c8Dd358e0e83D2319a9F98BB908c
+    ├─ [2282538] → new CreatorRegistry@0x7a2BDfCf9D5dE4fd299Af7bF1A93514E46560b84
     │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit RoleGranted(role: 0x71f3d55856e4058ed06ee057d79ada615f65cdf5f9ee88181b914225088f834f, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   └─ ← [Return] 10703 bytes of code
-    ├─ [0] console::log("   CreatorRegistry deployed at:", CreatorRegistry: [0x9b6323F62c43c8Dd358e0e83D2319a9F98BB908c]) [staticcall]
+    ├─ [0] console::log("   CreatorRegistry deployed at:", CreatorRegistry: [0x7a2BDfCf9D5dE4fd299Af7bF1A93514E46560b84]) [staticcall]
     │   └─ ← [Stop]
     ├─ [0] console::log("3. Deploying ContentRegistry...") [staticcall]
     │   └─ ← [Stop]
-    ├─ [3755222] → new ContentRegistry@0x63b824bCd618f01756918044BdAAb5ce6DF4b83e
+    ├─ [3755222] → new ContentRegistry@0xf4a37B1F3568b200a4ED98675224C0DfF6Ad7444
     │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit RoleGranted(role: 0x71f3d55856e4058ed06ee057d79ada615f65cdf5f9ee88181b914225088f834f, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   └─ ← [Return] 17838 bytes of code
-    ├─ [0] console::log("   ContentRegistry deployed at:", ContentRegistry: [0x63b824bCd618f01756918044BdAAb5ce6DF4b83e]) [staticcall]
+    ├─ [0] console::log("   ContentRegistry deployed at:", ContentRegistry: [0xf4a37B1F3568b200a4ED98675224C0DfF6Ad7444]) [staticcall]
     │   └─ ← [Stop]
     ├─ [0] console::log("4. Deploying PayPerView...") [staticcall]
     │   └─ ← [Stop]
-    ├─ [3801446] → new PayPerView@0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196
+    ├─ [3801446] → new PayPerView@0xC042014fAC0Dd156c17b22e06fF964Eb2890A496
     │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit RoleGranted(role: 0xd7d8b7014b7ed36eb085c9e3e427b642d74cab75ecefda8a757042e63ec59919, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit RoleGranted(role: 0xc89f08b49c068684bf15b77e68611a9f601e70d1f919059510bccd18e691e535, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   └─ ← [Return] 18383 bytes of code
-    ├─ [0] console::log("   PayPerView deployed at:", PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196]) [staticcall]
+    ├─ [0] console::log("   PayPerView deployed at:", PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496]) [staticcall]
     │   └─ ← [Stop]
     ├─ [0] console::log("5. Deploying SubscriptionManager...") [staticcall]
     │   └─ ← [Stop]
-    ├─ [4063692] → new SubscriptionManager@0x7A525c2602777Be6CFF80173E6336DFE491fC2F7
+    ├─ [4063692] → new SubscriptionManager@0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5
     │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit RoleGranted(role: 0x1fa68478e710912de24d46d09a1aa735096685a61549eeb0fefb3693b245e69c, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit RoleGranted(role: 0x4a2743f41a15276dad6813e73326037e88c2a55ffdd5c4cab4ea1745629b0d34, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   └─ ← [Return] 19473 bytes of code
-    ├─ [0] console::log("   SubscriptionManager deployed at:", SubscriptionManager: [0x7A525c2602777Be6CFF80173E6336DFE491fC2F7]) [staticcall]
+    ├─ [0] console::log("   SubscriptionManager deployed at:", SubscriptionManager: [0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5]) [staticcall]
     │   └─ ← [Stop]
     ├─ [0] console::log("6. Deploying CommerceProtocolIntegration...") [staticcall]
     │   └─ ← [Stop]
-    ├─ [4815544] → new CommerceProtocolIntegration@0xF54FF33f989a6C715fF5b7f20130353F62bba85a
+    ├─ [4815544] → new CommerceProtocolIntegration@0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715
     │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit RoleGranted(role: 0x501c65bac3e4ac3ac69864ba85559de0249f52b20e002f1e1d1232fd4e169231, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   ├─ emit RoleGranted(role: 0xe2f4eaae4a9751e85a3e4a7b9587827a877f29914755229b07a7b2da98285f70, account: 0xE24d25B37D960cF8b58004dd3e0485D832135255, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   └─ ← [Return] 22997 bytes of code
-    ├─ [0] console::log("   CommerceProtocolIntegration deployed at:", CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a]) [staticcall]
+    ├─ [0] console::log("   CommerceProtocolIntegration deployed at:", CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715]) [staticcall]
     │   └─ ← [Stop]
-    ├─ [25153] CreatorRegistry::grantPlatformRole(ContentRegistry: [0x63b824bCd618f01756918044BdAAb5ce6DF4b83e])
-    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: ContentRegistry: [0x63b824bCd618f01756918044BdAAb5ce6DF4b83e], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+    ├─ [25153] CreatorRegistry::grantPlatformRole(ContentRegistry: [0xf4a37B1F3568b200a4ED98675224C0DfF6Ad7444])
+    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: ContentRegistry: [0xf4a37B1F3568b200a4ED98675224C0DfF6Ad7444], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   └─ ← [Stop]
-    ├─ [25153] CreatorRegistry::grantPlatformRole(PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196])
-    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+    ├─ [25153] CreatorRegistry::grantPlatformRole(PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496])
+    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   └─ ← [Stop]
-    ├─ [25153] CreatorRegistry::grantPlatformRole(SubscriptionManager: [0x7A525c2602777Be6CFF80173E6336DFE491fC2F7])
-    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: SubscriptionManager: [0x7A525c2602777Be6CFF80173E6336DFE491fC2F7], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+    ├─ [25153] CreatorRegistry::grantPlatformRole(SubscriptionManager: [0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5])
+    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: SubscriptionManager: [0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   └─ ← [Stop]
-    ├─ [25153] CreatorRegistry::grantPlatformRole(CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a])
-    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+    ├─ [25153] CreatorRegistry::grantPlatformRole(CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715])
+    │   ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   └─ ← [Stop]
-    ├─ [25165] ContentRegistry::grantPurchaseRecorderRole(PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196])
-    │   ├─ emit RoleGranted(role: 0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, account: PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+    ├─ [25165] ContentRegistry::grantPurchaseRecorderRole(PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496])
+    │   ├─ emit RoleGranted(role: 0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, account: PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   └─ ← [Stop]
-    ├─ [25165] ContentRegistry::grantPurchaseRecorderRole(CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a])
-    │   ├─ emit RoleGranted(role: 0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, account: CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+    ├─ [25165] ContentRegistry::grantPurchaseRecorderRole(CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715])
+    │   ├─ emit RoleGranted(role: 0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, account: CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   └─ ← [Stop]
-    ├─ [25169] PayPerView::grantPaymentProcessorRole(CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a])
-    │   ├─ emit RoleGranted(role: 0xd7d8b7014b7ed36eb085c9e3e427b642d74cab75ecefda8a757042e63ec59919, account: CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+    ├─ [25169] PayPerView::grantPaymentProcessorRole(CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715])
+    │   ├─ emit RoleGranted(role: 0xd7d8b7014b7ed36eb085c9e3e427b642d74cab75ecefda8a757042e63ec59919, account: CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   └─ ← [Stop]
-    ├─ [25175] SubscriptionManager::grantSubscriptionProcessorRole(CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a])
-    │   ├─ emit RoleGranted(role: 0x4a2743f41a15276dad6813e73326037e88c2a55ffdd5c4cab4ea1745629b0d34, account: CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+    ├─ [25175] SubscriptionManager::grantSubscriptionProcessorRole(CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715])
+    │   ├─ emit RoleGranted(role: 0x4a2743f41a15276dad6813e73326037e88c2a55ffdd5c4cab4ea1745629b0d34, account: CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     │   └─ ← [Stop]
     ├─ [318] CommerceProtocolIntegration::PAYMENT_MONITOR_ROLE() [staticcall]
     │   └─ ← [Return] 0x501c65bac3e4ac3ac69864ba85559de0249f52b20e002f1e1d1232fd4e169231
@@ -112,55 +112,55 @@ Traces:
     │   └─ ← [Stop]
     ├─ [326] CreatorRegistry::PLATFORM_CONTRACT_ROLE() [staticcall]
     │   └─ ← [Return] 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510
-    ├─ [752] CreatorRegistry::hasRole(0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, ContentRegistry: [0x63b824bCd618f01756918044BdAAb5ce6DF4b83e]) [staticcall]
+    ├─ [752] CreatorRegistry::hasRole(0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, ContentRegistry: [0xf4a37B1F3568b200a4ED98675224C0DfF6Ad7444]) [staticcall]
     │   └─ ← [Return] true
     ├─ [326] CreatorRegistry::PLATFORM_CONTRACT_ROLE() [staticcall]
     │   └─ ← [Return] 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510
-    ├─ [752] CreatorRegistry::hasRole(0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196]) [staticcall]
+    ├─ [752] CreatorRegistry::hasRole(0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496]) [staticcall]
     │   └─ ← [Return] true
     ├─ [326] CreatorRegistry::PLATFORM_CONTRACT_ROLE() [staticcall]
     │   └─ ← [Return] 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510
-    ├─ [752] CreatorRegistry::hasRole(0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, SubscriptionManager: [0x7A525c2602777Be6CFF80173E6336DFE491fC2F7]) [staticcall]
+    ├─ [752] CreatorRegistry::hasRole(0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, SubscriptionManager: [0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5]) [staticcall]
     │   └─ ← [Return] true
     ├─ [326] CreatorRegistry::PLATFORM_CONTRACT_ROLE() [staticcall]
     │   └─ ← [Return] 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510
-    ├─ [752] CreatorRegistry::hasRole(0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a]) [staticcall]
+    ├─ [752] CreatorRegistry::hasRole(0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715]) [staticcall]
     │   └─ ← [Return] true
     ├─ [307] ContentRegistry::PURCHASE_RECORDER_ROLE() [staticcall]
     │   └─ ← [Return] 0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565
-    ├─ [752] ContentRegistry::hasRole(0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196]) [staticcall]
+    ├─ [752] ContentRegistry::hasRole(0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496]) [staticcall]
     │   └─ ← [Return] true
     ├─ [307] ContentRegistry::PURCHASE_RECORDER_ROLE() [staticcall]
     │   └─ ← [Return] 0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565
-    ├─ [752] ContentRegistry::hasRole(0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a]) [staticcall]
+    ├─ [752] ContentRegistry::hasRole(0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715]) [staticcall]
     │   └─ ← [Return] true
     ├─ [295] PayPerView::PAYMENT_PROCESSOR_ROLE() [staticcall]
     │   └─ ← [Return] 0xd7d8b7014b7ed36eb085c9e3e427b642d74cab75ecefda8a757042e63ec59919
-    ├─ [740] PayPerView::hasRole(0xd7d8b7014b7ed36eb085c9e3e427b642d74cab75ecefda8a757042e63ec59919, CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a]) [staticcall]
+    ├─ [740] PayPerView::hasRole(0xd7d8b7014b7ed36eb085c9e3e427b642d74cab75ecefda8a757042e63ec59919, CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715]) [staticcall]
     │   └─ ← [Return] true
     ├─ [339] SubscriptionManager::SUBSCRIPTION_PROCESSOR_ROLE() [staticcall]
     │   └─ ← [Return] 0x4a2743f41a15276dad6813e73326037e88c2a55ffdd5c4cab4ea1745629b0d34
-    ├─ [741] SubscriptionManager::hasRole(0x4a2743f41a15276dad6813e73326037e88c2a55ffdd5c4cab4ea1745629b0d34, CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a]) [staticcall]
+    ├─ [741] SubscriptionManager::hasRole(0x4a2743f41a15276dad6813e73326037e88c2a55ffdd5c4cab4ea1745629b0d34, CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715]) [staticcall]
     │   └─ ← [Return] true
     ├─ [318] CommerceProtocolIntegration::PAYMENT_MONITOR_ROLE() [staticcall]
     │   └─ ← [Return] 0x501c65bac3e4ac3ac69864ba85559de0249f52b20e002f1e1d1232fd4e169231
-    ├─ [762] CommerceProtocolIntegration::hasRole(0x501c65bac3e4ac3ac69864ba85559de0249f52b20e002f1e1d1232fd4e169231, DefaultSender: [0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38]) [staticcall]
+    ├─ [762] CommerceProtocolIntegration::hasRole(0x501c65bac3e4ac3ac69864ba85559de0249f52b20e002f1e1d1232fd4e169231, 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a) [staticcall]
     │   └─ ← [Return] true
-    ├─ [24915] CommerceProtocolIntegration::setPayPerView(PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196])
-    │   ├─ emit ContractAddressUpdated(contractName: "PayPerView", oldAddress: 0x0000000000000000000000000000000000000000, newAddress: PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196])
+    ├─ [24915] CommerceProtocolIntegration::setPayPerView(PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496])
+    │   ├─ emit ContractAddressUpdated(contractName: "PayPerView", oldAddress: 0x0000000000000000000000000000000000000000, newAddress: PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496])
     │   └─ ← [Stop]
-    ├─ [24947] CommerceProtocolIntegration::setSubscriptionManager(SubscriptionManager: [0x7A525c2602777Be6CFF80173E6336DFE491fC2F7])
-    │   ├─ emit ContractAddressUpdated(contractName: "SubscriptionManager", oldAddress: 0x0000000000000000000000000000000000000000, newAddress: SubscriptionManager: [0x7A525c2602777Be6CFF80173E6336DFE491fC2F7])
+    ├─ [24947] CommerceProtocolIntegration::setSubscriptionManager(SubscriptionManager: [0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5])
+    │   ├─ emit ContractAddressUpdated(contractName: "SubscriptionManager", oldAddress: 0x0000000000000000000000000000000000000000, newAddress: SubscriptionManager: [0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5])
     │   └─ ← [Stop]
     ├─ [470] CommerceProtocolIntegration::payPerView() [staticcall]
-    │   └─ ← [Return] PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196]
+    │   └─ ← [Return] PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496]
     ├─ [404] CommerceProtocolIntegration::subscriptionManager() [staticcall]
-    │   └─ ← [Return] SubscriptionManager: [0x7A525c2602777Be6CFF80173E6336DFE491fC2F7]
+    │   └─ ← [Return] SubscriptionManager: [0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5]
     ├─ [0] console::log("Skipping operator registration during deployment") [staticcall]
     │   └─ ← [Stop]
     ├─ [0] console::log("You can register manually later using:") [staticcall]
     │   └─ ← [Stop]
-    ├─ [0] console::log("cast send", CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a], "registerAsOperator()", "--rpc-url base_sepolia --account deployer") [staticcall]
+    ├─ [0] console::log("cast send", CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715], "registerAsOperator()", "--rpc-url base_sepolia --account deployer") [staticcall]
     │   └─ ← [Stop]
     ├─ [0] VM::envOr("REGISTER_OPERATOR", false) [staticcall]
     │   └─ ← [Return] <env var value>
@@ -170,17 +170,17 @@ Traces:
     │   └─ ← [Stop]
     ├─ [0] console::log("==================") [staticcall]
     │   └─ ← [Stop]
-    ├─ [0] console::log("PriceOracle:", PriceOracle: [0x2627F8a5fcD2Cbf0C90Ce8383fE029B8Da316D58]) [staticcall]
+    ├─ [0] console::log("PriceOracle:", PriceOracle: [0x521f25C63FCCD2ff3c30d8B0F73291457d34c476]) [staticcall]
     │   └─ ← [Stop]
-    ├─ [0] console::log("CreatorRegistry:", CreatorRegistry: [0x9b6323F62c43c8Dd358e0e83D2319a9F98BB908c]) [staticcall]
+    ├─ [0] console::log("CreatorRegistry:", CreatorRegistry: [0x7a2BDfCf9D5dE4fd299Af7bF1A93514E46560b84]) [staticcall]
     │   └─ ← [Stop]
-    ├─ [0] console::log("ContentRegistry:", ContentRegistry: [0x63b824bCd618f01756918044BdAAb5ce6DF4b83e]) [staticcall]
+    ├─ [0] console::log("ContentRegistry:", ContentRegistry: [0xf4a37B1F3568b200a4ED98675224C0DfF6Ad7444]) [staticcall]
     │   └─ ← [Stop]
-    ├─ [0] console::log("PayPerView:", PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196]) [staticcall]
+    ├─ [0] console::log("PayPerView:", PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496]) [staticcall]
     │   └─ ← [Stop]
-    ├─ [0] console::log("SubscriptionManager:", SubscriptionManager: [0x7A525c2602777Be6CFF80173E6336DFE491fC2F7]) [staticcall]
+    ├─ [0] console::log("SubscriptionManager:", SubscriptionManager: [0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5]) [staticcall]
     │   └─ ← [Stop]
-    ├─ [0] console::log("CommerceProtocolIntegration:", CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a]) [staticcall]
+    ├─ [0] console::log("CommerceProtocolIntegration:", CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715]) [staticcall]
     │   └─ ← [Stop]
     ├─ [0] console::log("") [staticcall]
     │   └─ ← [Stop]
@@ -188,7 +188,7 @@ Traces:
     │   └─ ← [Stop]
     ├─ [0] console::log("==============") [staticcall]
     │   └─ ← [Stop]
-    ├─ [0] console::log("Platform Owner:", DefaultSender: [0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38]) [staticcall]
+    ├─ [0] console::log("Platform Owner:", 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a) [staticcall]
     │   └─ ← [Stop]
     ├─ [0] console::log("Fee Recipient:", 0xc506F778Ff3Ea8da02d8b466a5e9E6F1E04748f7) [staticcall]
     │   └─ ← [Stop]
@@ -221,37 +221,37 @@ Script ran successfully.
   === Deploying Onchain Content Subscription Platform ===
   Network: Base Sepolia
   Chain ID: 84532
-  Deployer: 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38
+  Deployer: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a
   Fee Recipient: 0xc506F778Ff3Ea8da02d8b466a5e9E6F1E04748f7
   Operator Signer: 0xE24d25B37D960cF8b58004dd3e0485D832135255
   
   1. Deploying PriceOracle...
-     PriceOracle deployed at: 0x2627F8a5fcD2Cbf0C90Ce8383fE029B8Da316D58
+     PriceOracle deployed at: 0x521f25C63FCCD2ff3c30d8B0F73291457d34c476
   2. Deploying CreatorRegistry...
-     CreatorRegistry deployed at: 0x9b6323F62c43c8Dd358e0e83D2319a9F98BB908c
+     CreatorRegistry deployed at: 0x7a2BDfCf9D5dE4fd299Af7bF1A93514E46560b84
   3. Deploying ContentRegistry...
-     ContentRegistry deployed at: 0x63b824bCd618f01756918044BdAAb5ce6DF4b83e
+     ContentRegistry deployed at: 0xf4a37B1F3568b200a4ED98675224C0DfF6Ad7444
   4. Deploying PayPerView...
-     PayPerView deployed at: 0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196
+     PayPerView deployed at: 0xC042014fAC0Dd156c17b22e06fF964Eb2890A496
   5. Deploying SubscriptionManager...
-     SubscriptionManager deployed at: 0x7A525c2602777Be6CFF80173E6336DFE491fC2F7
+     SubscriptionManager deployed at: 0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5
   6. Deploying CommerceProtocolIntegration...
-     CommerceProtocolIntegration deployed at: 0xF54FF33f989a6C715fF5b7f20130353F62bba85a
+     CommerceProtocolIntegration deployed at: 0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715
   Skipping operator registration during deployment
   You can register manually later using:
-  cast send 0xF54FF33f989a6C715fF5b7f20130353F62bba85a registerAsOperator() --rpc-url base_sepolia --account deployer
+  cast send 0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715 registerAsOperator() --rpc-url base_sepolia --account deployer
   Contract Addresses:
   ==================
-  PriceOracle: 0x2627F8a5fcD2Cbf0C90Ce8383fE029B8Da316D58
-  CreatorRegistry: 0x9b6323F62c43c8Dd358e0e83D2319a9F98BB908c
-  ContentRegistry: 0x63b824bCd618f01756918044BdAAb5ce6DF4b83e
-  PayPerView: 0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196
-  SubscriptionManager: 0x7A525c2602777Be6CFF80173E6336DFE491fC2F7
-  CommerceProtocolIntegration: 0xF54FF33f989a6C715fF5b7f20130353F62bba85a
+  PriceOracle: 0x521f25C63FCCD2ff3c30d8B0F73291457d34c476
+  CreatorRegistry: 0x7a2BDfCf9D5dE4fd299Af7bF1A93514E46560b84
+  ContentRegistry: 0xf4a37B1F3568b200a4ED98675224C0DfF6Ad7444
+  PayPerView: 0xC042014fAC0Dd156c17b22e06fF964Eb2890A496
+  SubscriptionManager: 0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5
+  CommerceProtocolIntegration: 0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715
   
   Configuration:
   ==============
-  Platform Owner: 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38
+  Platform Owner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a
   Fee Recipient: 0xc506F778Ff3Ea8da02d8b466a5e9E6F1E04748f7
   Operator Signer: 0xE24d25B37D960cF8b58004dd3e0485D832135255
   Post-Deployment Instructions:
@@ -268,86 +268,86 @@ Script ran successfully.
 ==========================
 Simulated On-chain Traces:
 
-  [948009] → new PriceOracle@0x2627F8a5fcD2Cbf0C90Ce8383fE029B8Da316D58
+  [948009] → new PriceOracle@0x521f25C63FCCD2ff3c30d8B0F73291457d34c476
     ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit QuoterUpdated(oldQuoter: 0x0000000000000000000000000000000000000000, newQuoter: 0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a)
     └─ ← [Return] 4384 bytes of code
 
-  [2282538] → new CreatorRegistry@0x9b6323F62c43c8Dd358e0e83D2319a9F98BB908c
+  [2282538] → new CreatorRegistry@0x7a2BDfCf9D5dE4fd299Af7bF1A93514E46560b84
     ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit RoleGranted(role: 0x71f3d55856e4058ed06ee057d79ada615f65cdf5f9ee88181b914225088f834f, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Return] 10703 bytes of code
 
-  [3755222] → new ContentRegistry@0x63b824bCd618f01756918044BdAAb5ce6DF4b83e
+  [3755222] → new ContentRegistry@0xf4a37B1F3568b200a4ED98675224C0DfF6Ad7444
     ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit RoleGranted(role: 0x71f3d55856e4058ed06ee057d79ada615f65cdf5f9ee88181b914225088f834f, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Return] 17838 bytes of code
 
-  [3801446] → new PayPerView@0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196
+  [3801446] → new PayPerView@0xC042014fAC0Dd156c17b22e06fF964Eb2890A496
     ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit RoleGranted(role: 0xd7d8b7014b7ed36eb085c9e3e427b642d74cab75ecefda8a757042e63ec59919, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit RoleGranted(role: 0xc89f08b49c068684bf15b77e68611a9f601e70d1f919059510bccd18e691e535, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Return] 18383 bytes of code
 
-  [4063692] → new SubscriptionManager@0x7A525c2602777Be6CFF80173E6336DFE491fC2F7
+  [4063692] → new SubscriptionManager@0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5
     ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit RoleGranted(role: 0x1fa68478e710912de24d46d09a1aa735096685a61549eeb0fefb3693b245e69c, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit RoleGranted(role: 0x4a2743f41a15276dad6813e73326037e88c2a55ffdd5c4cab4ea1745629b0d34, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Return] 19473 bytes of code
 
-  [4815544] → new CommerceProtocolIntegration@0xF54FF33f989a6C715fF5b7f20130353F62bba85a
+  [4815544] → new CommerceProtocolIntegration@0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715
     ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit RoleGranted(role: 0x0000000000000000000000000000000000000000000000000000000000000000, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit RoleGranted(role: 0x501c65bac3e4ac3ac69864ba85559de0249f52b20e002f1e1d1232fd4e169231, account: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     ├─ emit RoleGranted(role: 0xe2f4eaae4a9751e85a3e4a7b9587827a877f29914755229b07a7b2da98285f70, account: 0xE24d25B37D960cF8b58004dd3e0485D832135255, sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Return] 22997 bytes of code
 
-  [27153] CreatorRegistry::grantPlatformRole(ContentRegistry: [0x63b824bCd618f01756918044BdAAb5ce6DF4b83e])
-    ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: ContentRegistry: [0x63b824bCd618f01756918044BdAAb5ce6DF4b83e], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+  [27153] CreatorRegistry::grantPlatformRole(ContentRegistry: [0xf4a37B1F3568b200a4ED98675224C0DfF6Ad7444])
+    ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: ContentRegistry: [0xf4a37B1F3568b200a4ED98675224C0DfF6Ad7444], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Stop]
 
-  [27153] CreatorRegistry::grantPlatformRole(PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196])
-    ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+  [27153] CreatorRegistry::grantPlatformRole(PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496])
+    ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Stop]
 
-  [27153] CreatorRegistry::grantPlatformRole(SubscriptionManager: [0x7A525c2602777Be6CFF80173E6336DFE491fC2F7])
-    ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: SubscriptionManager: [0x7A525c2602777Be6CFF80173E6336DFE491fC2F7], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+  [27153] CreatorRegistry::grantPlatformRole(SubscriptionManager: [0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5])
+    ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: SubscriptionManager: [0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Stop]
 
-  [27153] CreatorRegistry::grantPlatformRole(CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a])
-    ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+  [27153] CreatorRegistry::grantPlatformRole(CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715])
+    ├─ emit RoleGranted(role: 0x308cde6e77eeb20854449cfdfcb05fbdb9f7c478a875c1417621ec9a3dacb510, account: CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Stop]
 
-  [27165] ContentRegistry::grantPurchaseRecorderRole(PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196])
-    ├─ emit RoleGranted(role: 0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, account: PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+  [27165] ContentRegistry::grantPurchaseRecorderRole(PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496])
+    ├─ emit RoleGranted(role: 0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, account: PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Stop]
 
-  [27165] ContentRegistry::grantPurchaseRecorderRole(CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a])
-    ├─ emit RoleGranted(role: 0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, account: CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+  [27165] ContentRegistry::grantPurchaseRecorderRole(CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715])
+    ├─ emit RoleGranted(role: 0x9587bd5d64fd9020a2c3c45e38d0e7ca3330d50e4b4dd00bfe972ac5de3bc565, account: CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Stop]
 
-  [27169] PayPerView::grantPaymentProcessorRole(CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a])
-    ├─ emit RoleGranted(role: 0xd7d8b7014b7ed36eb085c9e3e427b642d74cab75ecefda8a757042e63ec59919, account: CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+  [27169] PayPerView::grantPaymentProcessorRole(CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715])
+    ├─ emit RoleGranted(role: 0xd7d8b7014b7ed36eb085c9e3e427b642d74cab75ecefda8a757042e63ec59919, account: CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Stop]
 
-  [27175] SubscriptionManager::grantSubscriptionProcessorRole(CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a])
-    ├─ emit RoleGranted(role: 0x4a2743f41a15276dad6813e73326037e88c2a55ffdd5c4cab4ea1745629b0d34, account: CommerceProtocolIntegration: [0xF54FF33f989a6C715fF5b7f20130353F62bba85a], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
+  [27175] SubscriptionManager::grantSubscriptionProcessorRole(CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715])
+    ├─ emit RoleGranted(role: 0x4a2743f41a15276dad6813e73326037e88c2a55ffdd5c4cab4ea1745629b0d34, account: CommerceProtocolIntegration: [0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Stop]
 
   [29524] CommerceProtocolIntegration::grantRole(0x501c65bac3e4ac3ac69864ba85559de0249f52b20e002f1e1d1232fd4e169231, DefaultSender: [0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38])
     ├─ emit RoleGranted(role: 0x501c65bac3e4ac3ac69864ba85559de0249f52b20e002f1e1d1232fd4e169231, account: DefaultSender: [0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38], sender: 0x0a8Cf29A55cAb0833A27A3A50A333614c602858a)
     └─ ← [Stop]
 
-  [26915] CommerceProtocolIntegration::setPayPerView(PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196])
-    ├─ emit ContractAddressUpdated(contractName: "PayPerView", oldAddress: 0x0000000000000000000000000000000000000000, newAddress: PayPerView: [0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196])
+  [26915] CommerceProtocolIntegration::setPayPerView(PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496])
+    ├─ emit ContractAddressUpdated(contractName: "PayPerView", oldAddress: 0x0000000000000000000000000000000000000000, newAddress: PayPerView: [0xC042014fAC0Dd156c17b22e06fF964Eb2890A496])
     └─ ← [Stop]
 
-  [26947] CommerceProtocolIntegration::setSubscriptionManager(SubscriptionManager: [0x7A525c2602777Be6CFF80173E6336DFE491fC2F7])
-    ├─ emit ContractAddressUpdated(contractName: "SubscriptionManager", oldAddress: 0x0000000000000000000000000000000000000000, newAddress: SubscriptionManager: [0x7A525c2602777Be6CFF80173E6336DFE491fC2F7])
+  [26947] CommerceProtocolIntegration::setSubscriptionManager(SubscriptionManager: [0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5])
+    ├─ emit ContractAddressUpdated(contractName: "SubscriptionManager", oldAddress: 0x0000000000000000000000000000000000000000, newAddress: SubscriptionManager: [0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5])
     └─ ← [Stop]
 
 
@@ -355,11 +355,11 @@ Simulated On-chain Traces:
 
 Chain 84532
 
-Estimated gas price: 0.000833101 gwei
+Estimated gas price: 0.00094103 gwei
 
-Estimated total gas used for script: 28788853
+Estimated total gas used for script: 28784841
 
-Estimated amount required: 0.000023984022223153 ETH
+Estimated amount required: 0.00002708739892623 ETH
 
 ==========================
 
@@ -369,32 +369,35 @@ Estimated amount required: 0.000023984022223153 ETH
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 ##
 Start verification for (6) contracts
-Start verifying contract `0x2627F8a5fcD2Cbf0C90Ce8383fE029B8Da316D58` deployed on base-sepolia
+Start verifying contract `0x521f25C63FCCD2ff3c30d8B0F73291457d34c476` deployed on base-sepolia
 EVM version: shanghai
 Compiler version: 0.8.23
 Optimizations:    200
 Constructor args: 0000000000000000000000003d4e44eb1374240ce5f1b871ab261cd16335b76a0000000000000000000000004200000000000000000000000000000000000006000000000000000000000000036cbd53842c5426634e7929541ec2318f3dcf7e
 
-Submitting verification for [src/PriceOracle.sol:PriceOracle] 0x2627F8a5fcD2Cbf0C90Ce8383fE029B8Da316D58.
+Submitting verification for [src/PriceOracle.sol:PriceOracle] 0x521f25C63FCCD2ff3c30d8B0F73291457d34c476.
 Submitted contract for verification:
 	Response: `OK`
-	GUID: `sikbezanvzhzskcs7axeqdvbnphek7kepwfsdfhzul2dthejrj`
-	URL: https://sepolia.basescan.org/address/0x2627f8a5fcd2cbf0c90ce8383fe029b8da316d58
+	GUID: `2cu3rg3qqcsyrassdnsa4cdhfakrwfadmcjxwmyqla87wiwune`
+	URL: https://sepolia.basescan.org/address/0x521f25c63fccd2ff3c30d8b0f73291457d34c476
+Contract verification status:
+Response: `NOTOK`
+Details: `Pending in queue`
 Contract verification status:
 Response: `OK`
 Details: `Pass - Verified`
 Contract successfully verified
-Start verifying contract `0x9b6323F62c43c8Dd358e0e83D2319a9F98BB908c` deployed on base-sepolia
+Start verifying contract `0x7a2BDfCf9D5dE4fd299Af7bF1A93514E46560b84` deployed on base-sepolia
 EVM version: shanghai
 Compiler version: 0.8.23
 Optimizations:    200
 Constructor args: 000000000000000000000000c506f778ff3ea8da02d8b466a5e9e6f1e04748f7000000000000000000000000036cbd53842c5426634e7929541ec2318f3dcf7e
 
-Submitting verification for [src/CreatorRegistry.sol:CreatorRegistry] 0x9b6323F62c43c8Dd358e0e83D2319a9F98BB908c.
+Submitting verification for [src/CreatorRegistry.sol:CreatorRegistry] 0x7a2BDfCf9D5dE4fd299Af7bF1A93514E46560b84.
 Submitted contract for verification:
 	Response: `OK`
-	GUID: `phajkfckdghv3qn3jwflersxj4bth6knm2i4w5bqet3sgyjcpq`
-	URL: https://sepolia.basescan.org/address/0x9b6323f62c43c8dd358e0e83d2319a9f98bb908c
+	GUID: `81b6wqzdnfvcuadncpqvprp3qu5xcmfqcr8ztgfwyhzjj9fyug`
+	URL: https://sepolia.basescan.org/address/0x7a2bdfcf9d5de4fd299af7bf1a93514e46560b84
 Contract verification status:
 Response: `NOTOK`
 Details: `Pending in queue`
@@ -402,17 +405,17 @@ Contract verification status:
 Response: `OK`
 Details: `Pass - Verified`
 Contract successfully verified
-Start verifying contract `0x63b824bCd618f01756918044BdAAb5ce6DF4b83e` deployed on base-sepolia
+Start verifying contract `0xf4a37B1F3568b200a4ED98675224C0DfF6Ad7444` deployed on base-sepolia
 EVM version: shanghai
 Compiler version: 0.8.23
 Optimizations:    200
-Constructor args: 0000000000000000000000009b6323f62c43c8dd358e0e83d2319a9f98bb908c
+Constructor args: 0000000000000000000000007a2bdfcf9d5de4fd299af7bf1a93514e46560b84
 
-Submitting verification for [src/ContentRegistry.sol:ContentRegistry] 0x63b824bCd618f01756918044BdAAb5ce6DF4b83e.
+Submitting verification for [src/ContentRegistry.sol:ContentRegistry] 0xf4a37B1F3568b200a4ED98675224C0DfF6Ad7444.
 Submitted contract for verification:
 	Response: `OK`
-	GUID: `yhe65ypczhej48vu91gjzemfxmpsglkz4ry3ihxbfh6ikupuvm`
-	URL: https://sepolia.basescan.org/address/0x63b824bcd618f01756918044bdaab5ce6df4b83e
+	GUID: `hf4tggd8gtlu11ag1434mm9kx6sfjfp63xf1ljarwjadjvhy9e`
+	URL: https://sepolia.basescan.org/address/0xf4a37b1f3568b200a4ed98675224c0dff6ad7444
 Contract verification status:
 Response: `NOTOK`
 Details: `Pending in queue`
@@ -420,17 +423,17 @@ Contract verification status:
 Response: `OK`
 Details: `Pass - Verified`
 Contract successfully verified
-Start verifying contract `0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196` deployed on base-sepolia
+Start verifying contract `0xC042014fAC0Dd156c17b22e06fF964Eb2890A496` deployed on base-sepolia
 EVM version: shanghai
 Compiler version: 0.8.23
 Optimizations:    200
-Constructor args: 0000000000000000000000009b6323f62c43c8dd358e0e83d2319a9f98bb908c00000000000000000000000063b824bcd618f01756918044bdaab5ce6df4b83e0000000000000000000000002627f8a5fcd2cbf0c90ce8383fe029b8da316d58000000000000000000000000036cbd53842c5426634e7929541ec2318f3dcf7e
+Constructor args: 0000000000000000000000007a2bdfcf9d5de4fd299af7bf1a93514e46560b84000000000000000000000000f4a37b1f3568b200a4ed98675224c0dff6ad7444000000000000000000000000521f25c63fccd2ff3c30d8b0f73291457d34c476000000000000000000000000036cbd53842c5426634e7929541ec2318f3dcf7e
 
-Submitting verification for [src/PayPerView.sol:PayPerView] 0x92Ef96BCcFE7834feb4DEF9e033207D2FF1e1196.
+Submitting verification for [src/PayPerView.sol:PayPerView] 0xC042014fAC0Dd156c17b22e06fF964Eb2890A496.
 Submitted contract for verification:
 	Response: `OK`
-	GUID: `qiw6htmqziipxexfgcauct4vuhz3wdxuvjwd4yaehj8etslrm6`
-	URL: https://sepolia.basescan.org/address/0x92ef96bccfe7834feb4def9e033207d2ff1e1196
+	GUID: `9bvrkmvjwapyqsdfrumaugub82lwbtpux67ebccjw3nruyv9a5`
+	URL: https://sepolia.basescan.org/address/0xc042014fac0dd156c17b22e06ff964eb2890a496
 Contract verification status:
 Response: `NOTOK`
 Details: `Pending in queue`
@@ -438,17 +441,17 @@ Contract verification status:
 Response: `OK`
 Details: `Pass - Verified`
 Contract successfully verified
-Start verifying contract `0x7A525c2602777Be6CFF80173E6336DFE491fC2F7` deployed on base-sepolia
+Start verifying contract `0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5` deployed on base-sepolia
 EVM version: shanghai
 Compiler version: 0.8.23
 Optimizations:    200
-Constructor args: 0000000000000000000000009b6323f62c43c8dd358e0e83d2319a9f98bb908c00000000000000000000000063b824bcd618f01756918044bdaab5ce6df4b83e000000000000000000000000036cbd53842c5426634e7929541ec2318f3dcf7e
+Constructor args: 0000000000000000000000007a2bdfcf9d5de4fd299af7bf1a93514e46560b84000000000000000000000000f4a37b1f3568b200a4ed98675224c0dff6ad7444000000000000000000000000036cbd53842c5426634e7929541ec2318f3dcf7e
 
-Submitting verification for [src/SubscriptionManager.sol:SubscriptionManager] 0x7A525c2602777Be6CFF80173E6336DFE491fC2F7.
+Submitting verification for [src/SubscriptionManager.sol:SubscriptionManager] 0x996A1c47d3Aef5ACb5DE5Ef983c78feF56a1aBF5.
 Submitted contract for verification:
 	Response: `OK`
-	GUID: `edktaperczjiuwcpschkchcwlsjq3cxihqyua3azydmbkprb3e`
-	URL: https://sepolia.basescan.org/address/0x7a525c2602777be6cff80173e6336dfe491fc2f7
+	GUID: `5nczkt7jhiaa8ukutjjquph25rt4ia7dmxp2hxme7tkujvvj6z`
+	URL: https://sepolia.basescan.org/address/0x996a1c47d3aef5acb5de5ef983c78fef56a1abf5
 Contract verification status:
 Response: `NOTOK`
 Details: `Pending in queue`
@@ -456,17 +459,17 @@ Contract verification status:
 Response: `OK`
 Details: `Pass - Verified`
 Contract successfully verified
-Start verifying contract `0xF54FF33f989a6C715fF5b7f20130353F62bba85a` deployed on base-sepolia
+Start verifying contract `0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715` deployed on base-sepolia
 EVM version: shanghai
 Compiler version: 0.8.23
 Optimizations:    200
-Constructor args: 00000000000000000000000096a08d8e8631b6db52ea0cbd7232d9a85d2391470000000000000000000000009b6323f62c43c8dd358e0e83d2319a9f98bb908c00000000000000000000000063b824bcd618f01756918044bdaab5ce6df4b83e0000000000000000000000002627f8a5fcd2cbf0c90ce8383fe029b8da316d58000000000000000000000000036cbd53842c5426634e7929541ec2318f3dcf7e000000000000000000000000c506f778ff3ea8da02d8b466a5e9e6f1e04748f7000000000000000000000000e24d25b37d960cf8b58004dd3e0485d832135255
+Constructor args: 00000000000000000000000096a08d8e8631b6db52ea0cbd7232d9a85d2391470000000000000000000000007a2bdfcf9d5de4fd299af7bf1a93514e46560b84000000000000000000000000f4a37b1f3568b200a4ed98675224c0dff6ad7444000000000000000000000000521f25c63fccd2ff3c30d8b0f73291457d34c476000000000000000000000000036cbd53842c5426634e7929541ec2318f3dcf7e000000000000000000000000c506f778ff3ea8da02d8b466a5e9e6f1e04748f7000000000000000000000000e24d25b37d960cf8b58004dd3e0485d832135255
 
-Submitting verification for [src/CommerceProtocolIntegration.sol:CommerceProtocolIntegration] 0xF54FF33f989a6C715fF5b7f20130353F62bba85a.
+Submitting verification for [src/CommerceProtocolIntegration.sol:CommerceProtocolIntegration] 0x7cF35C5426A98304bA073D6b625BDFF01Cd5C715.
 Submitted contract for verification:
 	Response: `OK`
-	GUID: `zza2um1qgi4np1uccwyhfp3imzw2bnt8nqcx9fwctbmrvbem8i`
-	URL: https://sepolia.basescan.org/address/0xf54ff33f989a6c715ff5b7f20130353f62bba85a
+	GUID: `vcpbcfvawtr418bxdb6ibwy6h2wpiav9xjevnau8vittn4scim`
+	URL: https://sepolia.basescan.org/address/0x7cf35c5426a98304ba073d6b625bdff01cd5c715
 Contract verification status:
 Response: `NOTOK`
 Details: `Pending in queue`
