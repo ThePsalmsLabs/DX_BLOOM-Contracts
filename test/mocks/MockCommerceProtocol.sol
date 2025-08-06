@@ -13,7 +13,7 @@ import { ICommercePaymentsProtocol } from "../../src/interfaces/IPlatformInterfa
 contract MockCommerceProtocol is ICommercePaymentsProtocol {
     // Track registered operators for testing
     mapping(address => bool) public registeredOperators;
-    mapping(address => address) public operatorFeeDestinations;
+    mapping(address => address) public operatorFeeDestinationsMap;
 
     // Track processed intents to prevent double-processing
     mapping(bytes16 => bool) public processedIntents;
@@ -31,11 +31,10 @@ contract MockCommerceProtocol is ICommercePaymentsProtocol {
     // Events (inherited from interface)
 
     /**
-     * @dev Registers an operator in the mock protocol
-     * @param feeDestination Where operator fees should be sent
-     * @notice This simulates the real protocol's operator registration process
+     * @dev Registers an operator without fee destination
+     * @notice This simulates the real protocol's simple operator registration
      */
-    function registerOperator(address feeDestination) external override {
+    function registerOperator() external override {
         registerOperatorCalls++;
 
         if (shouldFailRegistration) {
@@ -43,9 +42,36 @@ contract MockCommerceProtocol is ICommercePaymentsProtocol {
         }
 
         registeredOperators[msg.sender] = true;
-        operatorFeeDestinations[msg.sender] = feeDestination;
+        operatorFeeDestinationsMap[msg.sender] = msg.sender; // Default to operator address
 
-        emit OperatorRegistered(msg.sender, feeDestination);
+        emit OperatorRegistered(msg.sender, msg.sender);
+    }
+
+    /**
+     * @dev Registers an operator with specific fee destination
+     * @param _feeDestination Where operator fees should be sent
+     * @notice This simulates the real protocol's operator registration process
+     */
+    function registerOperatorWithFeeDestination(address _feeDestination) external override {
+        registerOperatorCalls++;
+
+        if (shouldFailRegistration) {
+            revert("MockCommerceProtocol: Registration failed");
+        }
+
+        registeredOperators[msg.sender] = true;
+        operatorFeeDestinationsMap[msg.sender] = _feeDestination;
+
+        emit OperatorRegistered(msg.sender, _feeDestination);
+    }
+
+    /**
+     * @dev Unregisters an operator
+     * @notice This simulates the real protocol's operator unregistration
+     */
+    function unregisterOperator() external override {
+        registeredOperators[msg.sender] = false;
+        operatorFeeDestinationsMap[msg.sender] = address(0);
     }
 
     /**
@@ -167,7 +193,25 @@ contract MockCommerceProtocol is ICommercePaymentsProtocol {
      * @return The fee destination address
      */
     function getOperatorFeeDestination(address operator) external view override returns (address) {
-        return operatorFeeDestinations[operator];
+        return operatorFeeDestinationsMap[operator];
+    }
+
+    /**
+     * @dev New interface function - checks if operator is registered
+     * @param operator The operator address to check
+     * @return Whether the operator is registered
+     */
+    function operators(address operator) external view override returns (bool) {
+        return registeredOperators[operator];
+    }
+
+    /**
+     * @dev New interface function - gets operator fee destinations
+     * @param operator The operator address
+     * @return The fee destination address
+     */
+    function operatorFeeDestinations(address operator) external view override returns (address) {
+        return operatorFeeDestinationsMap[operator];
     }
 
     /**

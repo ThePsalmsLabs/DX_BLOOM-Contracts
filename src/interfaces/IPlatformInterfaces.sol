@@ -71,7 +71,15 @@ interface ICommercePaymentsProtocol {
         bytes signature; // Permit signature
     }
 
-    function registerOperator(address _feeDestination) external;
+    // ✅ CORRECTED FUNCTION SIGNATURES
+    function registerOperator() external;
+    function registerOperatorWithFeeDestination(address _feeDestination) external;
+    function unregisterOperator() external;
+    
+    // View functions for checking registration status
+    function operators(address operator) external view returns (bool);
+    function operatorFeeDestinations(address operator) external view returns (address);
+    
     function transferNative(TransferIntent calldata _intent) external payable;
     function transferToken(
         TransferIntent calldata _intent,

@@ -295,9 +295,37 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
 
     /**
      * @dev Registers our platform as an operator in the Commerce Protocol
+     * @notice Now calls the correct function with fee destination parameter
      */
     function registerAsOperator() external onlyOwner {
-        commerceProtocol.registerOperator(operatorFeeDestination);
+        // ✅ Call the correct function that accepts fee destination parameter
+        commerceProtocol.registerOperatorWithFeeDestination(operatorFeeDestination);
+    }
+    
+    /**
+     * @dev Alternative registration method without specifying fee destination
+     * @notice Uses the no-parameter version of registerOperator
+     */
+    function registerAsOperatorSimple() external onlyOwner {
+        // ✅ Call the version without parameters 
+        commerceProtocol.registerOperator();
+    }
+    
+    /**
+     * @dev Unregister as operator
+     */
+    function unregisterAsOperator() external onlyOwner {
+        commerceProtocol.unregisterOperator();
+    }
+    
+    /**
+     * @dev Check if we're registered and get our fee destination
+     */
+    function getOperatorStatus() external view returns (bool registered, address feeDestination) {
+        registered = commerceProtocol.operators(address(this));
+        if (registered) {
+            feeDestination = commerceProtocol.operatorFeeDestinations(address(this));
+        }
     }
 
     /**
