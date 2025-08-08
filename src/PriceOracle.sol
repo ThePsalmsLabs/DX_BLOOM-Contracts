@@ -82,6 +82,7 @@ contract PriceOracle is Ownable {
      */
     function getTokenPrice(address tokenIn, address tokenOut, uint256 amountIn, uint24 poolFee)
         external
+        view
         returns (uint256 amountOut)
     {
         // Use custom pool fee if set, otherwise use provided fee or auto-detect
@@ -90,19 +91,15 @@ contract PriceOracle is Ownable {
             fee = poolFee == 0 ? _selectOptimalPoolFee(tokenIn, tokenOut) : poolFee;
         }
 
-        try quoterV2.quoteExactInputSingle(
-            IQuoterV2.QuoteExactInputSingleParams({
-                tokenIn: tokenIn,
-                tokenOut: tokenOut,
-                amountIn: amountIn,
-                fee: fee,
-                sqrtPriceLimitX96: 0
-            })
-        ) returns (uint256 outputAmount, uint160, uint32, uint256) {
-            return outputAmount;
-        } catch {
-            revert QuoteReverted();
-        }
+        IQuoterV2.QuoteExactInputSingleParams memory params = IQuoterV2.QuoteExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            amountIn: amountIn,
+            fee: fee,
+            sqrtPriceLimitX96: 0
+        });
+
+        return _quoteExactInputSingleViewAmount(params);
     }
 
     /**
@@ -111,23 +108,17 @@ contract PriceOracle is Ownable {
      * @return ethAmount Amount of ETH equivalent
      * @notice This is a specialized function for common ETH/USDC conversions
      */
-    function getETHPrice(uint256 usdcAmount) external returns (uint256 ethAmount) {
+    function getETHPrice(uint256 usdcAmount) external view returns (uint256 ethAmount) {
         // Always get ETH amount for 1 ETH first to calculate ratio
-        try quoterV2.quoteExactInputSingle(
-            IQuoterV2.QuoteExactInputSingleParams({
-                tokenIn: WETH,
-                tokenOut: USDC,
-                amountIn: 1e18, // 1 ETH
-                fee: DEFAULT_POOL_FEE,
-                sqrtPriceLimitX96: 0
-            })
-        ) returns (uint256 usdcPerEth, uint160, uint32, uint256) {
-            // Calculate ETH amount based on USDC amount
-            // Formula: ethAmount = (usdcAmount * 1e18) / usdcPerEth
-            return (usdcAmount * 1e18) / usdcPerEth;
-        } catch {
-            revert QuoteReverted();
-        }
+        IQuoterV2.QuoteExactInputSingleParams memory params = IQuoterV2.QuoteExactInputSingleParams({
+            tokenIn: WETH,
+            tokenOut: USDC,
+            amountIn: 1e18, // 1 ETH
+            fee: DEFAULT_POOL_FEE,
+            sqrtPriceLimitX96: 0
+        });
+        uint256 usdcPerEth = _quoteExactInputSingleViewAmount(params);
+        return (usdcAmount * 1e18) / usdcPerEth;
     }
 
     /**
@@ -139,6 +130,7 @@ contract PriceOracle is Ownable {
      */
     function getTokenAmountForUSDC(address tokenIn, uint256 usdcAmount, uint24 poolFee)
         external
+        view
         returns (uint256 tokenAmount)
     {
         uint24 fee = poolFee == 0 ? _selectOptimalPoolFee(tokenIn, USDC) : poolFee;
@@ -153,22 +145,22 @@ contract PriceOracle is Ownable {
             return this.getETHPrice(usdcAmount);
         }
 
-        // For other tokens, first try direct path
-        try quoterV2.quoteExactInputSingle(
-            IQuoterV2.QuoteExactInputSingleParams({
+        // For other tokens, first try direct path via staticcall; if it fails, route through WETH
+        {
+            IQuoterV2.QuoteExactInputSingleParams memory params = IQuoterV2.QuoteExactInputSingleParams({
                 tokenIn: tokenIn,
                 tokenOut: USDC,
                 amountIn: 1e18, // Use 1 token as base
                 fee: fee,
                 sqrtPriceLimitX96: 0
-            })
-        ) returns (uint256 usdcPerToken, uint160, uint32, uint256) {
-            // Calculate required token amount
-            return (usdcAmount * 1e18) / usdcPerToken;
-        } catch {
-            // If direct path fails, try routing through WETH
-            return _getTokenAmountViaWETH(tokenIn, usdcAmount);
+            });
+            (bool ok, uint256 usdcPerToken) = _tryQuoteExactInputSingleViewAmount(params);
+            if (ok) {
+                return (usdcAmount * 1e18) / usdcPerToken;
+            }
         }
+        // If direct path fails, try routing through WETH
+        return _getTokenAmountViaWETH(tokenIn, usdcAmount);
     }
 
     /**
@@ -267,23 +259,49 @@ contract PriceOracle is Ownable {
      * @param usdcAmount Desired USDC amount
      * @return tokenAmount Required token amount
      */
-    function _getTokenAmountViaWETH(address tokenIn, uint256 usdcAmount) internal returns (uint256 tokenAmount) {
+    function _getTokenAmountViaWETH(address tokenIn, uint256 usdcAmount) internal view returns (uint256 tokenAmount) {
         // First get WETH amount needed for USDC
         uint256 wethNeeded = this.getETHPrice(usdcAmount);
 
-        // Then get token amount needed for that WETH
-        try quoterV2.quoteExactInputSingle(
-            IQuoterV2.QuoteExactInputSingleParams({
-                tokenIn: tokenIn,
-                tokenOut: WETH,
-                amountIn: 1e18,
-                fee: DEFAULT_POOL_FEE,
-                sqrtPriceLimitX96: 0
-            })
-        ) returns (uint256 wethPerToken, uint160, uint32, uint256) {
-            return (wethNeeded * 1e18) / wethPerToken;
-        } catch {
-            revert QuoteReverted();
+        // Then get token amount needed for that WETH via staticcall
+        IQuoterV2.QuoteExactInputSingleParams memory params = IQuoterV2.QuoteExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: WETH,
+            amountIn: 1e18,
+            fee: DEFAULT_POOL_FEE,
+            sqrtPriceLimitX96: 0
+        });
+        uint256 wethPerToken = _quoteExactInputSingleViewAmount(params);
+        return (wethNeeded * 1e18) / wethPerToken;
+    }
+
+    // ============ INTERNAL VIEW HELPERS FOR QUOTER (STATICCALL) ============
+
+    function _quoteExactInputSingleViewAmount(IQuoterV2.QuoteExactInputSingleParams memory params)
+        internal
+        view
+        returns (uint256 amountOut)
+    {
+        (bool success, bytes memory result) = address(quoterV2).staticcall(
+            abi.encodeWithSelector(IQuoterV2.quoteExactInputSingle.selector, params)
+        );
+        if (!success) revert QuoteReverted();
+        (uint256 out,,,) = abi.decode(result, (uint256, uint160, uint32, uint256));
+        return out;
+    }
+
+    function _tryQuoteExactInputSingleViewAmount(IQuoterV2.QuoteExactInputSingleParams memory params)
+        internal
+        view
+        returns (bool success, uint256 amountOut)
+    {
+        (bool ok, bytes memory result) = address(quoterV2).staticcall(
+            abi.encodeWithSelector(IQuoterV2.quoteExactInputSingle.selector, params)
+        );
+        if (!ok) {
+            return (false, 0);
         }
+        (uint256 out,,,) = abi.decode(result, (uint256, uint160, uint32, uint256));
+        return (true, out);
     }
 }
