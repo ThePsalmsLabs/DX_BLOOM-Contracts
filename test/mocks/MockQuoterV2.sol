@@ -35,10 +35,17 @@ contract MockQuoterV2 is IQuoterV2 {
     // Mock addresses for testing (these match Base network addresses)
     address public constant WETH = 0x4200000000000000000000000000000000000006;
     address public constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    // Alias for mock USDC in tests (contract address changes each run). If a quote for real USDC is missing,
+    // also try the alias and vice versa.
+    address public usdcAlias;
 
     constructor() {
         // Set up default prices for common pairs
         _setDefaultPrices();
+    }
+
+    function setUSDCAlias(address _alias) external {
+        usdcAlias = _alias;
     }
 
     /**
@@ -67,6 +74,18 @@ contract MockQuoterV2 is IQuoterV2 {
 
         // Get the mock price for this token pair and fee tier
         uint256 price = mockPrices[params.tokenIn][params.tokenOut][params.fee];
+        if (price == 0 && usdcAlias != address(0)) {
+            // try alias combos
+            address inA = params.tokenIn == USDC ? usdcAlias : params.tokenIn;
+            address outA = params.tokenOut == USDC ? usdcAlias : params.tokenOut;
+            price = mockPrices[inA][outA][params.fee];
+            if (price == 0) {
+                // try reverse alias mapping too
+                inA = params.tokenIn == usdcAlias ? USDC : params.tokenIn;
+                outA = params.tokenOut == usdcAlias ? USDC : params.tokenOut;
+                price = mockPrices[inA][outA][params.fee];
+            }
+        }
 
         // ENHANCED: Complete the conditional logic with proper syntax and detailed fallback
         // If no specific price is set, try to use default price logic

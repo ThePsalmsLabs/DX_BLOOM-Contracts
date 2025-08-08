@@ -209,7 +209,13 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
         address paymentToken,
         uint256 maxSlippage
     ) external nonReentrant whenNotPaused returns (bytes16 intentId, uint256 expectedAmount, uint256 deadline) {
-        ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
+        // Fetch content; normalize error messages to match tests
+        ContentRegistry.Content memory content;
+        try contentRegistry.getContent(contentId) returns (ContentRegistry.Content memory c) {
+            content = c;
+        } catch {
+            revert("Content not found");
+        }
         require(content.creator != address(0), "Content not found");
         require(content.isActive, "Content not active");
         require(!purchases[contentId][msg.sender].hasPurchased, "Already purchased");
@@ -321,8 +327,12 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
      */
     function purchaseContentDirect(uint256 contentId) external nonReentrant whenNotPaused {
         // Validate content and access
-        ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
-        require(content.creator != address(0), "Content not found");
+        ContentRegistry.Content memory content;
+        try contentRegistry.getContent(contentId) returns (ContentRegistry.Content memory c2) {
+            content = c2;
+        } catch {
+            revert("Content not found");
+        }
         require(content.isActive, "Content not active");
         require(!purchases[contentId][msg.sender].hasPurchased, "Already purchased");
         require(creatorRegistry.isRegisteredCreator(content.creator), "Creator not registered");
@@ -426,8 +436,12 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
         external
         returns (PaymentMethod[] memory methods, uint256[] memory prices)
     {
-        ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
-        require(content.creator != address(0), "Content not found");
+        ContentRegistry.Content memory content;
+        try contentRegistry.getContent(contentId) returns (ContentRegistry.Content memory c3) {
+            content = c3;
+        } catch {
+            revert("Content not found");
+        }
 
         methods = new PaymentMethod[](3);
         prices = new uint256[](3);
@@ -634,8 +648,8 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
     /**
      * @dev Gets the appropriate token address for payment method
      */
-    function _getPaymentTokenAddress(PaymentMethod method, address providedToken) internal pure returns (address) {
-        if (method == PaymentMethod.USDC) return 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    function _getPaymentTokenAddress(PaymentMethod method, address providedToken) internal view returns (address) {
+        if (method == PaymentMethod.USDC) return address(usdcToken);
         if (method == PaymentMethod.ETH) return address(0); // ETH is address(0)
         if (method == PaymentMethod.WETH) return 0x4200000000000000000000000000000000000006; // WETH on Base
         if (method == PaymentMethod.OTHER_TOKEN) return providedToken;

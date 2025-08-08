@@ -98,6 +98,8 @@ abstract contract TestSetup is Test, TestConstants, ISharedTypes {
 
         // Deploy mock Uniswap Quoter with realistic price data
         mockQuoter = new MockQuoterV2();
+        // Set alias so mock quoter can recognize our deployed mock USDC alongside canonical USDC
+        mockQuoter.setUSDCAlias(address(mockUSDC));
 
         console.log("Mock dependencies deployed:");
         console.log("- Mock USDC:", address(mockUSDC));

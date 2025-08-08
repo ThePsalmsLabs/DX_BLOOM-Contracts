@@ -974,7 +974,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         // Verify the signature is valid for this intent
         bytes32 intentHash = intentHashes[intentId];
         address recoveredSigner = _recoverSigner(intentHash, signature);
-        require(authorizedSigners[recoveredSigner], "Invalid signer");
+        if (!authorizedSigners[recoveredSigner]) revert UnauthorizedSigner();
 
         // Store the real signature
         intentSignatures[intentId] = signature;

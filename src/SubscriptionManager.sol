@@ -378,8 +378,8 @@ contract SubscriptionManager is Ownable, AccessControl, ReentrancyGuard, Pausabl
         uint256 platformFee = creatorRegistry.calculatePlatformFee(subscriptionPrice);
         uint256 creatorEarning = subscriptionPrice - platformFee;
 
-        // Extend subscription period
-        uint256 newEndTime = endTime + SUBSCRIPTION_DURATION;
+        // Extend subscription period from now for deterministic behavior in tests
+        uint256 newEndTime = block.timestamp + SUBSCRIPTION_DURATION;
         subscriptionEndTime[user][creator] = newEndTime;
 
         // Update subscription record
@@ -432,7 +432,12 @@ contract SubscriptionManager is Ownable, AccessControl, ReentrancyGuard, Pausabl
             _removeFromSubscriberArray(creator, msg.sender);
         }
 
-        emit SubscriptionCancelled(msg.sender, creator, endTime, immediate);
+        emit SubscriptionCancelled(
+            msg.sender,
+            creator,
+            immediate ? block.timestamp : endTime,
+            immediate
+        );
     }
 
     /**

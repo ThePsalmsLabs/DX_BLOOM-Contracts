@@ -46,7 +46,7 @@ contract MockERC20 is ERC20, Ownable {
      * @notice This function allows us to give test users the exact amount of tokens
      *         they need for each test scenario
      */
-    function mint(address to, uint256 amount) external onlyOwner {
+    function mint(address to, uint256 amount) external {
         _mint(to, amount);
     }
 
@@ -57,7 +57,7 @@ contract MockERC20 is ERC20, Ownable {
      * @notice This function allows us to simulate scenarios where users lose tokens
      *         or where we need to reduce the total supply
      */
-    function burn(address from, uint256 amount) external onlyOwner {
+    function burn(address from, uint256 amount) external {
         _burn(from, amount);
     }
 
@@ -66,7 +66,7 @@ contract MockERC20 is ERC20, Ownable {
      * @param shouldFail Whether transfers should fail
      * @notice This allows us to test how our contracts handle failed token transfers
      */
-    function setTransfersShouldFail(bool shouldFail) external onlyOwner {
+    function setTransfersShouldFail(bool shouldFail) external {
         transfersShouldFail = shouldFail;
     }
 
@@ -107,7 +107,7 @@ contract MockERC20 is ERC20, Ownable {
      * @dev Resets the transfer attempts counter
      * @notice This helps us verify that the expected number of transfers occurred
      */
-    function resetTransferAttempts() external onlyOwner {
+    function resetTransferAttempts() external {
         transferAttempts = 0;
     }
 
@@ -117,7 +117,7 @@ contract MockERC20 is ERC20, Ownable {
      * @param newBalance The new balance to set
      * @notice This is useful for testing edge cases where balances change unexpectedly
      */
-    function forceBalance(address account, uint256 newBalance) external onlyOwner {
+    function forceBalance(address account, uint256 newBalance) external {
         uint256 currentBalance = balanceOf(account);
 
         if (newBalance > currentBalance) {

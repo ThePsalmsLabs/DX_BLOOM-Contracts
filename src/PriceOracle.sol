@@ -239,12 +239,15 @@ contract PriceOracle is Ownable {
      * @return fee Optimal pool fee
      */
     function _selectOptimalPoolFee(address tokenA, address tokenB) internal view returns (uint24 fee) {
-        // Use lower fees for stablecoin pairs
-        if ((tokenA == USDC) || (tokenB == USDC)) {
+        // Prefer 0.3% pool by default; only use 0.05% for explicit USDC<->USDC quotes
+        if (tokenA == USDC && tokenB == USDC) {
             return STABLE_POOL_FEE;
         }
 
-        // Use default fee for WETH pairs
+        // Use default fee for USDC pairs and WETH pairs
+        if (tokenA == USDC || tokenB == USDC) {
+            return DEFAULT_POOL_FEE;
+        }
         if (tokenA == WETH || tokenB == WETH) {
             return DEFAULT_POOL_FEE;
         }
