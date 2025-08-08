@@ -55,10 +55,10 @@ contract MockQuoterV2 is IQuoterV2 {
      */
     function quoteExactInputSingle(QuoteExactInputSingleParams memory params)
         external
+        view
         override
         returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)
     {
-        quoteExactInputSingleCalls++;
 
         // Check if this quote should fail for testing error conditions
         if (shouldFailQuote[params.tokenIn][params.tokenOut]) {
@@ -76,18 +76,8 @@ contract MockQuoterV2 is IQuoterV2 {
 
         // If still no price available, provide detailed error message for debugging
         if (price == 0) {
-            // Enhanced error message that helps with debugging
-            string memory errorMsg = string(
-                abi.encodePacked(
-                    "MockQuoterV2: No liquidity for pair. TokenIn: ",
-                    _addressToString(params.tokenIn),
-                    " TokenOut: ",
-                    _addressToString(params.tokenOut),
-                    " Fee: ",
-                    _uint24ToString(params.fee)
-                )
-            );
-            revert(errorMsg);
+            // Keep message simple to match test expectations
+            revert("MockQuoterV2: No liquidity");
         }
 
         // Calculate output amount based on input amount and price
@@ -100,6 +90,45 @@ contract MockQuoterV2 is IQuoterV2 {
         gasEstimate = 100000; // Mock gas estimate
 
         return (amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate);
+    }
+
+    // Minimal implementations to satisfy the full interface. These are not used in our tests
+    function quoteExactOutputSingle(QuoteExactOutputSingleParams memory)
+        external
+        pure
+        override
+        returns (uint256 amountIn, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)
+    {
+        return (0, 0, 0, 0);
+    }
+
+    function quoteExactInput(bytes memory, uint256 amountIn)
+        external
+        pure
+        override
+        returns (
+            uint256 amountOut,
+            uint160[] memory sqrtPriceX96AfterList,
+            uint32[] memory initializedTicksCrossedList,
+            uint256 gasEstimate
+        )
+    {
+        // Return passthrough amount and empty arrays for unused fields in tests
+        return (amountIn, new uint160[](0), new uint32[](0), 0);
+    }
+
+    function quoteExactOutput(bytes memory, uint256 amountOut)
+        external
+        pure
+        override
+        returns (
+            uint256 amountIn,
+            uint160[] memory sqrtPriceX96AfterList,
+            uint32[] memory initializedTicksCrossedList,
+            uint256 gasEstimate
+        )
+    {
+        return (amountOut, new uint160[](0), new uint32[](0), 0);
     }
 
     /**
@@ -252,49 +281,24 @@ contract MockQuoterV2 is IQuoterV2 {
     }
 
     /**
-     * @dev NEWLY IMPLEMENTED: Calculates output amount based on input amount and price
+     * @dev Calculates output amount based on input amount and price
      * @param tokenIn The input token address
-     * @param tokenOut The output token address
-     * @param amountIn The input amount
-     * @param price The exchange rate
-     * @return amountOut The calculated output amount
-     * @notice This handles the decimal differences between different tokens
-     *
-     * EXPLANATION: This is critical for accurate price calculations because:
-     * - USDC has 6 decimals (1 USDC = 1e6)
-     * - WETH has 18 decimals (1 WETH = 1e18)
-     * - When converting between them, we must adjust for decimal differences
-     * - The price parameter represents "how much tokenOut per 1 unit of tokenIn"
+     * @param amountIn The input amount (in smallest units)
+     * @param price The exchange rate (tokenOut units per 1 whole tokenIn)
+     * @return amountOut The calculated output amount (in smallest units)
      */
-    function _calculateOutputAmount(address tokenIn, address tokenOut, uint256 amountIn, uint256 price)
+    function _calculateOutputAmount(address tokenIn, address /* tokenOut */, uint256 amountIn, uint256 price)
         internal
         pure
         returns (uint256 amountOut)
     {
-        // Handle decimal differences between tokens
+        // Price is tokenOut units per 1 whole tokenIn
+        // Scale input amount (in smallest units) by dividing by 10^decimalsIn
         uint8 decimalsIn = _getTokenDecimals(tokenIn);
-        uint8 decimalsOut = _getTokenDecimals(tokenOut);
-
-        // Price is stored as output tokens per 1 unit of input token
-        // Need to adjust for decimal differences
-        if (decimalsIn > decimalsOut) {
-            // Input has more decimals (e.g., WETH 18 -> USDC 6)
-            uint256 decimalDiff = 10 ** (decimalsIn - decimalsOut);
-            amountOut = (amountIn * price) / decimalDiff / 1e18;
-        } else if (decimalsOut > decimalsIn) {
-            // Output has more decimals (e.g., USDC 6 -> WETH 18)
-            uint256 decimalDiff = 10 ** (decimalsOut - decimalsIn);
-            amountOut = (amountIn * price * decimalDiff) / 1e18;
-        } else {
-            // Same decimals
-            amountOut = (amountIn * price) / 1e18;
-        }
-
-        // Ensure we never return 0 for non-zero input (prevents division by zero downstream)
+        amountOut = (amountIn * price) / (10 ** decimalsIn);
         if (amountIn > 0 && amountOut == 0) {
-            amountOut = 1; // Minimum output to prevent downstream issues
+            amountOut = 1;
         }
-
         return amountOut;
     }
 

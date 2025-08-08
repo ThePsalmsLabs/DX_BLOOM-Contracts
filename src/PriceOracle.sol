@@ -94,8 +94,8 @@ contract PriceOracle is Ownable {
         IQuoterV2.QuoteExactInputSingleParams memory params = IQuoterV2.QuoteExactInputSingleParams({
             tokenIn: tokenIn,
             tokenOut: tokenOut,
-            amountIn: amountIn,
             fee: fee,
+            amountIn: amountIn,
             sqrtPriceLimitX96: 0
         });
 
@@ -113,8 +113,8 @@ contract PriceOracle is Ownable {
         IQuoterV2.QuoteExactInputSingleParams memory params = IQuoterV2.QuoteExactInputSingleParams({
             tokenIn: WETH,
             tokenOut: USDC,
-            amountIn: 1e18, // 1 ETH
             fee: DEFAULT_POOL_FEE,
+            amountIn: 1e18, // 1 ETH
             sqrtPriceLimitX96: 0
         });
         uint256 usdcPerEth = _quoteExactInputSingleViewAmount(params);
@@ -150,8 +150,8 @@ contract PriceOracle is Ownable {
             IQuoterV2.QuoteExactInputSingleParams memory params = IQuoterV2.QuoteExactInputSingleParams({
                 tokenIn: tokenIn,
                 tokenOut: USDC,
-                amountIn: 1e18, // Use 1 token as base
                 fee: fee,
+                amountIn: 1e18, // Use 1 token as base
                 sqrtPriceLimitX96: 0
             });
             (bool ok, uint256 usdcPerToken) = _tryQuoteExactInputSingleViewAmount(params);
@@ -181,8 +181,8 @@ contract PriceOracle is Ownable {
                 IQuoterV2.QuoteExactInputSingleParams({
                     tokenIn: tokenIn,
                     tokenOut: tokenOut,
-                    amountIn: amountIn,
                     fee: fees[i],
+                    amountIn: amountIn,
                     sqrtPriceLimitX96: 0
                 })
             ) returns (uint256 outputAmount, uint160, uint32, uint256) {
@@ -267,8 +267,8 @@ contract PriceOracle is Ownable {
         IQuoterV2.QuoteExactInputSingleParams memory params = IQuoterV2.QuoteExactInputSingleParams({
             tokenIn: tokenIn,
             tokenOut: WETH,
-            amountIn: 1e18,
             fee: DEFAULT_POOL_FEE,
+            amountIn: 1e18,
             sqrtPriceLimitX96: 0
         });
         uint256 wethPerToken = _quoteExactInputSingleViewAmount(params);
@@ -285,7 +285,16 @@ contract PriceOracle is Ownable {
         (bool success, bytes memory result) = address(quoterV2).staticcall(
             abi.encodeWithSelector(IQuoterV2.quoteExactInputSingle.selector, params)
         );
-        if (!success) revert QuoteReverted();
+        if (!success) {
+            // bubble revert reason from mock or real quoter when available
+            if (result.length > 0) {
+                assembly {
+                    let returndata_size := mload(result)
+                    revert(add(32, result), returndata_size)
+                }
+            }
+            revert QuoteReverted();
+        }
         (uint256 out,,,) = abi.decode(result, (uint256, uint160, uint32, uint256));
         return out;
     }

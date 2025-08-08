@@ -9,17 +9,66 @@ pragma solidity ^0.8.23;
 
 // Uniswap V3 Quoter Interface for price estimation
 interface IQuoterV2 {
+    /**
+     * @dev Parameters for exact input single pool quote
+     * @notice Field order must match official contract: fee BEFORE amountIn
+     */
     struct QuoteExactInputSingleParams {
         address tokenIn;
         address tokenOut;
-        uint256 amountIn;
         uint24 fee;
+        uint256 amountIn;
         uint160 sqrtPriceLimitX96;
     }
 
+    /**
+     * @dev Parameters for exact output single pool quote
+     */
+    struct QuoteExactOutputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint24 fee;
+        uint256 amountOut;
+        uint160 sqrtPriceLimitX96;
+    }
+
+    /**
+     * @dev Returns quote for exact input single pool swap
+     */
     function quoteExactInputSingle(QuoteExactInputSingleParams memory params)
         external
         returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate);
+
+    /**
+     * @dev Returns quote for exact output single pool swap
+     */
+    function quoteExactOutputSingle(QuoteExactOutputSingleParams memory params)
+        external
+        returns (uint256 amountIn, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate);
+
+    /**
+     * @dev Returns quote for exact input multi-hop swap
+     */
+    function quoteExactInput(bytes memory path, uint256 amountIn)
+        external
+        returns (
+            uint256 amountOut,
+            uint160[] memory sqrtPriceX96AfterList,
+            uint32[] memory initializedTicksCrossedList,
+            uint256 gasEstimate
+        );
+
+    /**
+     * @dev Returns quote for exact output multi-hop swap
+     */
+    function quoteExactOutput(bytes memory path, uint256 amountOut)
+        external
+        returns (
+            uint256 amountIn,
+            uint160[] memory sqrtPriceX96AfterList,
+            uint32[] memory initializedTicksCrossedList,
+            uint256 gasEstimate
+        );
 }
 
 // Permit2 interfaces
