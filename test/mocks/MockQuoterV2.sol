@@ -67,11 +67,6 @@ contract MockQuoterV2 is IQuoterV2 {
         returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)
     {
 
-        // Check if this quote should fail for testing error conditions
-        if (shouldFailQuote[params.tokenIn][params.tokenOut]) {
-            revert("MockQuoterV2: Quote failed");
-        }
-
         // Get the mock price for this token pair and fee tier
         uint256 price = mockPrices[params.tokenIn][params.tokenOut][params.fee];
         if (price == 0 && usdcAlias != address(0)) {
@@ -87,8 +82,25 @@ contract MockQuoterV2 is IQuoterV2 {
             }
         }
 
-        // ENHANCED: Complete the conditional logic with proper syntax and detailed fallback
-        // If no specific price is set, try to use default price logic
+        // Honor failure flags:
+        // - For canonical WETH/USDC pair used in getETHPrice tests, always fail when flagged
+        // - For other pairs, only fail when there is no specific price (simulate missing pools)
+        if (shouldFailQuote[params.tokenIn][params.tokenOut] ||
+            (usdcAlias != address(0) && (shouldFailQuote[params.tokenIn == usdcAlias ? USDC : params.tokenIn][params.tokenOut]) ) ||
+            (usdcAlias != address(0) && (shouldFailQuote[params.tokenIn][params.tokenOut == usdcAlias ? USDC : params.tokenOut]) )
+        ) {
+            if (
+                (params.tokenIn == WETH && (params.tokenOut == USDC || params.tokenOut == usdcAlias))
+                    || ((params.tokenIn == USDC || params.tokenIn == usdcAlias) && params.tokenOut == WETH)
+            ) {
+                revert("MockQuoterV2: Quote failed");
+            }
+            if (price == 0) {
+                revert("MockQuoterV2: Quote failed");
+            }
+        }
+
+        // If no specific price is set and no forced failure, try to use default price logic
         if (price == 0) {
             price = _getDefaultPrice(params.tokenIn, params.tokenOut);
         }

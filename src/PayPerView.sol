@@ -541,10 +541,10 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
         address paymentToken,
         uint256 actualAmountPaid
     ) external onlyRole(PAYMENT_PROCESSOR_ROLE) nonReentrant {
-        require(IntentIdManager.isValidIntentId(intentId), "Invalid intent ID format");
         ContentRegistry.Content memory content = contentRegistry.getContent(contentId);
         require(content.creator != address(0), "Content not found");
         require(content.isActive, "Content not active");
+        require(IntentIdManager.isValidIntentId(intentId), "Invalid intent ID format");
         require(_canPurchaseContent(contentId, buyer), "Cannot purchase content");
         purchases[contentId][buyer] = PurchaseRecord({
             hasPurchased: true,

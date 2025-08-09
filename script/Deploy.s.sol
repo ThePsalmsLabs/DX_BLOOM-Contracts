@@ -61,7 +61,7 @@ contract Deploy is Script {
         networkConfigs[84532] = NetworkConfig({
             usdc: 0x036CbD53842c5426634e7929541eC2318f3dCF7e,
             commerceProtocol: 0x96A08D8e8631b6dB52Ea0cbd7232d9A85d239147,
-            quoterV2: 0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a,
+            quoterV2: 0xC5290058841028F1614F3A6F0F5816cAd0df5E27,
             weth: 0x4200000000000000000000000000000000000006,
             chainId: 84532,
             name: "Base Sepolia"
@@ -72,11 +72,15 @@ contract Deploy is Script {
         NetworkConfig memory config = networkConfigs[block.chainid];
         require(config.chainId != 0, "Unsupported network");
         
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-
-        platformOwner = vm.addr(deployerPrivateKey);
-
-        vm.startBroadcast(deployerPrivateKey);
+        // Support both PRIVATE_KEY env and Foundry keystore accounts via --account
+        uint256 deployerPrivateKey = vm.envOr("PRIVATE_KEY", uint256(0));
+        if (deployerPrivateKey != 0) {
+            vm.startBroadcast(deployerPrivateKey);
+        } else {
+            vm.startBroadcast();
+        }
+        // Set platform owner to current broadcaster
+        platformOwner = msg.sender;
         
         if (block.chainid == 8453) {
             // Base Mainnet - Production addresses

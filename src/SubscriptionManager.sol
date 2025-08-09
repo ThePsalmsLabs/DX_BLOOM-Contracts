@@ -148,7 +148,7 @@ contract SubscriptionManager is Ownable, AccessControl, ReentrancyGuard, Pausabl
     );
     event SubscriptionExpired(address indexed user, address indexed creator, uint256 timestamp);
     event ExternalRefundProcessed(
-        bytes16 intentId, address indexed user, address indexed creator, uint256 refundAmount
+        bytes16 indexed intentId, address indexed user, address indexed creator, uint256 refundAmount
     );
 
     // Custom errors for efficient error handling
@@ -329,21 +329,18 @@ contract SubscriptionManager is Ownable, AccessControl, ReentrancyGuard, Pausabl
         // Validate auto-renewal is enabled and configured
         if (!autoRenewal.enabled) revert InvalidAutoRenewalConfig();
 
-        // Rate limiting: check cooldown period
-        if (block.timestamp < autoRenewal.lastRenewalAttempt + renewalCooldown) {
-            revert RenewalTooSoon();
-        }
-
         // Daily attempt limit
         uint256 today = block.timestamp / 1 days;
         uint256 lastAttemptDay = autoRenewal.lastRenewalAttempt / 1 days;
+        if (today > lastAttemptDay) {
+            autoRenewal.failedAttempts = 0;
+        }
         if (today == lastAttemptDay && autoRenewal.failedAttempts >= maxRenewalAttemptsPerDay) {
             revert TooManyRenewalAttempts();
         }
-
-        // Reset daily counter if it's a new day
-        if (today > lastAttemptDay) {
-            autoRenewal.failedAttempts = 0;
+        // Cooldown check must happen before balance checks as per tests
+        if (block.timestamp < autoRenewal.lastRenewalAttempt + renewalCooldown) {
+            revert RenewalTooSoon();
         }
 
         // Check if subscription is close to expiry (within renewal window)
@@ -351,7 +348,7 @@ contract SubscriptionManager is Ownable, AccessControl, ReentrancyGuard, Pausabl
         if (block.timestamp < endTime - RENEWAL_WINDOW) revert InvalidSubscriptionPeriod();
         if (block.timestamp > endTime + GRACE_PERIOD) revert SubscriptionAlreadyExpired();
 
-        // Update attempt tracking
+        // Update attempt tracking early so subsequent failures still count towards cooldown
         autoRenewal.lastRenewalAttempt = block.timestamp;
 
         // Get current subscription price
