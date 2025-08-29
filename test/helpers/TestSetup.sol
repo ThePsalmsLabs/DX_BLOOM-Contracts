@@ -11,7 +11,7 @@ import { CommerceProtocolIntegration } from "../../src/CommerceProtocolIntegrati
 import { PriceOracle } from "../../src/PriceOracle.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockCommerceProtocol } from "../mocks/MockCommerceProtocol.sol";
-import { MockQuoterV2 } from "../mocks/MockQuoterV2.sol";
+import { MockQuoterV2, MockPermit2 } from "../mocks/MockQuoterV2.sol";
 import { TestConstants } from "./TestConstants.sol";
 import { ISharedTypes } from "../../src/interfaces/ISharedTypes.sol";
 
@@ -32,6 +32,7 @@ abstract contract TestSetup is Test, TestConstants, ISharedTypes {
     MockERC20 public mockUSDC;
     MockCommerceProtocol public mockCommerceProtocol;
     MockQuoterV2 public mockQuoter;
+    MockPermit2 public mockPermit2;
 
     // ============ TEST USER ADDRESSES ============
     address public creator1 = address(0x1001);
@@ -101,10 +102,14 @@ abstract contract TestSetup is Test, TestConstants, ISharedTypes {
         // Set alias so mock quoter can recognize our deployed mock USDC alongside canonical USDC
         mockQuoter.setUSDCAlias(address(mockUSDC));
 
+        // Deploy mock Permit2 contract for permit-based testing
+        mockPermit2 = new MockPermit2();
+
         console.log("Mock dependencies deployed:");
         console.log("- Mock USDC:", address(mockUSDC));
         console.log("- Mock Commerce Protocol:", address(mockCommerceProtocol));
         console.log("- Mock Quoter:", address(mockQuoter));
+        console.log("- Mock Permit2:", address(mockPermit2));
     }
 
     /**
@@ -144,6 +149,7 @@ abstract contract TestSetup is Test, TestConstants, ISharedTypes {
         // Deploy CommerceProtocolIntegration
         commerceIntegration = new CommerceProtocolIntegration(
             address(mockCommerceProtocol),
+            address(mockPermit2),
             address(creatorRegistry),
             address(contentRegistry),
             address(priceOracle),

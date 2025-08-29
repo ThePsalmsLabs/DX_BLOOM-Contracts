@@ -19,6 +19,7 @@ contract Deploy is Script {
     struct NetworkConfig {
         address usdc;
         address commerceProtocol;
+        address permit2;
         address quoterV2;
         address weth;
         uint256 chainId;
@@ -51,6 +52,7 @@ contract Deploy is Script {
         networkConfigs[8453] = NetworkConfig({
             usdc: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913,
             commerceProtocol: 0xeADE6bE02d043b3550bE19E960504dbA14A14971,
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3, // Uniswap Permit2
             quoterV2: 0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a,
             weth: 0x4200000000000000000000000000000000000006,
             chainId: 8453,
@@ -61,6 +63,7 @@ contract Deploy is Script {
         networkConfigs[84532] = NetworkConfig({
             usdc: 0x036CbD53842c5426634e7929541eC2318f3dCF7e,
             commerceProtocol: 0x96A08D8e8631b6dB52Ea0cbd7232d9A85d239147,
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3, // Uniswap Permit2
             quoterV2: 0xC5290058841028F1614F3A6F0F5816cAd0df5E27,
             weth: 0x4200000000000000000000000000000000000006,
             chainId: 84532,
@@ -144,6 +147,7 @@ contract Deploy is Script {
         console.log("6. Deploying CommerceProtocolIntegration...");
         commerceIntegration = new CommerceProtocolIntegration(
             config.commerceProtocol,
+            config.permit2,
             address(creatorRegistry),
             address(contentRegistry),
             address(priceOracle),

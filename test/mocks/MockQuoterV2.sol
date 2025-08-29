@@ -415,3 +415,50 @@ contract MockQuoterV2 is IQuoterV2 {
         return string(buffer);
     }
 }
+
+// ============ MOCK PERMIT2 CONTRACT ============
+
+/**
+ * @title MockPermit2
+ * @dev Mock implementation of Uniswap Permit2 for testing
+ * @notice This provides a minimal mock of the Permit2 interface for testing permit functionality
+ */
+contract MockPermit2 {
+    // Mock domain separator
+    bytes32 public constant DOMAIN_SEPARATOR = keccak256("MockPermit2Domain");
+
+    // Mock nonces mapping
+    mapping(address => uint256) public nonces;
+
+    /**
+     * @dev Mock permitTransferFrom implementation
+     * @notice In a real implementation, this would validate signatures and execute transfers
+     */
+    function permitTransferFrom(
+        address /* permit.permitted.token */,
+        address /* permit.permitted.amount */,
+        uint256 /* permit.nonce */,
+        uint256 /* permit.deadline */,
+        address /* transferDetails.to */,
+        uint256 /* transferDetails.requestedAmount */,
+        address /* owner */,
+        bytes calldata /* signature */
+    ) external pure {
+        // Mock implementation - always succeeds for testing
+        // In production, this would validate the signature and execute the transfer
+    }
+
+    /**
+     * @dev Get nonce for an owner
+     */
+    function nonce(address owner) external view returns (uint256) {
+        return nonces[owner];
+    }
+
+    /**
+     * @dev Set nonce for testing
+     */
+    function setNonce(address owner, uint256 _nonce) external {
+        nonces[owner] = _nonce;
+    }
+}

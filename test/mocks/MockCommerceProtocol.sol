@@ -88,12 +88,24 @@ contract MockCommerceProtocol is ICommercePaymentsProtocol {
      * @dev Mock implementation of token transfer with Permit2
      * @param intent The transfer intent to execute
      * @param signatureTransferData The Permit2 signature data
+     * @notice This validates permit data and executes transfers
      */
     function transferToken(TransferIntent calldata intent, Permit2SignatureTransferData calldata signatureTransferData)
         external
         override
     {
         transferCalls++;
+
+        // Validate permit data (basic checks)
+        require(signatureTransferData.permit.deadline >= block.timestamp, "Permit expired");
+        require(signatureTransferData.transferDetails.to == address(this), "Invalid transfer destination");
+        require(signatureTransferData.permit.permitted.amount >= signatureTransferData.transferDetails.requestedAmount, "Insufficient permit amount");
+
+        // Validate intent data
+        require(intent.recipient != address(0), "Invalid recipient");
+        require(intent.recipientCurrency != address(0), "Invalid recipient currency");
+        require(intent.sender != address(0), "Invalid sender");
+
         _executeTransfer(intent);
     }
 

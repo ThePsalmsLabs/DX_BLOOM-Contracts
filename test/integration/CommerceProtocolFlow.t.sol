@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import { TestSetup } from "../helpers/TestSetup.sol";
 import { CommerceProtocolIntegration } from "../../src/CommerceProtocolIntegration.sol";
-import { ICommercePaymentsProtocol } from "../../src/interfaces/IPlatformInterfaces.sol";
+import { ICommercePaymentsProtocol, ISignatureTransfer } from "../../src/interfaces/IPlatformInterfaces.sol";
 import { ContentRegistry } from "../../src/ContentRegistry.sol";
 import { SubscriptionManager } from "../../src/SubscriptionManager.sol";
 import { CreatorRegistry } from "../../src/CreatorRegistry.sol";
@@ -521,6 +521,198 @@ contract CommerceProtocolFlowTest is TestSetup {
         commerceIntegration.processCompletedPayment(
             intent.id, testData.user, testData.paymentToken, testData.tokenAmount, true, ""
         );
+    }
+
+    // ============ PERMIT-BASED PAYMENT TESTS ============
+
+    /**
+     * @dev Tests complete permit-based payment flow
+     * @notice This tests the new gasless payment functionality
+     */
+    function test_PermitBasedPaymentFlow_Success() public {
+        // Phase 1: Create intent
+        PaymentFlowTest memory testData = PaymentFlowTest({
+            user: user1,
+            creator: creator1,
+            paymentToken: address(testToken),
+            tokenAmount: 1e18,
+            usdcEquivalent: 2e6,
+            paymentType: PaymentType.PayPerView,
+            contentId: testContentId
+        });
+
+        vm.prank(testData.user);
+        testToken.approve(address(commerceIntegration), testData.tokenAmount);
+
+        CommerceProtocolIntegration.PlatformPaymentRequest memory request = _buildPaymentRequest(testData);
+
+        vm.prank(testData.user);
+        (ICommercePaymentsProtocol.TransferIntent memory intent,) = commerceIntegration.createPaymentIntent(request);
+
+        // Phase 2: Provide operator signature
+        bytes memory signature = abi.encodePacked(bytes32("test"), bytes32("signature"), bytes1(0x1b));
+
+        vm.prank(operatorSigner);
+        commerceIntegration.provideIntentSignature(intent.id, signature);
+
+        // Phase 3: Create permit data (mock for testing)
+        ICommercePaymentsProtocol.Permit2SignatureTransferData memory permitData = _createMockPermitData(testData);
+
+        // Phase 4: Execute with permit
+        vm.prank(testData.user);
+        bool success = commerceIntegration.executePaymentWithPermit(intent.id, permitData);
+
+        assertTrue(success, "Permit-based payment should succeed");
+        assertTrue(commerceIntegration.processedIntents(intent.id), "Intent should be marked as processed");
+        assertTrue(payPerView.hasAccess(testData.contentId, testData.user), "User should have content access");
+    }
+
+    /**
+     * @dev Tests create and execute with permit in one transaction
+     * @notice This tests the combined flow for maximum gas efficiency
+     */
+    function test_CreateAndExecuteWithPermit_Success() public {
+        PaymentFlowTest memory testData = PaymentFlowTest({
+            user: user1,
+            creator: creator1,
+            paymentToken: address(testToken),
+            tokenAmount: 1e18,
+            usdcEquivalent: 2e6,
+            paymentType: PaymentType.PayPerView,
+            contentId: testContentId
+        });
+
+        vm.prank(testData.user);
+        testToken.approve(address(commerceIntegration), testData.tokenAmount);
+
+        CommerceProtocolIntegration.PlatformPaymentRequest memory request = _buildPaymentRequest(testData);
+        ICommercePaymentsProtocol.Permit2SignatureTransferData memory permitData = _createMockPermitData(testData);
+
+        vm.prank(testData.user);
+        (bytes16 intentId, bool success) = commerceIntegration.createAndExecuteWithPermit(request, permitData);
+
+        assertTrue(success, "Create and execute with permit should succeed");
+        assertTrue(intentId != bytes16(0), "Intent ID should be generated");
+        assertTrue(commerceIntegration.processedIntents(intentId), "Intent should be processed");
+        assertTrue(payPerView.hasAccess(testData.contentId, testData.user), "User should have content access");
+    }
+
+    /**
+     * @dev Tests permit data validation
+     * @notice This ensures permit data is properly validated before execution
+     */
+    function test_PermitDataValidation() public {
+        PaymentFlowTest memory testData = PaymentFlowTest({
+            user: user1,
+            creator: creator1,
+            paymentToken: address(testToken),
+            tokenAmount: 1e18,
+            usdcEquivalent: 2e6,
+            paymentType: PaymentType.PayPerView,
+            contentId: testContentId
+        });
+
+        vm.prank(testData.user);
+        testToken.approve(address(commerceIntegration), testData.tokenAmount);
+
+        CommerceProtocolIntegration.PlatformPaymentRequest memory request = _buildPaymentRequest(testData);
+
+        vm.prank(testData.user);
+        (ICommercePaymentsProtocol.TransferIntent memory intent,) = commerceIntegration.createPaymentIntent(request);
+
+        // Create valid permit data
+        ICommercePaymentsProtocol.Permit2SignatureTransferData memory validPermitData = _createMockPermitData(testData);
+
+        // Test validation
+        (bool canExecute, string memory reason) = commerceIntegration.canExecuteWithPermit(intent.id, validPermitData);
+
+        assertFalse(canExecute, "Should not be able to execute without operator signature");
+        assertEq(reason, "No operator signature", "Should indicate missing operator signature");
+
+        // Add operator signature
+        bytes memory signature = abi.encodePacked(bytes32("test"), bytes32("signature"), bytes1(0x1b));
+        vm.prank(operatorSigner);
+        commerceIntegration.provideIntentSignature(intent.id, signature);
+
+        // Test validation again
+        (canExecute, reason) = commerceIntegration.canExecuteWithPermit(intent.id, validPermitData);
+
+        assertTrue(canExecute, "Should be able to execute with valid permit data");
+        assertEq(reason, "", "Should have no error message");
+    }
+
+    /**
+     * @dev Tests permit data mismatch detection
+     * @notice This ensures security by detecting mismatched permit data
+     */
+    function test_PermitDataMismatch_Detected() public {
+        PaymentFlowTest memory testData = PaymentFlowTest({
+            user: user1,
+            creator: creator1,
+            paymentToken: address(testToken),
+            tokenAmount: 1e18,
+            usdcEquivalent: 2e6,
+            paymentType: PaymentType.PayPerView,
+            contentId: testContentId
+        });
+
+        vm.prank(testData.user);
+        testToken.approve(address(commerceIntegration), testData.tokenAmount);
+
+        CommerceProtocolIntegration.PlatformPaymentRequest memory request = _buildPaymentRequest(testData);
+
+        vm.prank(testData.user);
+        (ICommercePaymentsProtocol.TransferIntent memory intent,) = commerceIntegration.createPaymentIntent(request);
+
+        // Add operator signature
+        bytes memory signature = abi.encodePacked(bytes32("test"), bytes32("signature"), bytes1(0x1b));
+        vm.prank(operatorSigner);
+        commerceIntegration.provideIntentSignature(intent.id, signature);
+
+        // Create invalid permit data (wrong amount)
+        ICommercePaymentsProtocol.Permit2SignatureTransferData memory invalidPermitData = _createMockPermitData(testData);
+        invalidPermitData.permit.permitted.amount = 0.5e18; // Half the required amount
+
+        // Test validation
+        (bool canExecute, string memory reason) = commerceIntegration.canExecuteWithPermit(intent.id, invalidPermitData);
+
+        assertFalse(canExecute, "Should detect permit amount mismatch");
+        assertEq(reason, "Permit data doesn't match payment context", "Should indicate context mismatch");
+    }
+
+    // ============ HELPER FUNCTIONS FOR PERMIT TESTS ============
+
+    /**
+     * @dev Creates mock permit data for testing
+     * @param testData The test data to create permit for
+     * @return permitData The mock permit data
+     */
+    function _createMockPermitData(PaymentFlowTest memory testData)
+        private
+        view
+        returns (ICommercePaymentsProtocol.Permit2SignatureTransferData memory permitData)
+    {
+        permitData = ICommercePaymentsProtocol.Permit2SignatureTransferData({
+            permit: ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({
+                    token: testData.paymentToken,
+                    amount: testData.tokenAmount
+                }),
+                nonce: commerceIntegration.getPermitNonce(testData.user),
+                deadline: block.timestamp + 1 hours
+            }),
+            transferDetails: ISignatureTransfer.SignatureTransferDetails({
+                to: address(mockCommerceProtocol),
+                requestedAmount: testData.tokenAmount
+            }),
+            signature: abi.encodePacked(bytes32("mock"), bytes32("permit"), bytes1(0x1b))
+        });
+    }
+
+    // Helper function to access mockPermit2 from parent contract
+    function _getMockPermit2() internal view returns (address) {
+        // Access the mockPermit2 from the parent TestSetup contract
+        return address(commerceIntegration.permit2());
     }
 
     function _executeCompleteTestPayment(PaymentFlowTest memory testData) private {

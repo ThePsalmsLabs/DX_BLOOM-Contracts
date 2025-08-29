@@ -14,7 +14,7 @@ import { ContentRegistry } from "./ContentRegistry.sol";
 import { PayPerView } from "./PayPerView.sol";
 import { SubscriptionManager } from "./SubscriptionManager.sol";
 import { PriceOracle } from "./PriceOracle.sol";
-import { ICommercePaymentsProtocol } from "./interfaces/IPlatformInterfaces.sol";
+import { ICommercePaymentsProtocol, ISignatureTransfer } from "./interfaces/IPlatformInterfaces.sol";
 import { IntentIdManager } from "./IntentIdManager.sol";
 import { ISharedTypes } from "./interfaces/ISharedTypes.sol";
 
@@ -35,6 +35,9 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
 
     // Base Commerce Protocol contract interface
     ICommercePaymentsProtocol public immutable commerceProtocol;
+
+    // Uniswap Permit2 contract for gasless approvals
+    ISignatureTransfer public immutable permit2;
 
     // Our platform contracts
     CreatorRegistry public immutable creatorRegistry;
@@ -210,6 +213,27 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         uint256 createdAt
     );
 
+    // ============ PERMIT EVENTS ============
+    event PaymentExecutedWithPermit(
+        bytes16 indexed intentId,
+        address indexed user,
+        address indexed creator,
+        PaymentType paymentType,
+        uint256 amount,
+        address paymentToken,
+        bool success
+    );
+
+    event PermitPaymentCreated(
+        bytes16 indexed intentId,
+        address indexed user,
+        address indexed creator,
+        PaymentType paymentType,
+        uint256 amount,
+        address paymentToken,
+        uint256 nonce
+    );
+
     // Custom errors
     error InvalidPaymentRequest();
     error IntentAlreadyProcessed();
@@ -241,6 +265,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
      */
     constructor(
         address _commerceProtocol,
+        address _permit2,
         address _creatorRegistry,
         address _contentRegistry,
         address _priceOracle,
@@ -249,6 +274,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         address _operatorSigner
     ) Ownable(msg.sender) EIP712("ContentPlatformOperator", "1") {
         require(_commerceProtocol != address(0), "Invalid commerce protocol");
+        require(_permit2 != address(0), "Invalid permit2 contract");
         require(_creatorRegistry != address(0), "Invalid creator registry");
         require(_contentRegistry != address(0), "Invalid content registry");
         require(_priceOracle != address(0), "Invalid price oracle");
@@ -257,6 +283,7 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         require(_operatorSigner != address(0), "Invalid operator signer");
 
         commerceProtocol = ICommercePaymentsProtocol(_commerceProtocol);
+        permit2 = ISignatureTransfer(_permit2);
         creatorRegistry = CreatorRegistry(_creatorRegistry);
         contentRegistry = ContentRegistry(_contentRegistry);
         priceOracle = PriceOracle(_priceOracle);
@@ -466,13 +493,14 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
     }
 
     /**
-     * @dev COMPLETE: Execute payment with real signature
+     * @dev Execute payment with signature - NOW CALLS BASE COMMERCE PROTOCOL!
+     * @notice CRITICAL FIX: This function now actually executes payments on Base Commerce Protocol
      */
     function executePaymentWithSignature(bytes16 intentId)
         external
         nonReentrant
         whenNotPaused
-        returns (ICommercePaymentsProtocol.TransferIntent memory intent)
+        returns (bool success)
     {
         require(intentSignatures[intentId].length != 0, "No signature provided");
         PaymentContext memory context = paymentContexts[intentId];
@@ -480,40 +508,82 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         if (uint8(context.paymentType) > uint8(PaymentType.Donation)) revert InvalidPaymentType();
         require(context.user == msg.sender, "Not intent creator");
         require(block.timestamp <= intentDeadlines[intentId], "Intent expired");
+        require(!processedIntents[intentId], "Intent already processed");
 
-        // Simulate protocol token movement for tests: pull payment tokens from user
-        if (context.paymentToken != address(0)) {
-            IERC20 token = IERC20(context.paymentToken);
-            uint256 allowance = token.allowance(context.user, address(this));
-            uint256 balance = token.balanceOf(context.user);
-            uint256 amountToPull = context.expectedAmount;
-            uint256 cap = allowance < balance ? allowance : balance;
-            if (amountToPull > cap) {
-                amountToPull = cap;
-            }
-            if (amountToPull > 0) {
-                token.safeTransferFrom(context.user, address(this), amountToPull);
-            }
-        } else {
-            // ETH path not handled in tests; skip
-        }
-        // Reconstruct intent with real signature
-        intent = ICommercePaymentsProtocol.TransferIntent({
+        // Reconstruct the transfer intent with operator signature
+        ICommercePaymentsProtocol.TransferIntent memory intent = ICommercePaymentsProtocol.TransferIntent({
             recipientAmount: context.creatorAmount,
             deadline: intentDeadlines[intentId],
             recipient: payable(context.creator),
-            recipientCurrency: address(usdcToken), // Use the configured USDC token
+            recipientCurrency: address(usdcToken),
             refundDestination: context.user,
             feeAmount: context.platformFee + context.operatorFee,
             id: intentId,
             operator: address(this),
-            signature: intentSignatures[intentId], // REAL SIGNATURE
+            signature: intentSignatures[intentId],
             prefix: "",
             sender: context.user,
             token: context.paymentToken
         });
-        emit IntentReadyForExecution(intentId, intent.signature);
-        return intent;
+
+        // CRITICAL FIX: Actually execute the payment through Base Commerce Protocol
+        if (context.paymentToken == address(usdcToken) || context.paymentToken == address(0)) {
+            // For USDC or ETH payments, use transferNative or transferTokenPreApproved
+            try commerceProtocol.transferTokenPreApproved(intent) {
+                // Mark as processed and handle success
+                processedIntents[intentId] = true;
+
+                // Update context in storage
+                PaymentContext storage storedContext = paymentContexts[intentId];
+                storedContext.processed = true;
+
+                _handleSuccessfulPayment(storedContext, intentId, storedContext.paymentToken, storedContext.expectedAmount);
+
+                emit PaymentCompleted(
+                    intentId,
+                    context.user,
+                    context.creator,
+                    context.paymentType,
+                    context.contentId,
+                    context.paymentToken,
+                    context.expectedAmount,
+                    true
+                );
+
+                emit IntentReadyForExecution(intentId, intent.signature);
+                return true;
+            } catch Error(string memory reason) {
+                _handleFailedPayment(intentId, context, reason);
+                emit PaymentCompleted(
+                    intentId,
+                    context.user,
+                    context.creator,
+                    context.paymentType,
+                    context.contentId,
+                    context.paymentToken,
+                    0,
+                    false
+                );
+                return false;
+            } catch (bytes memory lowLevelData) {
+                string memory reason = lowLevelData.length > 0 ? string(lowLevelData) : "Unknown error";
+                _handleFailedPayment(intentId, context, reason);
+                emit PaymentCompleted(
+                    intentId,
+                    context.user,
+                    context.creator,
+                    context.paymentType,
+                    context.contentId,
+                    context.paymentToken,
+                    0,
+                    false
+                );
+                return false;
+            }
+        } else {
+            // For other tokens, we need permit data - this path requires permit integration
+            revert("Non-USDC payments require permit data. Use executePaymentWithPermit instead.");
+        }
     }
 
     /**
@@ -557,6 +627,289 @@ contract CommerceProtocolIntegration is Ownable, AccessControl, ReentrancyGuard,
         returns (uint256 intentsCreated, uint256 paymentsProcessed, uint256 operatorFees, uint256 refunds)
     {
         return (totalIntentsCreated, totalPaymentsProcessed, totalOperatorFees, totalRefundsProcessed);
+    }
+
+    // ============ PERMIT-BASED PAYMENT FUNCTIONS ============
+
+    /**
+     * @dev Executes payment using Permit2 for gasless approvals
+     * @param intentId The payment intent ID
+     * @param permitData The Permit2 signature transfer data
+     * @notice This enables true gasless payments through Uniswap Permit2
+     */
+    function executePaymentWithPermit(
+        bytes16 intentId,
+        ICommercePaymentsProtocol.Permit2SignatureTransferData calldata permitData
+    ) external nonReentrant whenNotPaused returns (bool success) {
+        PaymentContext memory context = paymentContexts[intentId];
+        require(context.user == msg.sender, "Not intent creator");
+        require(context.intentId == intentId, "Intent context mismatch");
+        require(block.timestamp <= intentDeadlines[intentId], "Intent expired");
+        require(intentSignatures[intentId].length != 0, "Intent not signed by operator");
+        require(!processedIntents[intentId], "Intent already processed");
+
+        // Reconstruct the transfer intent with operator signature
+        ICommercePaymentsProtocol.TransferIntent memory intent = ICommercePaymentsProtocol.TransferIntent({
+            recipientAmount: context.creatorAmount,
+            deadline: intentDeadlines[intentId],
+            recipient: payable(context.creator),
+            recipientCurrency: address(usdcToken),
+            refundDestination: context.user,
+            feeAmount: context.platformFee + context.operatorFee,
+            id: intentId,
+            operator: address(this),
+            signature: intentSignatures[intentId],
+            prefix: "",
+            sender: context.user,
+            token: context.paymentToken
+        });
+
+        // Execute the payment through Base Commerce Protocol with Permit2
+        try commerceProtocol.transferToken(intent, permitData) {
+            // Mark as processed
+            processedIntents[intentId] = true;
+
+            // Update context in storage
+            PaymentContext storage storedContext = paymentContexts[intentId];
+            storedContext.processed = true;
+
+            // Handle successful payment
+            _handleSuccessfulPayment(storedContext, intentId, storedContext.paymentToken, storedContext.expectedAmount);
+
+            emit PaymentCompleted(
+                intentId,
+                context.user,
+                context.creator,
+                context.paymentType,
+                context.contentId,
+                context.paymentToken,
+                context.expectedAmount,
+                true
+            );
+
+            emit PaymentExecutedWithPermit(
+                intentId,
+                context.user,
+                context.creator,
+                context.paymentType,
+                context.expectedAmount,
+                context.paymentToken,
+                true
+            );
+
+            return true;
+        } catch Error(string memory reason) {
+            // Handle payment failure
+            _handleFailedPayment(intentId, context, reason);
+
+            emit PaymentCompleted(
+                intentId,
+                context.user,
+                context.creator,
+                context.paymentType,
+                context.contentId,
+                context.paymentToken,
+                0,
+                false
+            );
+
+            emit PaymentExecutedWithPermit(
+                intentId,
+                context.user,
+                context.creator,
+                context.paymentType,
+                0,
+                context.paymentToken,
+                false
+            );
+
+            return false;
+        } catch (bytes memory lowLevelData) {
+            string memory reason = lowLevelData.length > 0 ? string(lowLevelData) : "Unknown error";
+            _handleFailedPayment(intentId, context, reason);
+
+            emit PaymentCompleted(
+                intentId,
+                context.user,
+                context.creator,
+                context.paymentType,
+                context.contentId,
+                context.paymentToken,
+                0,
+                false
+            );
+
+            emit PaymentExecutedWithPermit(
+                intentId,
+                context.user,
+                context.creator,
+                context.paymentType,
+                0,
+                context.paymentToken,
+                false
+            );
+
+            return false;
+        }
+    }
+
+    /**
+     * @dev Creates payment intent and executes with permit in one transaction
+     * @param request Payment request details
+     * @param permitData Permit2 signature data
+     * @return intentId The created intent ID
+     * @return success Whether the payment was successful
+     */
+    function createAndExecuteWithPermit(
+        PlatformPaymentRequest memory request,
+        ICommercePaymentsProtocol.Permit2SignatureTransferData calldata permitData
+    ) external nonReentrant whenNotPaused returns (bytes16 intentId, bool success) {
+        // Validate payment type is within enum range - FIXED
+        if (uint8(request.paymentType) > uint8(PaymentType.Donation)) revert InvalidPaymentType();
+        _validatePaymentRequest(request);
+
+        PaymentAmounts memory amounts = _calculateAllPaymentAmounts(request);
+        intentId = _generateStandardIntentId(msg.sender, request);
+
+        // Create payment context
+        PaymentContext memory context = _createPaymentContext(request, amounts, intentId);
+
+        // Create transfer intent
+        ICommercePaymentsProtocol.TransferIntent memory intent = _createTransferIntent(request, amounts, intentId);
+
+        // Prepare and sign intent with operator signature
+        _prepareIntentForSigning(intent);
+        _finalizeIntent(intentId, intent, context, request.deadline);
+
+        // Emit creation event
+        _emitIntentCreatedEvent(intentId, request, amounts);
+
+        // Emit permit payment creation event
+        emit PermitPaymentCreated(
+            intentId,
+            msg.sender,
+            request.creator,
+            request.paymentType,
+            amounts.totalAmount,
+            request.paymentToken,
+            permit2.nonce(msg.sender)
+        );
+
+        // Execute with permit
+        success = this.executePaymentWithPermit(intentId, permitData);
+
+        return (intentId, success);
+    }
+
+    /**
+     * @dev Gets permit nonce for a user (helper for frontend)
+     * @param user The user address
+     * @return nonce The current nonce for the user
+     */
+    function getPermitNonce(address user) external view returns (uint256 nonce) {
+        return permit2.nonce(user);
+    }
+
+    // ============ PERMIT VALIDATION FUNCTIONS ============
+
+    /**
+     * @dev Validates permit signature data before execution
+     * @param permitData The permit data to validate
+     * @param user The user who should have signed the permit
+     * @return isValid Whether the permit data is valid
+     */
+    function validatePermitData(
+        ICommercePaymentsProtocol.Permit2SignatureTransferData calldata permitData,
+        address user
+    ) external view returns (bool isValid) {
+        // Basic validation checks
+        if (permitData.permit.deadline < block.timestamp) return false;
+        if (permitData.permit.nonce != permit2.nonce(user)) return false;
+        if (permitData.transferDetails.to != address(commerceProtocol)) return false;
+
+        return true;
+    }
+
+    /**
+     * @dev Validates that permit data matches the payment context
+     * @param permitData The permit data
+     * @param context The payment context
+     * @return isValid Whether permit data matches context
+     */
+    function validatePermitContext(
+        ICommercePaymentsProtocol.Permit2SignatureTransferData calldata permitData,
+        PaymentContext memory context
+    ) external view returns (bool isValid) {
+        // Check that token matches
+        if (permitData.permit.permitted.token != context.paymentToken) return false;
+
+        // Check that amount is sufficient
+        if (permitData.permit.permitted.amount < context.expectedAmount) return false;
+
+        // Check that transfer destination is correct
+        if (permitData.transferDetails.to != address(commerceProtocol)) return false;
+
+        // Check that requested amount matches expected
+        if (permitData.transferDetails.requestedAmount != context.expectedAmount) return false;
+
+        return true;
+    }
+
+    /**
+     * @dev Gets the EIP-712 domain separator for permit signatures
+     * @return domainSeparator The domain separator hash
+     */
+    function getPermitDomainSeparator() external view returns (bytes32 domainSeparator) {
+        // This would be used by frontend to construct proper permit signatures
+        return permit2.DOMAIN_SEPARATOR();
+    }
+
+    // ============ SECURITY & VALIDATION FUNCTIONS ============
+
+    /**
+     * @dev Validates that a payment intent can be executed with permit
+     * @param intentId The intent ID to validate
+     * @param permitData The permit data to validate against
+     * @return canExecute Whether the payment can be executed
+     * @return reason If cannot execute, the reason why
+     */
+    function canExecuteWithPermit(
+        bytes16 intentId,
+        ICommercePaymentsProtocol.Permit2SignatureTransferData calldata permitData
+    ) external view returns (bool canExecute, string memory reason) {
+        PaymentContext memory context = paymentContexts[intentId];
+
+        // Check if intent exists
+        if (context.user == address(0)) {
+            return (false, "Intent not found");
+        }
+
+        // Check if already processed
+        if (processedIntents[intentId]) {
+            return (false, "Intent already processed");
+        }
+
+        // Check if expired
+        if (block.timestamp > intentDeadlines[intentId]) {
+            return (false, "Intent expired");
+        }
+
+        // Check if operator signature exists
+        if (intentSignatures[intentId].length == 0) {
+            return (false, "No operator signature");
+        }
+
+        // Validate permit data
+        if (!this.validatePermitData(permitData, context.user)) {
+            return (false, "Invalid permit data");
+        }
+
+        // Validate permit context
+        if (!this.validatePermitContext(permitData, context)) {
+            return (false, "Permit data doesn't match payment context");
+        }
+
+        return (true, "");
     }
 
     /**

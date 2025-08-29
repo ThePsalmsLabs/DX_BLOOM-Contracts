@@ -88,6 +88,24 @@ interface ISignatureTransfer {
         address to;
         uint256 requestedAmount;
     }
+
+    /// @notice Permit and transfer tokens in a single transaction
+    /// @param permit The permit data signed by the owner
+    /// @param transferDetails The transfer details
+    /// @param owner The owner of the tokens
+    /// @param signature The signature from the owner
+    function permitTransferFrom(
+        PermitTransferFrom calldata permit,
+        SignatureTransferDetails calldata transferDetails,
+        address owner,
+        bytes calldata signature
+    ) external;
+
+    /// @notice Nonce for a given owner
+    function nonce(address owner) external view returns (uint256);
+
+    /// @notice The domain separator used in the permit signature
+    function DOMAIN_SEPARATOR() external view returns (bytes32);
 }
 
 interface ICommercePaymentsProtocol {
