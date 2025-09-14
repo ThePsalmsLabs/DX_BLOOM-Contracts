@@ -3,6 +3,7 @@ pragma solidity ^0.8.23;
 
 import "forge-std/Script.sol";
 import "../src/CommerceProtocolIntegration.sol";
+import "../src/AdminManager.sol";
 
 /**
  * @title RegisterOperator
@@ -17,12 +18,17 @@ contract RegisterOperator is Script {
         vm.startBroadcast(deployerPrivateKey);
         
         CommerceProtocolIntegration commerceIntegration = CommerceProtocolIntegration(commerceIntegrationAddress);
-        
+        address adminManagerAddress = address(commerceIntegration.adminManager());
+
         console.log("=== Registering as Commerce Protocol Operator ===");
         console.log("CommerceProtocolIntegration:", address(commerceIntegration));
+        console.log("AdminManager:", adminManagerAddress);
         console.log("Operator:", msg.sender);
-        
-        try commerceIntegration.registerAsOperator() {
+
+        // Get AdminManager instance
+        AdminManager adminManager = AdminManager(adminManagerAddress);
+
+        try adminManager.registerAsOperator() {
             console.log("Successfully registered as Commerce Protocol operator");
             
             // Verify registration by checking if we can create a test intent
@@ -31,7 +37,7 @@ contract RegisterOperator is Script {
             
             // Check if operator signer has correct role
             bytes32 signerRole = commerceIntegration.SIGNER_ROLE();
-            address operatorSigner = commerceIntegration.operatorSigner();
+            address operatorSigner = adminManager.operatorSigner();
             bool hasRole = commerceIntegration.hasRole(signerRole, operatorSigner);
             
             console.log("Operator signer:", operatorSigner);

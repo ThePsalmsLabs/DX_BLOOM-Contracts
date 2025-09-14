@@ -29,7 +29,8 @@ interface ISharedTypes {
         Video, // 1
         Course, // 2
         Music, // 3
-        Podcast // 4
+        Podcast, // 4
+        Image // 5
 
     }
 
@@ -42,5 +43,18 @@ interface ISharedTypes {
         Paused, // 2
         Cancelled // 3
 
+    }
+
+    /**
+     * @dev Platform payment request structure
+     * @notice Used for creating payment intents across the platform
+     */
+    struct PlatformPaymentRequest {
+        PaymentType paymentType; // Type of payment
+        address creator; // Creator to pay
+        uint256 contentId; // Content ID (0 for subscriptions)
+        address paymentToken; // Token user wants to pay with
+        uint256 maxSlippage; // Maximum slippage for token swaps (basis points)
+        uint256 deadline; // Payment deadline
     }
 }

@@ -8,6 +8,9 @@ import "../src/PayPerView.sol";
 import "../src/SubscriptionManager.sol";
 import "../src/CommerceProtocolIntegration.sol";
 import "../src/PriceOracle.sol";
+import "../src/SignatureManager.sol";
+import "../src/RefundManager.sol";
+import "../src/PermitPaymentManager.sol";
 
 /**
  * @title Deploy - FIXED VERSION
@@ -38,6 +41,12 @@ contract Deploy is Script {
     PayPerView public payPerView;
     SubscriptionManager public subscriptionManager;
     CommerceProtocolIntegration public commerceIntegration;
+    AdminManager public adminManager;
+    ViewManager public viewManager;
+    AccessManager public accessManager;
+    SignatureManager public signatureManager;
+    RefundManager public refundManager;
+    PermitPaymentManager public permitPaymentManager;
 
     // Network configurations
     mapping(uint256 => NetworkConfig) public networkConfigs;
@@ -143,8 +152,46 @@ contract Deploy is Script {
         subscriptionManager = new SubscriptionManager(address(creatorRegistry), address(contentRegistry), config.usdc);
         console.log("   SubscriptionManager deployed at:", address(subscriptionManager));
 
-        // 6. Deploy CommerceProtocolIntegration
-        console.log("6. Deploying CommerceProtocolIntegration...");
+        // 6. Deploy AdminManager
+        console.log("6. Deploying AdminManager...");
+        adminManager = new AdminManager(
+            config.commerceProtocol,
+            feeRecipient,
+            operatorSigner
+        );
+        console.log("   AdminManager deployed at:", address(adminManager));
+
+        // 7. Deploy ViewManager
+        console.log("7. Deploying ViewManager...");
+        viewManager = new ViewManager();
+        console.log("   ViewManager deployed at:", address(viewManager));
+
+        // 8. Deploy AccessManager
+        console.log("8. Deploying AccessManager...");
+        accessManager = new AccessManager(
+            address(payPerView),
+            address(subscriptionManager),
+            address(creatorRegistry)
+        );
+        console.log("   AccessManager deployed at:", address(accessManager));
+
+        // 9. Deploy SignatureManager
+        console.log("9. Deploying SignatureManager...");
+        signatureManager = new SignatureManager(operatorSigner);
+        console.log("   SignatureManager deployed at:", address(signatureManager));
+
+        // 10. Deploy RefundManager
+        console.log("10. Deploying RefundManager...");
+        refundManager = new RefundManager(address(payPerView), address(subscriptionManager), config.usdc);
+        console.log("   RefundManager deployed at:", address(refundManager));
+
+        // 11. Deploy PermitPaymentManager
+        console.log("11. Deploying PermitPaymentManager...");
+        permitPaymentManager = new PermitPaymentManager(config.commerceProtocol, config.permit2, config.usdc);
+        console.log("   PermitPaymentManager deployed at:", address(permitPaymentManager));
+
+        // 12. Deploy CommerceProtocolIntegration (with all manager addresses)
+        console.log("12. Deploying CommerceProtocolIntegration...");
         commerceIntegration = new CommerceProtocolIntegration(
             config.commerceProtocol,
             config.permit2,
@@ -153,7 +200,14 @@ contract Deploy is Script {
             address(priceOracle),
             config.usdc,
             feeRecipient,
-            operatorSigner
+            operatorSigner,
+            // Manager contract addresses
+            address(adminManager),
+            address(viewManager),
+            address(accessManager),
+            address(signatureManager),
+            address(refundManager),
+            address(permitPaymentManager)
         );
         console.log("   CommerceProtocolIntegration deployed at:", address(commerceIntegration));
     }
@@ -228,9 +282,9 @@ contract Deploy is Script {
     }
 
     function _configureIntegrations() internal {
-        // Configure CommerceProtocolIntegration with contract addresses
-        commerceIntegration.setPayPerView(address(payPerView));
-        commerceIntegration.setSubscriptionManager(address(subscriptionManager));
+        // Configure AdminManager with contract addresses
+        adminManager.setPayPerView(address(payPerView));
+        adminManager.setSubscriptionManager(address(subscriptionManager));
 
         // Verify integrations worked
         _verifyIntegrations();
@@ -238,10 +292,10 @@ contract Deploy is Script {
 
     function _verifyIntegrations() internal view {
         require(
-            address(commerceIntegration.payPerView()) == address(payPerView), "PayPerView integration not set correctly"
+            address(adminManager.payPerView()) == address(payPerView), "PayPerView integration not set correctly"
         );
         require(
-            address(commerceIntegration.subscriptionManager()) == address(subscriptionManager),
+            address(adminManager.subscriptionManager()) == address(subscriptionManager),
             "SubscriptionManager integration not set correctly"
         );
     }
@@ -260,18 +314,18 @@ contract Deploy is Script {
 
         // Alternatively, make it optional with an environment variable
         if (vm.envOr("REGISTER_OPERATOR", false)) {
-            try commerceIntegration.registerAsOperator() {
+            try adminManager.registerAsOperator() {
                 require(
-                    commerceIntegration.hasRole(commerceIntegration.SIGNER_ROLE(), operatorSigner),
-                    "Operator signer missing SIGNER_ROLE after registration"
+                    adminManager.hasRole(adminManager.PAYMENT_MONITOR_ROLE(), platformOwner),
+                    "Admin manager missing PAYMENT_MONITOR_ROLE after registration"
                 );
-                console.log("Successfully registered as Commerce Protocol operator");
+                console.log("Successfully registered as Commerce Protocol operator via AdminManager");
             } catch Error(string memory reason) {
                 console.log("Operator registration failed:", reason);
-                console.log("You can try registering manually later");
+                console.log("You can try registering manually later via AdminManager");
             } catch {
                 console.log("Operator registration failed with unknown error");
-                console.log("You can try registering manually later");
+                console.log("You can try registering manually later via AdminManager");
             }
         }
     }
@@ -285,6 +339,12 @@ contract Deploy is Script {
         console.log("PayPerView:", address(payPerView));
         console.log("SubscriptionManager:", address(subscriptionManager));
         console.log("CommerceProtocolIntegration:", address(commerceIntegration));
+        console.log("AdminManager:", address(adminManager));
+        console.log("AccessManager:", address(accessManager));
+        console.log("ViewManager:", address(viewManager));
+        console.log("SignatureManager:", address(signatureManager));
+        console.log("RefundManager:", address(refundManager));
+        console.log("PermitPaymentManager:", address(permitPaymentManager));
         console.log("");
         console.log("Configuration:");
         console.log("==============");
