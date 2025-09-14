@@ -51,10 +51,10 @@ contract CheckAddresses is Script {
             console.log(string.concat(contracts[i].name, " at ", vm.toString(contracts[i].addr)));
 
             if (contracts[i].hasCode) {
-                console.log("  ✅ Contract exists - Code size:", contracts[i].codeSize, "bytes");
+                console.log("  Contract exists - Code size:", contracts[i].codeSize, "bytes");
                 validCount++;
             } else {
-                console.log("  ❌ No contract code found at this address");
+                console.log("  No contract code found at this address");
             }
             console.log("");
         }
@@ -63,10 +63,10 @@ contract CheckAddresses is Script {
         console.log("Valid contracts:", validCount, "/", totalCount);
 
         if (validCount == totalCount) {
-            console.log("✅ All contract addresses are valid!");
+            console.log("All contract addresses are valid!");
             console.log("You can proceed with verification.");
         } else {
-            console.log("⚠️  Some addresses do not contain contracts.");
+            console.log("WARNING: Some addresses do not contain contracts.");
             console.log("Please verify the addresses are correct before running verification.");
         }
     }

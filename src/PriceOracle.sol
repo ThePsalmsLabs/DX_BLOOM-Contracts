@@ -241,6 +241,151 @@ contract PriceOracle is Ownable {
         emit SlippageUpdated(oldSlippage, newSlippage);
     }
 
+    /**
+     * @dev Gets the optimal pool fee for a swap between two tokens
+     * @param tokenIn Input token address
+     * @param tokenOut Output token address  
+     * @return fee Optimal pool fee tier for this pair
+     * @notice This ensures quote and swap use the same pool fee
+     */
+    function getOptimalPoolFeeForSwap(address tokenIn, address tokenOut) external view returns (uint24 fee) {
+        return _selectOptimalPoolFee(tokenIn, tokenOut);
+    }
+
+    /**
+     * @dev Gets quote and recommended pool fee in one call
+     * @param tokenIn Input token address
+     * @param tokenOut Output token address  
+     * @param amountIn Amount of input token
+     * @return amountOut Amount of output token
+     * @return recommendedFee Recommended pool fee tier
+     * @notice Use this for coordinated quote-and-swap operations
+     */
+    function getQuoteWithRecommendedFee(address tokenIn, address tokenOut, uint256 amountIn) 
+        external 
+        view 
+        returns (uint256 amountOut, uint24 recommendedFee) 
+    {
+        recommendedFee = _selectOptimalPoolFee(tokenIn, tokenOut);
+        
+        IQuoterV2.QuoteExactInputSingleParams memory params = IQuoterV2.QuoteExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            amountIn: amountIn,
+            fee: recommendedFee,
+            sqrtPriceLimitX96: 0
+        });
+        
+        amountOut = _quoteExactInputSingleViewAmount(params);
+    }
+
+    /**
+     * @dev Validates quote freshness and price deviation before swap execution
+     * @param tokenIn Input token address
+     * @param tokenOut Output token address
+     * @param expectedAmountOut Expected output amount from original quote
+     * @param toleranceBps Price deviation tolerance in basis points (e.g., 500 = 5%)
+     * @param poolFee Pool fee to use for validation quote
+     * @return isValid True if current quote is within tolerance
+     * @return currentAmountOut Current quote amount for comparison
+     * @notice Call this before executing swaps to prevent MEV attacks
+     */
+    function validateQuoteBeforeSwap(
+        address tokenIn,
+        address tokenOut, 
+        uint256 amountIn,
+        uint256 expectedAmountOut,
+        uint256 toleranceBps,
+        uint24 poolFee
+    ) external view returns (bool isValid, uint256 currentAmountOut) {
+        // Get current quote with same parameters
+        IQuoterV2.QuoteExactInputSingleParams memory params = IQuoterV2.QuoteExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            amountIn: amountIn,
+            fee: poolFee,
+            sqrtPriceLimitX96: 0
+        });
+        
+        (bool success, uint256 quote) = _tryQuoteExactInputSingleViewAmount(params);
+        
+        if (success) {
+            currentAmountOut = quote;
+            
+            // Calculate percentage deviation
+            uint256 deviation = expectedAmountOut > currentAmountOut ? 
+                expectedAmountOut - currentAmountOut : currentAmountOut - expectedAmountOut;
+            
+            uint256 deviationBps = (deviation * 10000) / expectedAmountOut;
+            isValid = deviationBps <= toleranceBps;
+        } else {
+            // If quote fails, consider invalid
+            isValid = false;
+            currentAmountOut = 0;
+        }
+    }
+
+    /**
+     * @dev Checks for excessive price impact on large trades
+     * @param tokenIn Input token address
+     * @param tokenOut Output token address
+     * @param amountIn Amount of input token
+     * @param maxPriceImpactBps Maximum acceptable price impact in basis points
+     * @return priceImpactBps Actual price impact in basis points
+     * @return isAcceptable True if price impact is within limits
+     * @notice Compares small vs large trade prices to detect impact
+     */
+    function checkPriceImpact(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 maxPriceImpactBps
+    ) external view returns (uint256 priceImpactBps, bool isAcceptable) {
+        if (amountIn == 0) return (0, true);
+        
+        uint24 poolFee = _selectOptimalPoolFee(tokenIn, tokenOut);
+        
+        // Get price for small trade (1% of actual trade)
+        uint256 smallTradeAmount = amountIn / 100;
+        if (smallTradeAmount == 0) smallTradeAmount = 1;
+        
+        IQuoterV2.QuoteExactInputSingleParams memory smallParams = IQuoterV2.QuoteExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            amountIn: smallTradeAmount,
+            fee: poolFee,
+            sqrtPriceLimitX96: 0
+        });
+        
+        IQuoterV2.QuoteExactInputSingleParams memory fullParams = IQuoterV2.QuoteExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            amountIn: amountIn,
+            fee: poolFee,
+            sqrtPriceLimitX96: 0
+        });
+        
+        (bool smallSuccess, uint256 smallQuote) = _tryQuoteExactInputSingleViewAmount(smallParams);
+        (bool fullSuccess, uint256 fullQuote) = _tryQuoteExactInputSingleViewAmount(fullParams);
+        
+        if (smallSuccess && fullSuccess) {
+            // Calculate expected output if no price impact
+            uint256 expectedFullQuote = smallQuote * (amountIn / smallTradeAmount);
+            
+            if (expectedFullQuote > fullQuote) {
+                priceImpactBps = ((expectedFullQuote - fullQuote) * 10000) / expectedFullQuote;
+            } else {
+                priceImpactBps = 0; // No negative impact
+            }
+            
+            isAcceptable = priceImpactBps <= maxPriceImpactBps;
+        } else {
+            // If any quote fails, assume high impact
+            priceImpactBps = 10000; // 100%
+            isAcceptable = false;
+        }
+    }
+
     // ============ INTERNAL FUNCTIONS ============
 
     /**

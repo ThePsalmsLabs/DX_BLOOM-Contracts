@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import { ISharedTypes } from "../interfaces/ISharedTypes.sol";
-import { ICommercePaymentsProtocol, ISignatureTransfer } from "../interfaces/IPlatformInterfaces.sol";
+import { ICommercePaymentsProtocol, ISignatureTransfer, IPriceOracle } from "../interfaces/IPlatformInterfaces.sol";
 
 /**
  * @title PaymentUtilsLib
@@ -112,11 +112,11 @@ library PaymentUtilsLib {
     }
 
     /**
-     * @dev Calculates expected payment amount with slippage protection
-     * @param paymentToken The payment token address
-     * @param usdcAmount The amount in USDC
-     * @param maxSlippage Maximum slippage in basis points
-     * @param priceOracle Price oracle contract address
+     * @dev Calculates expected payment amount with real price oracle integration
+     * @param paymentToken Token user wants to pay with (address(0) for ETH)
+     * @param usdcAmount Amount of USDC the payment represents
+     * @param maxSlippage Maximum slippage tolerance in basis points  
+     * @param priceOracle Address of price oracle contract
      * @return expectedAmount Expected amount to pay including slippage
      */
     function calculateExpectedPaymentAmount(
@@ -125,14 +125,35 @@ library PaymentUtilsLib {
         uint256 maxSlippage,
         address priceOracle
     ) internal returns (uint256 expectedAmount) {
+        // Import the price oracle interface
+        IPriceOracle oracle = IPriceOracle(priceOracle);
+        
         if (paymentToken == address(0)) {
-            // ETH payment - would need ETH price from oracle
-            // For now, return USDC amount (placeholder)
-            return applySlippage(usdcAmount, maxSlippage);
+            // ETH payment - get real ETH price from oracle
+            try oracle.getETHPrice(usdcAmount) returns (uint256 ethAmount) {
+                return applySlippage(ethAmount, maxSlippage);
+            } catch {
+                // Fallback: revert if we can't get price (safer than placeholder)
+                revert("ETH price oracle failed");
+            }
         } else {
-            // Token payment - would need token price from oracle
-            // For now, assume 1:1 (placeholder for testing)
-            return applySlippage(usdcAmount, maxSlippage);
+            // Get USDC address from oracle to check for 1:1 case
+            try oracle.USDC() returns (address usdcAddr) {
+                if (paymentToken == usdcAddr) {
+                    // USDC-to-USDC is 1:1, just apply slippage for gas variance
+                    return applySlippage(usdcAmount, maxSlippage);
+                }
+            } catch {
+                // Continue with token price lookup if USDC check fails
+            }
+            
+            // Token payment - get real token price from oracle
+            try oracle.getTokenAmountForUSDC(paymentToken, usdcAmount, 0) returns (uint256 tokenAmount) {
+                return applySlippage(tokenAmount, maxSlippage);
+            } catch {
+                // Fallback: revert if we can't get price (safer than placeholder)
+                revert("Token price oracle failed");
+            }
         }
     }
 

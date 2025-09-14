@@ -58,10 +58,10 @@ contract AnalyzeConstructorArgs is Script {
                     analyzeConstructorArgs(name, codeBytes);
                 }
             } else {
-                console.log("  ❌ Invalid bytecode format");
+                console.log("   Invalid bytecode format");
             }
         } catch {
-            console.log("  ❌ Failed to fetch bytecode");
+            console.log("   Failed to fetch bytecode");
         }
 
         console.log("");

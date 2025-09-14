@@ -11,13 +11,12 @@ pragma solidity ^0.8.23;
 interface IQuoterV2 {
     /**
      * @dev Parameters for exact input single pool quote
-     * @notice Field order must match official contract: fee BEFORE amountIn
      */
     struct QuoteExactInputSingleParams {
         address tokenIn;
         address tokenOut;
-        uint24 fee;
-        uint256 amountIn;
+        uint256 amountIn;    
+        uint24 fee;           
         uint160 sqrtPriceLimitX96;
     }
 
@@ -27,8 +26,8 @@ interface IQuoterV2 {
     struct QuoteExactOutputSingleParams {
         address tokenIn;
         address tokenOut;
-        uint24 fee;
-        uint256 amountOut;
+        uint256 amount;      
+        uint24 fee;          
         uint160 sqrtPriceLimitX96;
     }
 
@@ -370,9 +369,10 @@ interface ISubscriptionManager {
 }
 
 /**
- * @dev Interface for price estimation using Uniswap
+ * @dev Enhanced interface for price estimation using Uniswap with coordination features
  */
 interface IPriceOracle {
+    // Legacy functions
     function getTokenPrice(address tokenIn, address tokenOut, uint256 amountIn, uint24 poolFee)
         external
         view
@@ -383,6 +383,34 @@ interface IPriceOracle {
         external
         view
         returns (uint256 tokenAmount);
+        
+    // Enhanced coordination functions
+    function getOptimalPoolFeeForSwap(address tokenIn, address tokenOut) external view returns (uint24 fee);
+    function getQuoteWithRecommendedFee(address tokenIn, address tokenOut, uint256 amountIn) 
+        external 
+        view 
+        returns (uint256 amountOut, uint24 recommendedFee);
+        
+    // Validation and protection functions
+    function validateQuoteBeforeSwap(
+        address tokenIn,
+        address tokenOut, 
+        uint256 amountIn,
+        uint256 expectedAmountOut,
+        uint256 toleranceBps,
+        uint24 poolFee
+    ) external view returns (bool isValid, uint256 currentAmountOut);
+    
+    function checkPriceImpact(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 maxPriceImpactBps
+    ) external view returns (uint256 priceImpactBps, bool isAcceptable);
+    
+    // Access to token addresses for validation
+    function USDC() external view returns (address);
+    function WETH() external view returns (address);
 }
 
 /**

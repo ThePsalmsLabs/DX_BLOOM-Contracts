@@ -6,8 +6,12 @@ import "../src/CreatorRegistry.sol";
 import "../src/ContentRegistry.sol";
 import "../src/PayPerView.sol";
 import "../src/SubscriptionManager.sol";
-import "../src/CommerceProtocolIntegration.sol";
+import "../src/CommerceProtocolCore.sol";
+import "../src/CommerceProtocolPermit.sol";
 import "../src/PriceOracle.sol";
+import "../src/AdminManager.sol";
+import "../src/ViewManager.sol";
+import "../src/AccessManager.sol";
 import "../src/SignatureManager.sol";
 import "../src/RefundManager.sol";
 import "../src/PermitPaymentManager.sol";
@@ -40,7 +44,8 @@ contract Deploy is Script {
     ContentRegistry public contentRegistry;
     PayPerView public payPerView;
     SubscriptionManager public subscriptionManager;
-    CommerceProtocolIntegration public commerceIntegration;
+    CommerceProtocolCore public commerceCore;
+    CommerceProtocolPermit public commercePermit;
     AdminManager public adminManager;
     ViewManager public viewManager;
     AccessManager public accessManager;
@@ -190,9 +195,9 @@ contract Deploy is Script {
         permitPaymentManager = new PermitPaymentManager(config.commerceProtocol, config.permit2, config.usdc);
         console.log("   PermitPaymentManager deployed at:", address(permitPaymentManager));
 
-        // 12. Deploy CommerceProtocolIntegration (with all manager addresses)
-        console.log("12. Deploying CommerceProtocolIntegration...");
-        commerceIntegration = new CommerceProtocolIntegration(
+        // 12. Deploy CommerceProtocolCore (with all manager addresses)
+        console.log("12. Deploying CommerceProtocolCore...");
+        commerceCore = new CommerceProtocolCore(
             config.commerceProtocol,
             config.permit2,
             address(creatorRegistry),
@@ -209,7 +214,28 @@ contract Deploy is Script {
             address(refundManager),
             address(permitPaymentManager)
         );
-        console.log("   CommerceProtocolIntegration deployed at:", address(commerceIntegration));
+        console.log("   CommerceProtocolCore deployed at:", address(commerceCore));
+
+        // 13. Deploy CommerceProtocolPermit (with all manager addresses)
+        console.log("13. Deploying CommerceProtocolPermit...");
+        commercePermit = new CommerceProtocolPermit(
+            config.commerceProtocol,
+            config.permit2,
+            address(creatorRegistry),
+            address(contentRegistry),
+            address(priceOracle),
+            config.usdc,
+            feeRecipient,
+            operatorSigner,
+            // Manager contract addresses
+            address(adminManager),
+            address(viewManager),
+            address(accessManager),
+            address(signatureManager),
+            address(refundManager),
+            address(permitPaymentManager)
+        );
+        console.log("   CommerceProtocolPermit deployed at:", address(commercePermit));
     }
 
     function _setupPermissions() internal {
@@ -219,15 +245,20 @@ contract Deploy is Script {
         // Complete permission setup
         creatorRegistry.grantPlatformRole(address(payPerView));
         creatorRegistry.grantPlatformRole(address(subscriptionManager));
-        creatorRegistry.grantPlatformRole(address(commerceIntegration));
+        creatorRegistry.grantPlatformRole(address(commerceCore));
+        creatorRegistry.grantPlatformRole(address(commercePermit));
 
         contentRegistry.grantPurchaseRecorderRole(address(payPerView));
-        contentRegistry.grantPurchaseRecorderRole(address(commerceIntegration));
+        contentRegistry.grantPurchaseRecorderRole(address(commerceCore));
+        contentRegistry.grantPurchaseRecorderRole(address(commercePermit));
 
-        payPerView.grantPaymentProcessorRole(address(commerceIntegration));
-        subscriptionManager.grantSubscriptionProcessorRole(address(commerceIntegration));
+        payPerView.grantPaymentProcessorRole(address(commerceCore));
+        payPerView.grantPaymentProcessorRole(address(commercePermit));
+        subscriptionManager.grantSubscriptionProcessorRole(address(commerceCore));
+        subscriptionManager.grantSubscriptionProcessorRole(address(commercePermit));
 
-        commerceIntegration.grantRole(commerceIntegration.PAYMENT_MONITOR_ROLE(), msg.sender);
+        commerceCore.grantRole(commerceCore.PAYMENT_MONITOR_ROLE(), msg.sender);
+        commercePermit.grantRole(commercePermit.PAYMENT_MONITOR_ROLE(), msg.sender);
 
         // Verify all role assignments
         _verifyRoles();
@@ -248,8 +279,12 @@ contract Deploy is Script {
             "SubscriptionManager missing platform role"
         );
         require(
-            creatorRegistry.hasRole(creatorRegistry.PLATFORM_CONTRACT_ROLE(), address(commerceIntegration)),
-            "CommerceProtocolIntegration missing platform role"
+            creatorRegistry.hasRole(creatorRegistry.PLATFORM_CONTRACT_ROLE(), address(commerceCore)),
+            "CommerceProtocolCore missing platform role"
+        );
+        require(
+            creatorRegistry.hasRole(creatorRegistry.PLATFORM_CONTRACT_ROLE(), address(commercePermit)),
+            "CommerceProtocolPermit missing platform role"
         );
 
         // Verify ContentRegistry purchase recorder roles
@@ -258,26 +293,42 @@ contract Deploy is Script {
             "PayPerView missing purchase recorder role"
         );
         require(
-            contentRegistry.hasRole(contentRegistry.PURCHASE_RECORDER_ROLE(), address(commerceIntegration)),
-            "CommerceProtocolIntegration missing purchase recorder role"
+            contentRegistry.hasRole(contentRegistry.PURCHASE_RECORDER_ROLE(), address(commerceCore)),
+            "CommerceProtocolCore missing purchase recorder role"
+        );
+        require(
+            contentRegistry.hasRole(contentRegistry.PURCHASE_RECORDER_ROLE(), address(commercePermit)),
+            "CommerceProtocolPermit missing purchase recorder role"
         );
 
         // Verify PayPerView payment processor role
         require(
-            payPerView.hasRole(payPerView.PAYMENT_PROCESSOR_ROLE(), address(commerceIntegration)),
-            "CommerceProtocolIntegration missing payment processor role"
+            payPerView.hasRole(payPerView.PAYMENT_PROCESSOR_ROLE(), address(commerceCore)),
+            "CommerceProtocolCore missing payment processor role"
+        );
+        require(
+            payPerView.hasRole(payPerView.PAYMENT_PROCESSOR_ROLE(), address(commercePermit)),
+            "CommerceProtocolPermit missing payment processor role"
         );
 
         // Verify SubscriptionManager subscription processor role
         require(
-            subscriptionManager.hasRole(subscriptionManager.SUBSCRIPTION_PROCESSOR_ROLE(), address(commerceIntegration)),
-            "CommerceProtocolIntegration missing subscription processor role"
+            subscriptionManager.hasRole(subscriptionManager.SUBSCRIPTION_PROCESSOR_ROLE(), address(commerceCore)),
+            "CommerceProtocolCore missing subscription processor role"
+        );
+        require(
+            subscriptionManager.hasRole(subscriptionManager.SUBSCRIPTION_PROCESSOR_ROLE(), address(commercePermit)),
+            "CommerceProtocolPermit missing subscription processor role"
         );
 
-        // Verify CommerceProtocolIntegration payment monitor role
+        // Verify Commerce Protocol payment monitor roles
         require(
-            commerceIntegration.hasRole(commerceIntegration.PAYMENT_MONITOR_ROLE(), platformOwner),
-            "Deployer missing payment monitor role"
+            commerceCore.hasRole(commerceCore.PAYMENT_MONITOR_ROLE(), platformOwner),
+            "Deployer missing payment monitor role on Core"
+        );
+        require(
+            commercePermit.hasRole(commercePermit.PAYMENT_MONITOR_ROLE(), platformOwner),
+            "Deployer missing payment monitor role on Permit"
         );
     }
 
@@ -307,7 +358,7 @@ contract Deploy is Script {
         console.log("You can register manually later using:");
         console.log(
             "cast send",
-            address(commerceIntegration),
+            address(commerceCore),
             "registerAsOperator()",
             "--rpc-url base_sepolia --account deployer"
         );
@@ -338,7 +389,8 @@ contract Deploy is Script {
         console.log("ContentRegistry:", address(contentRegistry));
         console.log("PayPerView:", address(payPerView));
         console.log("SubscriptionManager:", address(subscriptionManager));
-        console.log("CommerceProtocolIntegration:", address(commerceIntegration));
+        console.log("CommerceProtocolCore:", address(commerceCore));
+        console.log("CommerceProtocolPermit:", address(commercePermit));
         console.log("AdminManager:", address(adminManager));
         console.log("AccessManager:", address(accessManager));
         console.log("ViewManager:", address(viewManager));
@@ -374,7 +426,8 @@ contract Deploy is Script {
         console.log("ContentRegistry:", address(contentRegistry));
         console.log("PayPerView:", address(payPerView));
         console.log("SubscriptionManager:", address(subscriptionManager));
-        console.log("CommerceProtocolIntegration:", address(commerceIntegration));
+        console.log("CommerceProtocolCore:", address(commerceCore));
+        console.log("CommerceProtocolPermit:", address(commercePermit));
 
         // Verify network configuration
         NetworkConfig memory config = networkConfigs[block.chainid];

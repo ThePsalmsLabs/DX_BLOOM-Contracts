@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import "forge-std/Script.sol";
-import "../src/CommerceProtocolIntegration.sol";
+import "../src/CommerceProtocolCore.sol";
 import "../src/AdminManager.sol";
 
 /**
@@ -13,15 +13,15 @@ import "../src/AdminManager.sol";
 contract RegisterOperator is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address commerceIntegrationAddress = vm.envAddress("COMMERCE_INTEGRATION_ADDRESS");
+        address commerceCoreAddress = vm.envAddress("COMMERCE_CORE_ADDRESS");
+        address adminManagerAddress = vm.envAddress("ADMIN_MANAGER_ADDRESS");
         
         vm.startBroadcast(deployerPrivateKey);
         
-        CommerceProtocolIntegration commerceIntegration = CommerceProtocolIntegration(commerceIntegrationAddress);
-        address adminManagerAddress = address(commerceIntegration.adminManager());
+        CommerceProtocolCore commerceCore = CommerceProtocolCore(commerceCoreAddress);
 
         console.log("=== Registering as Commerce Protocol Operator ===");
-        console.log("CommerceProtocolIntegration:", address(commerceIntegration));
+        console.log("CommerceProtocolCore:", address(commerceCore));
         console.log("AdminManager:", adminManagerAddress);
         console.log("Operator:", msg.sender);
 
@@ -36,9 +36,9 @@ contract RegisterOperator is Script {
             console.log("Verifying registration...");
             
             // Check if operator signer has correct role
-            bytes32 signerRole = commerceIntegration.SIGNER_ROLE();
+            bytes32 signerRole = commerceCore.SIGNER_ROLE();
             address operatorSigner = adminManager.operatorSigner();
-            bool hasRole = commerceIntegration.hasRole(signerRole, operatorSigner);
+            bool hasRole = commerceCore.hasRole(signerRole, operatorSigner);
             
             console.log("Operator signer:", operatorSigner);
             console.log("Has SIGNER_ROLE:", hasRole);
