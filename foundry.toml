@@ -19,6 +19,8 @@ auto_detect_solc = false
 [rpc_endpoints]
 base_mainnet = "https://base-mainnet.g.alchemy.com/v2/i0MCcYy4Gs4p_LVqLAKr1cwF8dGBiYQi"
 base_sepolia = "https://base-sepolia.g.alchemy.com/v2/i0MCcYy4Gs4p_LVqLAKr1cwF8dGBiYQi"
+celo_mainnet = "https://forno.celo.org"
+celo_alfajores = "https://alfajores-forno.celo-testnet.org"
 local = "http://127.0.0.1:8545"
 
 # --- Block Explorer API Keys for Verification ---
@@ -26,6 +28,8 @@ local = "http://127.0.0.1:8545"
 [etherscan]
 base_mainnet = { key = "${BASESCAN_API_KEY}", chain = 8453, url = "https://api.basescan.org/api" }
 base_sepolia = { key = "${BASESCAN_API_KEY}", chain = 84532, url = "https://api-sepolia.basescan.org/api" }
+celo_mainnet = { key = "${CELOSCAN_API_KEY}", chain = 42220, url = "https://api.celoscan.io/api" }
+celo_alfajores = { key = "${CELOSCAN_API_KEY}", chain = 44787, url = "https://api-alfajores.celoscan.io/api" }
 
 # --- Gas Price and Formatting Configurations ---
 [fmt]

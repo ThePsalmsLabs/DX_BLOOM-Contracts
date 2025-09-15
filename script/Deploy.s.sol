@@ -15,6 +15,7 @@ import "../src/AccessManager.sol";
 import "../src/SignatureManager.sol";
 import "../src/RefundManager.sol";
 import "../src/PermitPaymentManager.sol";
+import "../src/BaseCommerceIntegration.sol";
 
 /**
  * @title Deploy - FIXED VERSION
@@ -25,8 +26,9 @@ contract Deploy is Script {
     // Network Configuration
     struct NetworkConfig {
         address usdc;
-        address commerceProtocol;
-        address permit2;
+        address authCaptureEscrow;      // Real Base Commerce Protocol escrow
+        address permit2Collector;      // Real Permit2 token collector
+        address permit2;               // Uniswap Permit2
         address quoterV2;
         address weth;
         uint256 chainId;
@@ -52,6 +54,7 @@ contract Deploy is Script {
     SignatureManager public signatureManager;
     RefundManager public refundManager;
     PermitPaymentManager public permitPaymentManager;
+    BaseCommerceIntegration public baseCommerceIntegration;
 
     // Network configurations
     mapping(uint256 => NetworkConfig) public networkConfigs;
@@ -65,7 +68,8 @@ contract Deploy is Script {
         // Base Mainnet (Chain ID: 8453)
         networkConfigs[8453] = NetworkConfig({
             usdc: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913,
-            commerceProtocol: 0xeADE6bE02d043b3550bE19E960504dbA14A14971,
+            authCaptureEscrow: 0xBdEA0D1bcC5966192B070Fdf62aB4EF5b4420cff,      // ✅ REAL
+            permit2Collector: 0x992476B9Ee81d52a5BdA0622C333938D0Af0aB26,       // ✅ REAL
             permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3, // Uniswap Permit2
             quoterV2: 0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a,
             weth: 0x4200000000000000000000000000000000000006,
@@ -76,12 +80,37 @@ contract Deploy is Script {
         // Base Sepolia (Chain ID: 84532)
         networkConfigs[84532] = NetworkConfig({
             usdc: 0x036CbD53842c5426634e7929541eC2318f3dCF7e,
-            commerceProtocol: 0x96A08D8e8631b6dB52Ea0cbd7232d9A85d239147,
+            authCaptureEscrow: 0xBdEA0D1bcC5966192B070Fdf62aB4EF5b4420cff,      // ✅ REAL
+            permit2Collector: 0x992476B9Ee81d52a5BdA0622C333938D0Af0aB26,       // ✅ REAL
             permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3, // Uniswap Permit2
             quoterV2: 0xC5290058841028F1614F3A6F0F5816cAd0df5E27,
             weth: 0x4200000000000000000000000000000000000006,
             chainId: 84532,
             name: "Base Sepolia"
+        });
+
+        // Celo Mainnet (Chain ID: 42220)
+        networkConfigs[42220] = NetworkConfig({
+            usdc: 0xcebA9300f2b948710d2653dD7B07f33A8B32118C,           // Circle USDC
+            authCaptureEscrow: address(0),                               // No Base Commerce Protocol on Celo
+            permit2Collector: address(0),                                // No Base Commerce Protocol on Celo
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,        // Uniswap Permit2
+            quoterV2: 0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8,       // Uniswap V3 QuoterV2
+            weth: 0x471ece3750da237f93b8e339c536989b8978a438,           // CELO (native token)
+            chainId: 42220,
+            name: "Celo Mainnet"
+        });
+
+        // Celo Alfajores Testnet (Chain ID: 44787)
+        networkConfigs[44787] = NetworkConfig({
+            usdc: 0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B,           // Test USDC on Alfajores
+            authCaptureEscrow: address(0),                               // No Base Commerce Protocol on Celo
+            permit2Collector: address(0),                                // No Base Commerce Protocol on Celo
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,        // Uniswap Permit2
+            quoterV2: 0x3c1FCF8D6f3A579E98F4AE75EB0adA6de70f5673,       // Uniswap V3 QuoterV2
+            weth: 0x471ece3750da237f93b8e339c536989b8978a438,           // CELO (native token)
+            chainId: 44787,
+            name: "Celo Alfajores"
         });
     }
 
@@ -107,6 +136,14 @@ contract Deploy is Script {
             // Base Sepolia - Test addresses
             feeRecipient = vm.envOr("TESTNET_FEE_RECIPIENT", msg.sender);
             operatorSigner = vm.envOr("TESTNET_OPERATOR_SIGNER", msg.sender);
+        } else if (block.chainid == 42220) {
+            // Celo Mainnet - Production addresses
+            feeRecipient = vm.envAddress("CELO_MAINNET_FEE_RECIPIENT");
+            operatorSigner = vm.envAddress("CELO_MAINNET_OPERATOR_SIGNER");
+        } else if (block.chainid == 44787) {
+            // Celo Alfajores - Test addresses
+            feeRecipient = vm.envOr("CELO_TESTNET_FEE_RECIPIENT", msg.sender);
+            operatorSigner = vm.envOr("CELO_TESTNET_OPERATOR_SIGNER", msg.sender);
         } else {
             revert("Unsupported network");
         }
@@ -160,7 +197,6 @@ contract Deploy is Script {
         // 6. Deploy AdminManager
         console.log("6. Deploying AdminManager...");
         adminManager = new AdminManager(
-            config.commerceProtocol,
             feeRecipient,
             operatorSigner
         );
@@ -190,15 +226,23 @@ contract Deploy is Script {
         refundManager = new RefundManager(address(payPerView), address(subscriptionManager), config.usdc);
         console.log("   RefundManager deployed at:", address(refundManager));
 
-        // 11. Deploy PermitPaymentManager
-        console.log("11. Deploying PermitPaymentManager...");
-        permitPaymentManager = new PermitPaymentManager(config.commerceProtocol, config.permit2, config.usdc);
+        // 11. Deploy BaseCommerceIntegration (REAL Base Commerce Protocol Integration)
+        console.log("11. Deploying BaseCommerceIntegration...");
+        baseCommerceIntegration = new BaseCommerceIntegration(
+            config.usdc,
+            feeRecipient
+        );
+        console.log("   BaseCommerceIntegration deployed at:", address(baseCommerceIntegration));
+
+        // 12. Deploy PermitPaymentManager
+        console.log("12. Deploying PermitPaymentManager...");
+        permitPaymentManager = new PermitPaymentManager(address(baseCommerceIntegration), config.permit2, config.usdc);
         console.log("   PermitPaymentManager deployed at:", address(permitPaymentManager));
 
-        // 12. Deploy CommerceProtocolCore (with all manager addresses)
-        console.log("12. Deploying CommerceProtocolCore...");
+        // 13. Deploy CommerceProtocolCore (with all manager addresses)
+        console.log("13. Deploying CommerceProtocolCore...");
         commerceCore = new CommerceProtocolCore(
-            config.commerceProtocol,
+            address(baseCommerceIntegration),
             config.permit2,
             address(creatorRegistry),
             address(contentRegistry),
@@ -216,10 +260,10 @@ contract Deploy is Script {
         );
         console.log("   CommerceProtocolCore deployed at:", address(commerceCore));
 
-        // 13. Deploy CommerceProtocolPermit (with all manager addresses)
-        console.log("13. Deploying CommerceProtocolPermit...");
+        // 14. Deploy CommerceProtocolPermit (with all manager addresses)
+        console.log("14. Deploying CommerceProtocolPermit...");
         commercePermit = new CommerceProtocolPermit(
-            config.commerceProtocol,
+            address(baseCommerceIntegration),
             config.permit2,
             address(creatorRegistry),
             address(contentRegistry),
@@ -397,6 +441,7 @@ contract Deploy is Script {
         console.log("SignatureManager:", address(signatureManager));
         console.log("RefundManager:", address(refundManager));
         console.log("PermitPaymentManager:", address(permitPaymentManager));
+        console.log("BaseCommerceIntegration:", address(baseCommerceIntegration));
         console.log("");
         console.log("Configuration:");
         console.log("==============");

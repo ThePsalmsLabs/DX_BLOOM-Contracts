@@ -33,6 +33,12 @@ forge script script/Deploy.s.sol:Deploy --rpc-url base_sepolia --private-key <ke
 # Deploy to Base Mainnet
 forge script script/Deploy.s.sol:Deploy --rpc-url base_mainnet --private-key <key> --broadcast --verify
 
+# Deploy to Celo Alfajores (testnet)
+forge script script/Deploy.s.sol:Deploy --rpc-url celo_alfajores --private-key <key> --broadcast --verify
+
+# Deploy to Celo Mainnet
+forge script script/Deploy.s.sol:Deploy --rpc-url celo_mainnet --private-key <key> --broadcast --verify
+
 # Register operator after deployment
 forge script script/RegisterOperator.s.sol:RegisterOperator --rpc-url <network> --private-key <key> --broadcast
 ```
@@ -41,6 +47,10 @@ forge script script/RegisterOperator.s.sol:RegisterOperator --rpc-url <network> 
 ```bash
 # Verify contracts on Base mainnet (for backup deployments)
 forge script script/VerifyBaseMainnet.sol:VerifyBaseMainnet --rpc-url base_mainnet --broadcast
+
+# Verify contracts on Celo networks
+forge script script/VerifyCelo.sol:VerifyCelo --rpc-url celo_mainnet --broadcast
+forge script script/VerifyCelo.sol:VerifyCelo --rpc-url celo_alfajores --broadcast
 
 # Analyze constructor arguments for existing deployments
 forge script script/AnalyzeConstructorArgs.sol:AnalyzeConstructorArgs --rpc-url base_mainnet
@@ -88,8 +98,29 @@ This is a modular Solidity platform for onchain content subscriptions and paymen
 The platform supports:
 - **Base Mainnet** (Chain ID: 8453)
 - **Base Sepolia** (Chain ID: 84532)
+- **Celo Mainnet** (Chain ID: 42220)
+- **Celo Alfajores** (Chain ID: 44787)
 
-RPC endpoints and etherscan API keys are configured in `foundry.toml` using environment variables.
+RPC endpoints and block explorer API keys are configured in `foundry.toml` using environment variables.
+
+#### Required Environment Variables
+
+**Base Networks:**
+- `BASESCAN_API_KEY` - API key for Basescan verification
+- `MAINNET_FEE_RECIPIENT` - Production fee recipient for Base Mainnet
+- `MAINNET_OPERATOR_SIGNER` - Production operator signer for Base Mainnet
+- `TESTNET_FEE_RECIPIENT` - Test fee recipient for Base Sepolia (optional, defaults to deployer)
+- `TESTNET_OPERATOR_SIGNER` - Test operator signer for Base Sepolia (optional, defaults to deployer)
+
+**Celo Networks:**
+- `CELOSCAN_API_KEY` - API key for Celoscan verification
+- `CELO_MAINNET_FEE_RECIPIENT` - Production fee recipient for Celo Mainnet
+- `CELO_MAINNET_OPERATOR_SIGNER` - Production operator signer for Celo Mainnet
+- `CELO_TESTNET_FEE_RECIPIENT` - Test fee recipient for Celo Alfajores (optional, defaults to deployer)
+- `CELO_TESTNET_OPERATOR_SIGNER` - Test operator signer for Celo Alfajores (optional, defaults to deployer)
+
+**Deployment:**
+- `PRIVATE_KEY` - Private key for deployment (or use Foundry keystore with --account flag)
 
 ### Testing Structure
 
