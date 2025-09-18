@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import { ICommercePaymentsProtocol, ISignatureTransfer } from "./interfaces/IPlatformInterfaces.sol";
+import { ISignatureTransfer } from "./interfaces/IPlatformInterfaces.sol";
 import { ISharedTypes } from "./interfaces/ISharedTypes.sol";
 
 /**

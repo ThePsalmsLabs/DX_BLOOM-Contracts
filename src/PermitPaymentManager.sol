@@ -5,10 +5,10 @@ import { Ownable } from "lib/openzeppelin-contracts/contracts/access/Ownable.sol
 import { AccessControl } from "lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
 import { ReentrancyGuard } from "lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import { Pausable } from "lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
-import { ICommercePaymentsProtocol, ISignatureTransfer } from "./interfaces/IPlatformInterfaces.sol";
-import { PermitHandlerLib } from "./libraries/PermitHandlerLib.sol";
+import { ISignatureTransfer } from "./interfaces/IPlatformInterfaces.sol";
 import { PaymentValidatorLib } from "./libraries/PaymentValidatorLib.sol";
 import { ISharedTypes } from "./interfaces/ISharedTypes.sol";
+import { BaseCommerceIntegration } from "./BaseCommerceIntegration.sol";
 
 /**
  * @title PermitPaymentManager
@@ -16,15 +16,21 @@ import { ISharedTypes } from "./interfaces/ISharedTypes.sol";
  * @notice This contract handles all permit-based payment operations to reduce main contract size
  */
 contract PermitPaymentManager is Ownable, AccessControl, ReentrancyGuard, Pausable {
-    using PermitHandlerLib for *;
     using PaymentValidatorLib for *;
 
     bytes32 public constant PAYMENT_MONITOR_ROLE = keccak256("PAYMENT_MONITOR_ROLE");
 
-    // Contract references
-    ICommercePaymentsProtocol public commerceProtocol;
-    ISignatureTransfer public permit2;
-    address public usdcToken;
+    // Contract references  
+    BaseCommerceIntegration public immutable baseCommerceIntegration;
+    ISignatureTransfer public immutable permit2;
+    address public immutable usdcToken;
+
+    // Permit data structure for BaseCommerceIntegration
+    struct Permit2Data {
+        ISignatureTransfer.PermitTransferFrom permit;
+        ISignatureTransfer.SignatureTransferDetails transferDetails;
+        bytes signature;
+    }
 
     // Events
     event PaymentExecutedWithPermit(
@@ -48,15 +54,15 @@ contract PermitPaymentManager is Ownable, AccessControl, ReentrancyGuard, Pausab
     );
 
     constructor(
-        address _commerceProtocol,
+        address _baseCommerceIntegration,
         address _permit2,
         address _usdcToken
     ) Ownable(msg.sender) {
-        require(_commerceProtocol != address(0), "Invalid commerce protocol");
+        require(_baseCommerceIntegration != address(0), "Invalid base commerce integration");
         require(_permit2 != address(0), "Invalid permit2 contract");
         require(_usdcToken != address(0), "Invalid USDC token");
 
-        commerceProtocol = ICommercePaymentsProtocol(_commerceProtocol);
+        baseCommerceIntegration = BaseCommerceIntegration(_baseCommerceIntegration);
         permit2 = ISignatureTransfer(_permit2);
         usdcToken = _usdcToken;
 
@@ -79,32 +85,28 @@ contract PermitPaymentManager is Ownable, AccessControl, ReentrancyGuard, Pausab
         uint256 deadline,
         ISharedTypes.PaymentType paymentType,
         bytes memory signature,
-        ICommercePaymentsProtocol.Permit2SignatureTransferData calldata permitData
+        Permit2Data calldata permitData
     ) external nonReentrant whenNotPaused returns (bool success) {
         require(user == msg.sender, "Not intent creator");
 
-        // Reconstruct the transfer intent with operator signature
-        ICommercePaymentsProtocol.TransferIntent memory intent = ICommercePaymentsProtocol.TransferIntent({
-            recipientAmount: creatorAmount,
-            deadline: deadline,
-            recipient: payable(creator),
-            recipientCurrency: usdcToken, // Use configured USDC token
-            refundDestination: user,
-            feeAmount: platformFee + operatorFee,
-            id: intentId,
-            operator: address(this),
-            signature: signature,
-            prefix: "",
-            sender: user,
-            token: paymentToken
-        });
+        // Validate permit data
+        require(_validatePermitData(permitData, user), "Invalid permit data");
+        require(_validatePermitContext(permitData, paymentToken, expectedAmount), "Permit context mismatch");
 
-        // Execute permit payment using library
-        bool paymentSuccess = PermitHandlerLib.executePermitTransfer(
-            commerceProtocol, intent, permitData
-        );
+        // Encode permit data for BaseCommerceIntegration
+        bytes memory permit2DataEncoded = abi.encode(permitData);
 
-        if (paymentSuccess) {
+        // Execute payment through BaseCommerceIntegration
+        try baseCommerceIntegration.executeEscrowPayment(
+            BaseCommerceIntegration.EscrowPaymentParams({
+                payer: user,
+                receiver: creator,
+                amount: expectedAmount,
+                paymentType: paymentType,
+                permit2Data: permit2DataEncoded,
+                instantCapture: true // Single transaction: authorize + capture
+            })
+        ) returns (bytes32 paymentHash) {
             emit PaymentExecutedWithPermit(
                 intentId,
                 user,
@@ -116,7 +118,19 @@ contract PermitPaymentManager is Ownable, AccessControl, ReentrancyGuard, Pausab
             );
 
             return true;
-        } else {
+        } catch Error(string memory reason) {
+            emit PaymentExecutedWithPermit(
+                intentId,
+                user,
+                creator,
+                paymentType,
+                0,
+                paymentToken,
+                false
+            );
+
+            return false;
+        } catch (bytes memory) {
             emit PaymentExecutedWithPermit(
                 intentId,
                 user,
@@ -147,27 +161,11 @@ contract PermitPaymentManager is Ownable, AccessControl, ReentrancyGuard, Pausab
         uint256 deadline,
         bytes16 intentId,
         bytes memory signature,
-        ICommercePaymentsProtocol.Permit2SignatureTransferData calldata permitData
+        Permit2Data calldata permitData
     ) external nonReentrant whenNotPaused returns (bytes16, bool) {
         require(user == msg.sender, "Not intent creator");
 
-        // Reconstruct the transfer intent with operator signature
-        ICommercePaymentsProtocol.TransferIntent memory intent = ICommercePaymentsProtocol.TransferIntent({
-            recipientAmount: creatorAmount,
-            deadline: deadline,
-            recipient: payable(creator),
-            recipientCurrency: usdcToken,
-            refundDestination: user,
-            feeAmount: platformFee + operatorFee,
-            id: intentId,
-            operator: address(this),
-            signature: signature,
-            prefix: "",
-            sender: user,
-            token: paymentToken
-        });
-
-        // Execute with permit
+        // Execute with permit directly (no need for double call)
         bool success = this.executePaymentWithPermit(
             intentId,
             user,
@@ -201,36 +199,36 @@ contract PermitPaymentManager is Ownable, AccessControl, ReentrancyGuard, Pausab
      * @dev Gets permit nonce for a user
      */
     function getPermitNonce(address user) external view returns (uint256 nonce) {
-        return PermitHandlerLib.getPermitNonce(permit2, user);
+        return permit2.nonce(user);
     }
 
     /**
      * @dev Validates permit signature data before execution
      */
     function validatePermitData(
-        ICommercePaymentsProtocol.Permit2SignatureTransferData calldata permitData,
+        Permit2Data calldata permitData,
         address user
     ) external view returns (bool isValid) {
-        return PermitHandlerLib.validatePermitData(permit2, permitData, user);
+        return _validatePermitData(permitData, user);
     }
 
     /**
      * @dev Validates that permit data matches the payment context
      */
     function validatePermitContext(
-        ICommercePaymentsProtocol.Permit2SignatureTransferData calldata permitData,
+        Permit2Data calldata permitData,
         address paymentToken,
         uint256 expectedAmount,
         address commerceProtocolAddress
     ) external view returns (bool isValid) {
-        return PermitHandlerLib.validatePermitContext(permitData, paymentToken, expectedAmount, commerceProtocolAddress);
+        return _validatePermitContext(permitData, paymentToken, expectedAmount);
     }
 
     /**
      * @dev Gets the EIP-712 domain separator for permit signatures
      */
     function getPermitDomainSeparator() external view returns (bytes32 domainSeparator) {
-        return PermitHandlerLib.getPermitDomainSeparator(permit2);
+        return permit2.DOMAIN_SEPARATOR();
     }
 
     /**
@@ -241,7 +239,7 @@ contract PermitPaymentManager is Ownable, AccessControl, ReentrancyGuard, Pausab
         address user,
         uint256 deadline,
         bool hasSignature,
-        ICommercePaymentsProtocol.Permit2SignatureTransferData calldata permitData,
+        Permit2Data calldata permitData,
         address paymentToken,
         uint256 expectedAmount
     ) external view returns (bool canExecute, string memory reason) {
@@ -260,13 +258,13 @@ contract PermitPaymentManager is Ownable, AccessControl, ReentrancyGuard, Pausab
             return (false, "No operator signature");
         }
 
-        // Validate permit data using library
-        if (!PermitHandlerLib.validatePermitData(permit2, permitData, user)) {
+        // Validate permit data
+        if (!_validatePermitData(permitData, user)) {
             return (false, "Invalid permit data");
         }
 
-        // Validate permit context using library
-        if (!PermitHandlerLib.validatePermitContext(permitData, paymentToken, expectedAmount, address(commerceProtocol))) {
+        // Validate permit context
+        if (!_validatePermitContext(permitData, paymentToken, expectedAmount)) {
             return (false, "Permit data doesn't match payment context");
         }
 
@@ -285,5 +283,58 @@ contract PermitPaymentManager is Ownable, AccessControl, ReentrancyGuard, Pausab
      */
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    // ============ INTERNAL VALIDATION FUNCTIONS ============
+
+    /**
+     * @dev Internal function to validate permit data
+     */
+    function _validatePermitData(
+        Permit2Data calldata permitData,
+        address user
+    ) internal view returns (bool) {
+        // Check permit deadline
+        if (permitData.permit.deadline < block.timestamp) {
+            return false;
+        }
+
+        // Check permit nonce matches current user nonce
+        if (permitData.permit.nonce != permit2.nonce(user)) {
+            return false;
+        }
+
+        // Additional validations can be added here
+        return true;
+    }
+
+    /**
+     * @dev Internal function to validate permit context matches payment
+     */
+    function _validatePermitContext(
+        Permit2Data calldata permitData,
+        address paymentToken,
+        uint256 expectedAmount
+    ) internal view returns (bool) {
+        // Check token matches
+        if (permitData.permit.permitted.token != paymentToken) {
+            return false;
+        }
+
+        // Check amount is sufficient
+        if (permitData.permit.permitted.amount < expectedAmount) {
+            return false;
+        }
+
+        // Check transfer details
+        if (permitData.transferDetails.to != address(baseCommerceIntegration)) {
+            return false;
+        }
+
+        if (permitData.transferDetails.requestedAmount != expectedAmount) {
+            return false;
+        }
+
+        return true;
     }
 }

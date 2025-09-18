@@ -14,12 +14,12 @@ import { ContentRegistry } from "./ContentRegistry.sol";
 import { PayPerView } from "./PayPerView.sol";
 import { SubscriptionManager } from "./SubscriptionManager.sol";
 import { PriceOracle } from "./PriceOracle.sol";
-import { ICommercePaymentsProtocol, ISignatureTransfer } from "./interfaces/IPlatformInterfaces.sol";
+import { ISignatureTransfer } from "./interfaces/IPlatformInterfaces.sol";
+import { BaseCommerceIntegration } from "./BaseCommerceIntegration.sol";
 import { IntentIdManager } from "./IntentIdManager.sol";
 import { ISharedTypes } from "./interfaces/ISharedTypes.sol";
 
 // Import libraries for shared functionality
-import { PermitHandlerLib } from "./libraries/PermitHandlerLib.sol";
 import { PaymentValidatorLib } from "./libraries/PaymentValidatorLib.sol";
 import { PaymentUtilsLib } from "./libraries/PaymentUtilsLib.sol";
 
@@ -42,7 +42,6 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
     using IntentIdManager for *;
 
     // Library using statements for shared functionality
-    using PermitHandlerLib for *;
     using PaymentValidatorLib for *;
     using PaymentUtilsLib for *;
 
@@ -52,8 +51,8 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
 
     // ============ SHARED CONTRACT REFERENCES ============
     
-    // Base Commerce Protocol contract interface
-    ICommercePaymentsProtocol public immutable commerceProtocol;
+    // Real Base Commerce Protocol integration
+    BaseCommerceIntegration public immutable baseCommerceIntegration;
 
     // Uniswap Permit2 contract for gasless approvals
     ISignatureTransfer public immutable permit2;
@@ -228,7 +227,7 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
      * @notice Manager contracts should be deployed separately to avoid initcode size limits
      */
     constructor(
-        address _commerceProtocol,
+        address _baseCommerceIntegration,
         address _permit2,
         address _creatorRegistry,
         address _contentRegistry,
@@ -244,7 +243,7 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
         address _refundManager,
         address _permitPaymentManager
     ) Ownable(msg.sender) EIP712("ContentPlatformOperator", "1") {
-        require(_commerceProtocol != address(0), "Invalid commerce protocol");
+        require(_baseCommerceIntegration != address(0), "Invalid base commerce integration");
         require(_permit2 != address(0), "Invalid permit2 contract");
         require(_creatorRegistry != address(0), "Invalid creator registry");
         require(_contentRegistry != address(0), "Invalid content registry");
@@ -261,7 +260,7 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
         require(_refundManager != address(0), "Invalid refund manager");
         require(_permitPaymentManager != address(0), "Invalid permit payment manager");
 
-        commerceProtocol = ICommercePaymentsProtocol(_commerceProtocol);
+        baseCommerceIntegration = BaseCommerceIntegration(_baseCommerceIntegration);
         permit2 = ISignatureTransfer(_permit2);
         creatorRegistry = CreatorRegistry(_creatorRegistry);
         contentRegistry = ContentRegistry(_contentRegistry);
@@ -373,82 +372,7 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
         return amounts;
     }
 
-    /**
-     * @dev Creates the TransferIntent structure
-     */
-    function _createTransferIntent(
-        PlatformPaymentRequest memory request,
-        PaymentAmounts memory amounts,
-        bytes16 intentId
-    ) internal view virtual returns (ICommercePaymentsProtocol.TransferIntent memory intent) {
-        intent = ICommercePaymentsProtocol.TransferIntent({
-            recipientAmount: amounts.adjustedCreatorAmount,
-            deadline: request.deadline,
-            recipient: payable(request.creator),
-            recipientCurrency: address(usdcToken), // Use the configured USDC token
-            refundDestination: msg.sender,
-            feeAmount: amounts.platformFee + amounts.operatorFee,
-            id: intentId,
-            operator: address(this),
-            signature: "",
-            prefix: "",
-            sender: msg.sender,
-            token: request.paymentToken
-        });
-        return intent;
-    }
 
-    /**
-     * @dev Finalizes intent creation with validation and state initialization
-     */
-    function _finalizeIntent(
-        bytes16 intentId,
-        ICommercePaymentsProtocol.TransferIntent memory intent,
-        PaymentContext memory context,
-        uint256 deadline
-    ) internal virtual {
-        // Validate intent uniqueness
-        if (processedIntents[intentId]) revert IntentAlreadyProcessed();
-        if (paymentContexts[intentId].user != address(0)) revert IntentAlreadyExists();
-
-        // Validate deadline
-        if (deadline <= block.timestamp) revert DeadlineInPast();
-        if (deadline > block.timestamp + 7 days) revert DeadlineTooFar();
-
-        // Validate amounts
-        if (intent.recipientAmount == 0) revert ZeroAmount();
-        if (intent.feeAmount > intent.recipientAmount) revert FeeExceedsAmount();
-
-        // Validate addresses
-        if (intent.recipient == address(0)) revert InvalidRecipient();
-        if (intent.refundDestination == address(0)) revert InvalidRefundDestination();
-
-        // Validate consistency
-        if (context.user != intent.refundDestination) revert ContextIntentMismatch();
-        if (context.creatorAmount != intent.recipientAmount) revert AmountMismatch();
-
-        // Store data
-        paymentContexts[intentId] = context;
-        intentDeadlines[intentId] = deadline;
-        processedIntents[intentId] = false;
-        totalIntentsCreated++;
-        
-        emit IntentFinalized(intentId, context.user, context.creator, context.paymentType, intent.recipientAmount, deadline);
-
-        // Emit audit record
-        emit IntentAuditRecord(
-            intentId,
-            context.user,
-            context.creator,
-            context.paymentType,
-            context.creatorAmount,
-            context.platformFee,
-            context.operatorFee,
-            context.paymentToken,
-            deadline,
-            block.timestamp
-        );
-    }
 
     /**
      * @dev Marks an intent as processed (shared functionality)
@@ -501,11 +425,13 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
 
     /**
      * @dev Check if we're registered and get our fee destination
+     * @notice Now uses BaseCommerceIntegration which handles real Base Commerce Protocol
      */
     function getOperatorStatus() external view virtual returns (bool registered, address feeDestination) {
-        registered = commerceProtocol.operators(address(this));
+        // With BaseCommerceIntegration, we're always "registered" since it handles the real protocol
+        registered = address(baseCommerceIntegration) != address(0);
         if (registered) {
-            feeDestination = commerceProtocol.operatorFeeDestinations(address(this));
+            feeDestination = baseCommerceIntegration.operatorFeeDestination();
         }
     }
 

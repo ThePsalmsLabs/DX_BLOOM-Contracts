@@ -1,13 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
+// TEMPORARILY DISABLED during refactor - needs updating to work with BaseCommerceIntegration
+contract CommerceProtocolPermit {
+    function getContractType() external pure returns (string memory) {
+        return "CommerceProtocolPermit (DISABLED)";
+    }
+    function getContractVersion() external pure returns (string memory) {
+        return "0.0.0-disabled";
+    }
+}
+
+/*
+// Original contract code temporarily disabled
+
 import { CommerceProtocolBase } from "./CommerceProtocolBase.sol";
 import { BaseCommerceIntegration } from "./BaseCommerceIntegration.sol";
 import { ISharedTypes } from "./interfaces/ISharedTypes.sol";
 import { ISignatureTransfer } from "./interfaces/IPlatformInterfaces.sol";
 import { AccessManager } from "./AccessManager.sol";
 import { RefundManager } from "./RefundManager.sol";
-import { PermitPaymentManager } from "./PermitPaymentManager.sol";
 
 /**
  * @title CommerceProtocolPermit
@@ -83,7 +95,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
      */
     function executePaymentWithPermit(
         bytes16 intentId,
-        PermitPaymentManager.Permit2Data calldata permitData
+        bytes calldata permitData
     ) external nonReentrant whenNotPaused returns (bool success) {
         PaymentContext memory context = paymentContexts[intentId];
         require(context.user == msg.sender, "Not intent creator");
@@ -184,7 +196,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
      */
     function createAndExecuteWithPermit(
         PlatformPaymentRequest memory request,
-        PermitPaymentManager.Permit2Data calldata permitData
+        bytes calldata permitData
     ) external nonReentrant whenNotPaused returns (bytes16 intentId, bool success) {
         // Validate payment request
         _validatePaymentRequest(request);
@@ -208,10 +220,9 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
             intentId: intentId
         });
 
-        // Store the payment context
-        paymentContexts[intentId] = context;
-        intentDeadlines[intentId] = request.deadline;
-        totalIntentsCreated++;
+        // Prepare and sign intent with operator signature
+        signatureManager.prepareIntentForSigning(intent);
+        _finalizeIntent(intentId, intent, context, request.deadline);
 
         // Emit intent created event
         emit PaymentIntentCreated(
@@ -309,7 +320,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
      */
     function canExecuteWithPermit(
         bytes16 intentId,
-        PermitPaymentManager.Permit2Data calldata permitData
+        bytes calldata permitData
     ) external view returns (bool canExecute, string memory reason) {
         PaymentContext memory context = paymentContexts[intentId];
         return permitPaymentManager.canExecuteWithPermit(
@@ -334,7 +345,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
      * @dev Validates permit signature data (delegated to PermitPaymentManager)
      */
     function validatePermitData(
-        PermitPaymentManager.Permit2Data calldata permitData,
+        bytes calldata permitData,
         address user
     ) external view returns (bool isValid) {
         return permitPaymentManager.validatePermitData(permitData, user);
@@ -344,14 +355,14 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
      * @dev Validates that permit data matches the payment context (delegated to PermitPaymentManager)
      */
     function validatePermitContext(
-        PermitPaymentManager.Permit2Data calldata permitData,
+        bytes calldata permitData,
         PaymentContext memory context
     ) external view returns (bool isValid) {
         return permitPaymentManager.validatePermitContext(
             permitData, 
             context.paymentToken, 
             context.expectedAmount, 
-            address(baseCommerceIntegration)
+            address(commerceProtocol)
         );
     }
 
@@ -379,6 +390,9 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
         PaymentAmounts memory amounts = _calculateAllPaymentAmounts(request);
         intentId = _generateStandardIntentId(msg.sender, request);
 
+        // Create transfer intent
+        intent = _createTransferIntent(request, amounts, intentId);
+
         // Create payment context
         context = PaymentContext({
             paymentType: request.paymentType,
@@ -395,10 +409,9 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
             intentId: intentId
         });
 
-        // Store the payment context
-        paymentContexts[intentId] = context;
-        intentDeadlines[intentId] = request.deadline;
-        totalIntentsCreated++;
+        // Prepare and sign intent
+        signatureManager.prepareIntentForSigning(intent);
+        _finalizeIntent(intentId, intent, context, request.deadline);
 
         // Emit events
         emit PaymentIntentCreated(
@@ -424,7 +437,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
             userNonces[msg.sender]
         );
 
-        return (intentId, context);
+        return (intentId, intent);
     }
 
     // ============ BATCH PERMIT OPERATIONS ============
@@ -434,7 +447,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
      */
     function batchExecuteWithPermit(
         bytes16[] calldata intentIds,
-        PermitPaymentManager.Permit2Data[] calldata permitDataArray
+        bytes[] calldata permitDataArray
     ) external nonReentrant whenNotPaused returns (bool[] memory results) {
         require(intentIds.length == permitDataArray.length, "Array length mismatch");
         require(intentIds.length > 0, "Empty arrays");
@@ -563,7 +576,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
 
         token = request.paymentToken;
         amount = amounts.expectedAmount;
-        spender = address(baseCommerceIntegration);
+        spender = address(commerceProtocol);
         deadline = request.deadline;
         domainSeparator = permitPaymentManager.getPermitDomainSeparator();
     }
@@ -625,4 +638,4 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
     function getContractVersion() external pure override returns (string memory) {
         return "1.0.0";
     }
-}
+*/

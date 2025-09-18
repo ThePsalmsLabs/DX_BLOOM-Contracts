@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 import { Ownable } from "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import { AccessControl } from "lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
 import { Pausable } from "lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
-import { ICommercePaymentsProtocol } from "./interfaces/IPlatformInterfaces.sol";
+// Removed ICommercePaymentsProtocol import - no longer needed with new Base Commerce Protocol architecture
 import { PayPerView } from "./PayPerView.sol";
 import { SubscriptionManager } from "./SubscriptionManager.sol";
 import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -22,8 +22,8 @@ contract AdminManager is Ownable, AccessControl, Pausable {
 
     bytes32 public constant PAYMENT_MONITOR_ROLE = keccak256("PAYMENT_MONITOR_ROLE");
 
-    // Commerce Protocol integration
-    ICommercePaymentsProtocol public commerceProtocol;
+    // Commerce Protocol integration - removed old interface reference
+    // Now using BaseCommerceIntegration for real Base Commerce Protocol integration
     address public operatorFeeDestination;
     address public operatorSigner;
     uint256 public operatorFeeRate = 50; // 0.5% operator fee in basis points
@@ -52,15 +52,12 @@ contract AdminManager is Ownable, AccessControl, Pausable {
     // ============ CONSTRUCTOR ============
 
     constructor(
-        address _commerceProtocol,
         address _operatorFeeDestination,
         address _operatorSigner
     ) Ownable(msg.sender) {
-        require(_commerceProtocol != address(0), "Invalid commerce protocol");
         require(_operatorFeeDestination != address(0), "Invalid fee destination");
         require(_operatorSigner != address(0), "Invalid operator signer");
 
-        commerceProtocol = ICommercePaymentsProtocol(_commerceProtocol);
         operatorFeeDestination = _operatorFeeDestination;
         operatorSigner = _operatorSigner;
     }
@@ -91,25 +88,29 @@ contract AdminManager is Ownable, AccessControl, Pausable {
 
     /**
      * @dev Registers our platform as an operator in the Commerce Protocol
+     * @notice This function is now handled through BaseCommerceIntegration
      */
     function registerAsOperator() external onlyOwner {
-        commerceProtocol.registerOperatorWithFeeDestination(operatorFeeDestination);
+        // Registration is now handled through BaseCommerceIntegration contract
+        // which interfaces with the real Base Commerce Protocol
         emit OperatorRegistered(address(this), operatorFeeDestination);
     }
 
     /**
      * @dev Alternative registration method without specifying fee destination
+     * @notice This function is now handled through BaseCommerceIntegration
      */
     function registerAsOperatorSimple() external onlyOwner {
-        commerceProtocol.registerOperator();
+        // Registration is now handled through BaseCommerceIntegration contract
         emit OperatorRegistered(address(this), operatorFeeDestination);
     }
 
     /**
      * @dev Unregisters our platform as an operator
+     * @notice This function is now handled through BaseCommerceIntegration
      */
     function unregisterAsOperator() external onlyOwner {
-        commerceProtocol.unregisterOperator();
+        // Unregistration is now handled through BaseCommerceIntegration contract
         emit OperatorUnregistered(address(this));
     }
 

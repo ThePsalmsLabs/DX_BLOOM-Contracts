@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import { ISharedTypes } from "../interfaces/ISharedTypes.sol";
-import { ICommercePaymentsProtocol } from "../interfaces/IPlatformInterfaces.sol";
+// Removed ICommercePaymentsProtocol import - no longer needed
 
 /**
  * @title PaymentValidatorLib

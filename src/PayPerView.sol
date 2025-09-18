@@ -10,7 +10,7 @@ import "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import { CreatorRegistry } from "./CreatorRegistry.sol";
 import { ContentRegistry } from "./ContentRegistry.sol";
 import { PriceOracle } from "./PriceOracle.sol";
-import { ICommercePaymentsProtocol } from "./interfaces/IPlatformInterfaces.sol";
+// Removed ICommercePaymentsProtocol import - no longer needed with new Base Commerce Protocol architecture
 import { IntentIdManager } from "./IntentIdManager.sol";
 
 /**

@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 import "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
-import { ICommercePaymentsProtocol } from "./interfaces/IPlatformInterfaces.sol";
+// Removed ICommercePaymentsProtocol import - no longer needed
 
 /**
  * @title SignatureManager
@@ -59,18 +59,7 @@ contract SignatureManager is Ownable, EIP712 {
         return authorizedSigners[signer];
     }
 
-    /**
-     * @dev Prepares an intent for signing by computing its hash
-     * @param intent The transfer intent to prepare
-     * @return The hash of the intent
-     */
-    function prepareIntentForSigning(
-        ICommercePaymentsProtocol.TransferIntent memory intent
-    ) external returns (bytes32) {
-        bytes32 intentHash = _hashTransferIntent(intent);
-        intentHashStorage[intent.id] = intentHash;
-        return intentHash;
-    }
+    // Removed prepareIntentForSigning - no longer needed with new architecture
 
     /**
      * @dev Provides a signature for an intent
@@ -115,31 +104,6 @@ contract SignatureManager is Ownable, EIP712 {
      */
     function intentHashes(bytes16 intentId) external view returns (bytes32) {
         return intentHashStorage[intentId];
-    }
-
-    /**
-     * @dev Internal function to hash a transfer intent
-     * @param intent The transfer intent to hash
-     * @return The hash of the intent
-     */
-    function _hashTransferIntent(
-        ICommercePaymentsProtocol.TransferIntent memory intent
-    ) internal view returns (bytes32) {
-        return _hashTypedDataV4(
-            keccak256(
-                abi.encode(
-                    TRANSFER_INTENT_TYPEHASH,
-                    intent.recipientAmount,
-                    intent.deadline,
-                    intent.recipient,
-                    intent.recipientCurrency,
-                    intent.refundDestination,
-                    intent.feeAmount,
-                    intent.id,
-                    intent.operator
-                )
-            )
-        );
     }
 
     /**

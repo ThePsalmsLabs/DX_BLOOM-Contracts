@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import { ISharedTypes } from "../interfaces/ISharedTypes.sol";
-import { ICommercePaymentsProtocol, ISignatureTransfer, IPriceOracle } from "../interfaces/IPlatformInterfaces.sol";
+import { ISignatureTransfer, IPriceOracle } from "../interfaces/IPlatformInterfaces.sol";
 
 /**
  * @title PaymentUtilsLib
@@ -197,29 +197,7 @@ library PaymentUtilsLib {
         return bytes16(hash);
     }
 
-    /**
-     * @dev Prepares intent for operator signing
-     * @param intent The transfer intent
-     * @param signer The EIP-712 signer contract
-     * @return intentHash Hash for operator to sign
-     */
-    function prepareIntentForSigning(
-        ICommercePaymentsProtocol.TransferIntent memory intent,
-        address signer
-    ) internal view returns (bytes32 intentHash) {
-        // This would prepare the intent hash for EIP-712 signing
-        // Implementation would depend on the specific signing scheme used
-        return keccak256(abi.encodePacked(
-            intent.recipientAmount,
-            intent.deadline,
-            intent.recipient,
-            intent.recipientCurrency,
-            intent.refundDestination,
-            intent.feeAmount,
-            intent.id,
-            intent.operator
-        ));
-    }
+    // Removed prepareIntentForSigning - no longer needed with new Base Commerce Protocol architecture
 
     // ============ SIGNATURE RECOVERY ============
 

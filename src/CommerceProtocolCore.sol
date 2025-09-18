@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import { CommerceProtocolBase } from "./CommerceProtocolBase.sol";
-import { ICommercePaymentsProtocol } from "./interfaces/IPlatformInterfaces.sol";
+import { BaseCommerceIntegration } from "./BaseCommerceIntegration.sol";
 import { ISharedTypes } from "./interfaces/ISharedTypes.sol";
 import { AccessManager } from "./AccessManager.sol";
 import { RefundManager } from "./RefundManager.sol";
@@ -20,7 +20,7 @@ contract CommerceProtocolCore is CommerceProtocolBase {
      * @dev Constructor initializes the core contract with shared base functionality
      */
     constructor(
-        address _commerceProtocol,
+        address _baseCommerceIntegration,
         address _permit2,
         address _creatorRegistry,
         address _contentRegistry,
@@ -36,7 +36,7 @@ contract CommerceProtocolCore is CommerceProtocolBase {
         address _refundManager,
         address _permitPaymentManager
     ) CommerceProtocolBase(
-        _commerceProtocol,
+        _baseCommerceIntegration,
         _permit2,
         _creatorRegistry,
         _contentRegistry,
@@ -61,18 +61,16 @@ contract CommerceProtocolCore is CommerceProtocolBase {
         external
         nonReentrant
         whenNotPaused
-        returns (ICommercePaymentsProtocol.TransferIntent memory intent, PaymentContext memory context)
+        returns (bytes16 intentId, PaymentContext memory context)
     {
         // Validate payment request (includes payment type validation)
         _validatePaymentRequest(request);
 
         PaymentAmounts memory amounts = _calculateAllPaymentAmounts(request);
         // Use standardized intent ID
-        bytes16 intentId = _generateStandardIntentId(msg.sender, request);
+        intentId = _generateStandardIntentId(msg.sender, request);
 
-        intent = _createTransferIntent(request, amounts, intentId);
-
-        // Create payment context
+        // Create payment context (simplified for new flow)
         context = PaymentContext({
             paymentType: request.paymentType,
             user: msg.sender,
@@ -88,8 +86,10 @@ contract CommerceProtocolCore is CommerceProtocolBase {
             intentId: intentId
         });
 
-        _finalizeIntent(intentId, intent, context, request.deadline);
-        signatureManager.prepareIntentForSigning(intent);
+        // Store the payment context
+        paymentContexts[intentId] = context;
+        intentDeadlines[intentId] = request.deadline;
+        totalIntentsCreated++;
 
         // Emit intent created event
         emit PaymentIntentCreated(
@@ -105,7 +105,7 @@ contract CommerceProtocolCore is CommerceProtocolBase {
             amounts.expectedAmount
         );
 
-        return (intent, context);
+        return (intentId, context);
     }
 
     /**
@@ -123,21 +123,6 @@ contract CommerceProtocolCore is CommerceProtocolBase {
         require(block.timestamp <= intentDeadlines[intentId], "Intent expired");
         require(!processedIntents[intentId], "Intent already processed");
 
-        // Reconstruct the transfer intent with operator signature
-        ICommercePaymentsProtocol.TransferIntent memory intent = ICommercePaymentsProtocol.TransferIntent({
-            recipientAmount: context.creatorAmount,
-            deadline: intentDeadlines[intentId],
-            recipient: payable(context.creator),
-            recipientCurrency: address(usdcToken),
-            refundDestination: context.user,
-            feeAmount: context.platformFee + context.operatorFee,
-            id: intentId,
-            operator: address(this),
-            signature: signatureManager.getIntentSignature(intentId),
-            prefix: "",
-            sender: context.user,
-            token: context.paymentToken
-        });
 
         // Execute the payment through Base Commerce Protocol with enhanced validation
         if (context.paymentToken == address(usdcToken) || context.paymentToken == address(0)) {
@@ -165,8 +150,17 @@ contract CommerceProtocolCore is CommerceProtocolBase {
                 require(impactAcceptable, "Price impact too high");
             }
             
-            // For USDC or ETH payments, use transferTokenPreApproved
-            try commerceProtocol.transferTokenPreApproved(intent) {
+            // Use new BaseCommerceIntegration escrow flow
+            try baseCommerceIntegration.executeEscrowPayment(
+                BaseCommerceIntegration.EscrowPaymentParams({
+                    payer: context.user,
+                    receiver: context.creator,
+                    amount: context.expectedAmount,
+                    paymentType: context.paymentType,
+                    permit2Data: "", // Empty for signature-based payments (non-permit)
+                    instantCapture: true // Authorize + capture in one transaction
+                })
+            ) returns (bytes32 paymentHash) {
                 // Mark as processed and handle success
                 _markIntentAsProcessed(intentId);
 
@@ -454,12 +448,6 @@ contract CommerceProtocolCore is CommerceProtocolBase {
         return signatureManager.hasSignature(intentId);
     }
 
-    /**
-     * @dev Prepares an intent for signing (delegated to SignatureManager)
-     */
-    function prepareIntentForSigning(ICommercePaymentsProtocol.TransferIntent memory intent) external returns (bytes32) {
-        return signatureManager.prepareIntentForSigning(intent);
-    }
 
     /**
      * @dev Gets intent hash for an intent (delegates to SignatureManager)
