@@ -34,7 +34,8 @@ contract CommerceProtocolCore is CommerceProtocolBase {
         address _accessManager,
         address _signatureManager,
         address _refundManager,
-        address _permitPaymentManager
+        address _permitPaymentManager,
+        address _rewardsIntegration
     ) CommerceProtocolBase(
         _baseCommerceIntegration,
         _permit2,
@@ -49,7 +50,8 @@ contract CommerceProtocolCore is CommerceProtocolBase {
         _accessManager,
         _signatureManager,
         _refundManager,
-        _permitPaymentManager
+        _permitPaymentManager,
+        _rewardsIntegration
     ) {}
 
     // ============ CORE PAYMENT FUNCTIONS ============
@@ -61,7 +63,7 @@ contract CommerceProtocolCore is CommerceProtocolBase {
         external
         nonReentrant
         whenNotPaused
-        returns (bytes16 intentId, PaymentContext memory context)
+        returns (bytes16 intentId, ISharedTypes.PaymentContext memory context)
     {
         // Validate payment request (includes payment type validation)
         _validatePaymentRequest(request);
@@ -71,7 +73,7 @@ contract CommerceProtocolCore is CommerceProtocolBase {
         intentId = _generateStandardIntentId(msg.sender, request);
 
         // Create payment context (simplified for new flow)
-        context = PaymentContext({
+        context = ISharedTypes.PaymentContext({
             paymentType: request.paymentType,
             user: msg.sender,
             creator: request.creator,
@@ -118,7 +120,7 @@ contract CommerceProtocolCore is CommerceProtocolBase {
         returns (bool success)
     {
         require(signatureManager.hasSignature(intentId), "No signature provided");
-        PaymentContext memory context = paymentContexts[intentId];
+        ISharedTypes.PaymentContext memory context = paymentContexts[intentId];
         require(context.user == msg.sender, "Not intent creator");
         require(block.timestamp <= intentDeadlines[intentId], "Intent expired");
         require(!processedIntents[intentId], "Intent already processed");
@@ -173,6 +175,10 @@ contract CommerceProtocolCore is CommerceProtocolBase {
                     context.operatorFee
                 );
 
+                // Distribute funds to rewards treasury and trigger loyalty points
+                _distributeFunds(context, intentId, context.paymentToken, context.expectedAmount, context.operatorFee);
+
+                // Log successful payment
                 emit PaymentCompleted(
                     intentId,
                     context.user,
@@ -510,7 +516,7 @@ contract CommerceProtocolCore is CommerceProtocolBase {
      * @dev Processes refund with coordination between contracts (delegated to RefundManager)
      */
     function processRefundWithCoordination(bytes16 intentId) external onlyRole(PAYMENT_MONITOR_ROLE) nonReentrant {
-        PaymentContext memory context = paymentContexts[intentId];
+        ISharedTypes.PaymentContext memory context = paymentContexts[intentId];
         refundManager.processRefundWithCoordination(intentId, context.paymentType, context.contentId, context.creator);
     }
 
@@ -535,13 +541,13 @@ contract CommerceProtocolCore is CommerceProtocolBase {
     /**
      * @dev Converts PaymentContext to AccessManager format
      */
-    function _convertToAccessManagerContext(PaymentContext memory context) 
+    function _convertToAccessManagerContext(ISharedTypes.PaymentContext memory context) 
         internal 
         pure 
         returns (AccessManager.PaymentContext memory) 
     {
         return AccessManager.PaymentContext({
-            paymentType: ISharedTypes.PaymentType(uint8(context.paymentType)),
+            paymentType: context.paymentType,
             user: context.user,
             creator: context.creator,
             contentId: context.contentId,

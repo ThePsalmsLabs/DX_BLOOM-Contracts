@@ -57,4 +57,23 @@ interface ISharedTypes {
         uint256 maxSlippage; // Maximum slippage for token swaps (basis points)
         uint256 deadline; // Payment deadline
     }
+
+    /**
+     * @dev Payment context linking Commerce Protocol intents to platform actions
+     * @notice Used for tracking payment state across manager contracts
+     */
+    struct PaymentContext {
+        PaymentType paymentType; // Type of payment
+        address user; // User making the payment
+        address creator; // Creator receiving the payment
+        uint256 contentId; // Content ID (0 for subscriptions)
+        uint256 platformFee; // Platform fee amount
+        uint256 creatorAmount; // Amount going to creator
+        uint256 operatorFee; // Operator fee amount
+        uint256 timestamp; // Payment timestamp
+        bool processed; // Whether payment has been processed
+        address paymentToken; // Token used for payment
+        uint256 expectedAmount; // Expected payment amount
+        bytes16 intentId; // The original intent ID from the Commerce Protocol
+    }
 }

@@ -31,6 +31,9 @@ import { SignatureManager } from "./SignatureManager.sol";
 import { RefundManager } from "./RefundManager.sol";
 import { PermitPaymentManager } from "./PermitPaymentManager.sol";
 
+// Rewards system imports (optional - can be zero address if not deployed)
+import { RewardsIntegration } from "./rewards/RewardsIntegration.sol";
+
 /**
  * @title CommerceProtocolBase
  * @dev Abstract base contract containing shared state and functionality for Commerce Protocol integration
@@ -72,6 +75,9 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
     RefundManager public refundManager;
     PermitPaymentManager public permitPaymentManager;
 
+    // Rewards system (optional - can be zero address)
+    RewardsIntegration public rewardsIntegration;
+
     // Token references
     IERC20 public immutable usdcToken;
 
@@ -86,7 +92,7 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
     
     // Intent tracking and management
     mapping(bytes16 => bool) public processedIntents; // Prevent replay attacks
-    mapping(bytes16 => PaymentContext) public paymentContexts; // Link intents to platform actions
+    mapping(bytes16 => ISharedTypes.PaymentContext) public paymentContexts; // Link intents to platform actions
     mapping(bytes16 => uint256) public intentDeadlines; // Track intent expiration
 
     // Nonce management for intent uniqueness
@@ -100,23 +106,7 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
 
     // ============ SHARED STRUCTS ============
     
-    /**
-     * @dev Payment context linking Commerce Protocol intents to platform actions
-     */
-    struct PaymentContext {
-        PaymentType paymentType; // Type of payment
-        address user; // User making the payment
-        address creator; // Creator receiving the payment
-        uint256 contentId; // Content ID (0 for subscriptions)
-        uint256 platformFee; // Platform fee amount
-        uint256 creatorAmount; // Amount going to creator
-        uint256 operatorFee; // Operator fee amount
-        uint256 timestamp; // Payment timestamp
-        bool processed; // Whether payment has been processed
-        address paymentToken; // Token used for payment
-        uint256 expectedAmount; // Expected payment amount
-        bytes16 intentId; // The original intent ID from the Commerce Protocol
-    }
+    // PaymentContext moved to ISharedTypes for consistency
 
     /**
      * @dev Payment calculation result
@@ -241,7 +231,8 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
         address _accessManager,
         address _signatureManager,
         address _refundManager,
-        address _permitPaymentManager
+        address _permitPaymentManager,
+        address _rewardsIntegration
     ) Ownable(msg.sender) EIP712("ContentPlatformOperator", "1") {
         require(_baseCommerceIntegration != address(0), "Invalid base commerce integration");
         require(_permit2 != address(0), "Invalid permit2 contract");
@@ -276,6 +267,11 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
         signatureManager = SignatureManager(_signatureManager);
         refundManager = RefundManager(_refundManager);
         permitPaymentManager = PermitPaymentManager(_permitPaymentManager);
+        
+        // Rewards integration is optional during deployment to avoid circular dependency
+        if (_rewardsIntegration != address(0)) {
+            rewardsIntegration = RewardsIntegration(_rewardsIntegration);
+        }
 
         // Set up roles
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -349,15 +345,31 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
     }
 
     /**
-     * @dev Calculates all payment amounts in one go
+     * @dev Calculates all payment amounts in one go with loyalty discounts applied
      */
     function _calculateAllPaymentAmounts(PlatformPaymentRequest memory request)
         internal
         virtual
         returns (PaymentAmounts memory amounts)
     {
-        // Use library for expected amount calculation only
+        // Calculate base amounts
         (amounts.totalAmount, amounts.creatorAmount, amounts.platformFee) = _calculatePaymentAmounts(request);
+        
+        // Apply loyalty discounts if rewards integration is available
+        if (address(rewardsIntegration) != address(0)) {
+            try rewardsIntegration.calculateDiscountedPrice(msg.sender, amounts.totalAmount) returns (uint256 discountedTotal) {
+                if (discountedTotal < amounts.totalAmount) {
+                    // Apply discount proportionally across amounts
+                    uint256 discountRatio = (discountedTotal * 10000) / amounts.totalAmount;
+                    amounts.totalAmount = discountedTotal;
+                    amounts.creatorAmount = (amounts.creatorAmount * discountRatio) / 10000;
+                    amounts.platformFee = (amounts.platformFee * discountRatio) / 10000;
+                }
+            } catch {
+                // If discount calculation fails, continue with original amounts
+            }
+        }
+        
         amounts.operatorFee = (amounts.totalAmount * operatorFeeRate) / 10000;
         amounts.adjustedCreatorAmount = amounts.creatorAmount - amounts.operatorFee;
 
@@ -384,6 +396,41 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
     }
 
     /**
+     * @dev Distributes platform revenue to rewards treasury and triggers rewards
+     * @param context Payment context containing fee information
+     * @param intentId Intent ID for the payment
+     * @param paymentToken Token used for payment
+     * @param amountPaid Actual amount paid by user
+     * @param operatorFee Operator fee amount
+     */
+    function _distributeFunds(
+        ISharedTypes.PaymentContext memory context,
+        bytes16 intentId,
+        address paymentToken,
+        uint256 amountPaid,
+        uint256 operatorFee
+    ) internal virtual {
+        // 1. Distribute platform revenue to rewards treasury
+        if (address(rewardsIntegration) != address(0) && context.platformFee > 0) {
+            // Approve USDC transfer to rewards integration
+            IERC20(address(usdcToken)).forceApprove(address(rewardsIntegration), context.platformFee);
+            
+            try rewardsIntegration.onPaymentSuccess(intentId, context) {
+                // Revenue distribution successful
+            } catch {
+                // If rewards integration fails, continue with payment
+                // Platform fee stays in contract for manual handling
+            }
+        }
+
+        // 2. Track operator fees
+        totalOperatorFees += operatorFee;
+
+        // 3. Creator amount is handled by the respective manager contracts (PayPerView, SubscriptionManager)
+        // The actual creator payment is processed through BaseCommerceIntegration escrow
+    }
+
+    /**
      * @dev Generates standardized intent ID using IntentIdManager
      */
     function _generateStandardIntentId(address user, PlatformPaymentRequest memory request)
@@ -407,7 +454,7 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
     /**
      * @dev Gets payment context for an intent
      */
-    function getPaymentContext(bytes16 intentId) external view virtual returns (PaymentContext memory) {
+    function getPaymentContext(bytes16 intentId) external view virtual returns (ISharedTypes.PaymentContext memory) {
         return paymentContexts[intentId];
     }
 
@@ -446,4 +493,15 @@ abstract contract CommerceProtocolBase is Ownable, AccessControl, ReentrancyGuar
      * @dev Returns the contract version - must be implemented by child contracts
      */
     function getContractVersion() external pure virtual returns (string memory);
+
+    /**
+     * @dev Sets the rewards integration contract (admin only)
+     * @param _rewardsIntegration Address of the RewardsIntegration contract
+     */
+    function setRewardsIntegration(address _rewardsIntegration) external onlyOwner {
+        require(_rewardsIntegration != address(0), "Invalid rewards integration address");
+        address oldAddress = address(rewardsIntegration);
+        rewardsIntegration = RewardsIntegration(_rewardsIntegration);
+        emit ContractAddressUpdated("RewardsIntegration", oldAddress, _rewardsIntegration);
+    }
 }

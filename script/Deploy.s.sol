@@ -16,6 +16,9 @@ import "../src/SignatureManager.sol";
 import "../src/RefundManager.sol";
 import "../src/PermitPaymentManager.sol";
 import "../src/BaseCommerceIntegration.sol";
+import "../src/rewards/RewardsTreasury.sol";
+import "../src/rewards/LoyaltyManager.sol";
+import "../src/rewards/RewardsIntegration.sol";
 
 /**
  * @title Deploy - FIXED VERSION
@@ -55,6 +58,11 @@ contract Deploy is Script {
     RefundManager public refundManager;
     PermitPaymentManager public permitPaymentManager;
     BaseCommerceIntegration public baseCommerceIntegration;
+
+    // Rewards system contracts
+    RewardsTreasury public rewardsTreasury;
+    LoyaltyManager public loyaltyManager;
+    RewardsIntegration public rewardsIntegration;
 
     // Network configurations
     mapping(uint256 => NetworkConfig) public networkConfigs;
@@ -96,7 +104,7 @@ contract Deploy is Script {
             permit2Collector: address(0),                                // No Base Commerce Protocol on Celo
             permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,        // Uniswap Permit2
             quoterV2: 0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8,       // Uniswap V3 QuoterV2
-            weth: 0x471ece3750da237f93b8e339c536989b8978a438,           // CELO (native token)
+            weth: 0x471EcE3750Da237f93B8E339c536989b8978a438,           // CELO (native token)
             chainId: 42220,
             name: "Celo Mainnet"
         });
@@ -108,7 +116,7 @@ contract Deploy is Script {
             permit2Collector: address(0),                                // No Base Commerce Protocol on Celo
             permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3,        // Uniswap Permit2
             quoterV2: 0x3c1FCF8D6f3A579E98F4AE75EB0adA6de70f5673,       // Uniswap V3 QuoterV2
-            weth: 0x471ece3750da237f93b8e339c536989b8978a438,           // CELO (native token)
+            weth: 0x471EcE3750Da237f93B8E339c536989b8978a438,           // CELO (native token)
             chainId: 44787,
             name: "Celo Alfajores"
         });
@@ -234,12 +242,29 @@ contract Deploy is Script {
         );
         console.log("   BaseCommerceIntegration deployed at:", address(baseCommerceIntegration));
 
-        // 12. Deploy PermitPaymentManager
+        // 12. Deploy Rewards System
+        console.log("12. Deploying Rewards System...");
+        
+        // 12a. Deploy RewardsTreasury
+        console.log("12a. Deploying RewardsTreasury...");
+        rewardsTreasury = new RewardsTreasury(config.usdc);
+        console.log("   RewardsTreasury deployed at:", address(rewardsTreasury));
+        
+        // 12b. Deploy LoyaltyManager
+        console.log("12b. Deploying LoyaltyManager...");
+        loyaltyManager = new LoyaltyManager(address(rewardsTreasury));
+        console.log("   LoyaltyManager deployed at:", address(loyaltyManager));
+
+        // 13. Deploy PermitPaymentManager
         console.log("12. Deploying PermitPaymentManager...");
         permitPaymentManager = new PermitPaymentManager(address(baseCommerceIntegration), config.permit2, config.usdc);
         console.log("   PermitPaymentManager deployed at:", address(permitPaymentManager));
 
-        // 13. Deploy CommerceProtocolCore (with all manager addresses)
+        // 14. Deploy RewardsIntegration (requires CommerceProtocolCore address, will be set after deployment)
+        console.log("14. Deploying RewardsIntegration placeholder...");
+        // Note: We'll deploy this after CommerceProtocolCore and then update the reference
+
+        // 15. Deploy CommerceProtocolCore (with all manager addresses)
         console.log("13. Deploying CommerceProtocolCore...");
         commerceCore = new CommerceProtocolCore(
             address(baseCommerceIntegration),
@@ -256,7 +281,8 @@ contract Deploy is Script {
             address(accessManager),
             address(signatureManager),
             address(refundManager),
-            address(permitPaymentManager)
+            address(permitPaymentManager),
+            address(0) // Will be set after RewardsIntegration deployment
         );
         console.log("   CommerceProtocolCore deployed at:", address(commerceCore));
 
@@ -277,9 +303,35 @@ contract Deploy is Script {
             address(accessManager),
             address(signatureManager),
             address(refundManager),
-            address(permitPaymentManager)
+            address(permitPaymentManager),
+            address(0) // Will be set after RewardsIntegration deployment
         );
         console.log("   CommerceProtocolPermit deployed at:", address(commercePermit));
+
+        // 16. Now deploy RewardsIntegration with proper CommerceProtocolCore address
+        console.log("16. Deploying RewardsIntegration...");
+        rewardsIntegration = new RewardsIntegration(
+            address(rewardsTreasury),
+            address(loyaltyManager),
+            address(commerceCore)
+        );
+        console.log("   RewardsIntegration deployed at:", address(rewardsIntegration));
+
+        // 17. Set RewardsIntegration in CommerceProtocol contracts
+        console.log("17. Configuring RewardsIntegration references...");
+        commerceCore.setRewardsIntegration(address(rewardsIntegration));
+        commercePermit.setRewardsIntegration(address(rewardsIntegration));
+        console.log("   RewardsIntegration configured in protocol contracts");
+
+        // 18. Configure rewards system permissions
+        console.log("18. Setting up rewards system permissions...");
+        rewardsTreasury.grantRole(rewardsTreasury.REVENUE_COLLECTOR_ROLE(), address(rewardsIntegration));
+        rewardsTreasury.grantRole(rewardsTreasury.REWARDS_DISTRIBUTOR_ROLE(), address(rewardsIntegration));
+        loyaltyManager.grantRole(loyaltyManager.POINTS_MANAGER_ROLE(), address(rewardsIntegration));
+        loyaltyManager.grantRole(loyaltyManager.DISCOUNT_MANAGER_ROLE(), address(rewardsIntegration));
+        rewardsIntegration.grantRole(rewardsIntegration.REWARDS_TRIGGER_ROLE(), address(commerceCore));
+        rewardsIntegration.grantRole(rewardsIntegration.REWARDS_TRIGGER_ROLE(), address(commercePermit));
+        console.log("   Rewards system permissions configured");
     }
 
     function _setupPermissions() internal {

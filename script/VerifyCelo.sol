@@ -138,7 +138,7 @@ contract VerifyCelo is Script {
             ? 0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8  // Celo Mainnet
             : 0x3c1FCF8D6f3A579E98F4AE75EB0adA6de70f5673; // Celo Alfajores
             
-        address weth = 0x471ece3750da237f93b8e339c536989b8978a438; // CELO token
+        address weth = 0x471EcE3750Da237f93B8E339c536989b8978a438; // CELO token
         
         address usdc = block.chainid == 42220
             ? 0xcebA9300f2b948710d2653dD7B07f33A8B32118C  // Celo Mainnet USDC

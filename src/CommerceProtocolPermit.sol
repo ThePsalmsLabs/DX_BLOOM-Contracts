@@ -58,7 +58,8 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
         address _accessManager,
         address _signatureManager,
         address _refundManager,
-        address _permitPaymentManager
+        address _permitPaymentManager,
+        address _rewardsIntegration
     ) CommerceProtocolBase(
         _baseCommerceIntegration,
         _permit2,
@@ -73,7 +74,8 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
         _accessManager,
         _signatureManager,
         _refundManager,
-        _permitPaymentManager
+        _permitPaymentManager,
+        _rewardsIntegration
     ) {}
 
     // ============ PERMIT PAYMENT FUNCTIONS ============
@@ -85,7 +87,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
         bytes16 intentId,
         PermitPaymentManager.Permit2Data calldata permitData
     ) external nonReentrant whenNotPaused returns (bool success) {
-        PaymentContext memory context = paymentContexts[intentId];
+        ISharedTypes.PaymentContext memory context = paymentContexts[intentId];
         require(context.user == msg.sender, "Not intent creator");
         require(!processedIntents[intentId], "Intent already processed");
         require(block.timestamp <= intentDeadlines[intentId], "Intent expired");
@@ -143,6 +145,9 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
                 context.operatorFee
             );
 
+            // Distribute funds to rewards treasury and trigger loyalty points
+            _distributeFunds(context, intentId, context.paymentToken, context.expectedAmount, context.operatorFee);
+
             emit PaymentExecutedWithPermit(
                 intentId,
                 msg.sender,
@@ -193,7 +198,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
         intentId = _generateStandardIntentId(msg.sender, request);
         
         // Create payment context
-        PaymentContext memory context = PaymentContext({
+        ISharedTypes.PaymentContext memory context = ISharedTypes.PaymentContext({
             paymentType: request.paymentType,
             user: msg.sender,
             creator: request.creator,
@@ -311,7 +316,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
         bytes16 intentId,
         PermitPaymentManager.Permit2Data calldata permitData
     ) external view returns (bool canExecute, string memory reason) {
-        PaymentContext memory context = paymentContexts[intentId];
+        ISharedTypes.PaymentContext memory context = paymentContexts[intentId];
         return permitPaymentManager.canExecuteWithPermit(
             intentId,
             context.user,
@@ -345,7 +350,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
      */
     function validatePermitContext(
         PermitPaymentManager.Permit2Data calldata permitData,
-        PaymentContext memory context
+        ISharedTypes.PaymentContext memory context
     ) external view returns (bool isValid) {
         return permitPaymentManager.validatePermitContext(
             permitData, 
@@ -371,7 +376,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
         external
         nonReentrant
         whenNotPaused
-        returns (bytes16 intentId, PaymentContext memory context)
+        returns (bytes16 intentId, ISharedTypes.PaymentContext memory context)
     {
         // Validate payment request
         _validatePaymentRequest(request);
@@ -380,7 +385,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
         intentId = _generateStandardIntentId(msg.sender, request);
 
         // Create payment context
-        context = PaymentContext({
+        context = ISharedTypes.PaymentContext({
             paymentType: request.paymentType,
             user: msg.sender,
             creator: request.creator,
@@ -444,7 +449,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
 
         for (uint256 i = 0; i < intentIds.length; i++) {
             bytes16 intentId = intentIds[i];
-            PaymentContext memory context = paymentContexts[intentId];
+            ISharedTypes.PaymentContext memory context = paymentContexts[intentId];
             
             // Basic validation for each intent
             if (context.user == msg.sender && 
@@ -532,7 +537,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
             uint256 expectedAmount
         ) 
     {
-        PaymentContext memory context = paymentContexts[intentId];
+        ISharedTypes.PaymentContext memory context = paymentContexts[intentId];
         exists = context.user != address(0);
         
         if (exists) {
@@ -571,15 +576,15 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
     // ============ INTERNAL HELPER FUNCTIONS ============
 
     /**
-     * @dev Converts PaymentContext to AccessManager format
+     * @dev Converts ISharedTypes.PaymentContext to AccessManager format
      */
-    function _convertToAccessManagerContext(PaymentContext memory context) 
+    function _convertToAccessManagerContext(ISharedTypes.PaymentContext memory context) 
         internal 
         pure 
         returns (AccessManager.PaymentContext memory) 
     {
         return AccessManager.PaymentContext({
-            paymentType: ISharedTypes.PaymentType(uint8(context.paymentType)),
+            paymentType: context.paymentType,
             user: context.user,
             creator: context.creator,
             contentId: context.contentId,
