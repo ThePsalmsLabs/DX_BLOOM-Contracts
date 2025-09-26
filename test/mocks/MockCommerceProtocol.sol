@@ -1,279 +1,182 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import { ICommercePaymentsProtocol } from "../../src/interfaces/IPlatformInterfaces.sol";
+import "forge-std/Test.sol";
+import { IBaseCommerceIntegration } from "../../src/interfaces/IPlatformInterfaces.sol";
 
 /**
  * @title MockCommerceProtocol
- * @dev Mock implementation of the Base Commerce Payments Protocol
- * @notice This mock allows us to test our Commerce Protocol integration without
- *         depending on the actual deployed protocol. We can control exactly how
- *         it behaves, simulate different scenarios, and test edge cases.
+ * @dev Mock implementation of BaseCommerceProtocol for testing
+ * @notice This contract simulates the BaseCommerceIntegration contract functionality
  */
-contract MockCommerceProtocol is ICommercePaymentsProtocol {
-    // Track registered operators for testing
+contract MockCommerceProtocol is IBaseCommerceIntegration {
+    using stdStorage for StdStorage;
+
+    // Mock state
     mapping(address => bool) public registeredOperators;
-    mapping(address => address) public operatorFeeDestinationsMap;
+    mapping(address => uint256) public operatorFees;
+    mapping(address => address) public operatorFeeDestinations;
 
-    // Track processed intents to prevent double-processing
-    mapping(bytes16 => bool) public processedIntents;
+    // Events for testing
+    event OperatorRegistered(address operator, address feeDestination);
+    event PaymentExecuted(address from, address to, uint256 amount, bytes32 paymentHash);
+    event TransferFailed(address from, address to, uint256 amount, string reason);
 
-    // Settings to control mock behavior
-    bool public shouldFailTransfers;
-    bool public shouldFailRegistration;
-    uint256 public transferDelay;
+    // Mock data
+    bool public shouldFailTransfers = false;
+    bool public shouldFailRegistrations = false;
 
-    // Track function calls for testing
-    uint256 public registerOperatorCalls;
-    uint256 public transferCalls;
-    uint256 public swapCalls;
-
-    // Events (inherited from interface)
+    // Track payment attempts
+    uint256 public paymentAttempts;
+    uint256 public successfulPayments;
 
     /**
-     * @dev Registers an operator without fee destination
-     * @notice This simulates the real protocol's simple operator registration
+     * @dev Mock operator registration
+     * @param feeDestination Where to send operator fees
+     * @return operatorId The operator ID
+     * @notice This function doesn't have an 'operator' parameter
      */
-    function registerOperator() external override {
-        registerOperatorCalls++;
-
-        if (shouldFailRegistration) {
+    function registerOperator(address feeDestination)
+        external
+        returns (bytes32 operatorId)
+    {
+        if (shouldFailRegistrations) {
             revert("MockCommerceProtocol: Registration failed");
         }
 
         registeredOperators[msg.sender] = true;
-        operatorFeeDestinationsMap[msg.sender] = msg.sender; // Default to operator address
+        operatorFeeDestinations[msg.sender] = feeDestination;
+        operatorId = keccak256(abi.encodePacked(msg.sender, feeDestination, block.timestamp));
 
-        emit OperatorRegistered(msg.sender, msg.sender);
+        emit OperatorRegistered(msg.sender, feeDestination);
     }
 
     /**
-     * @dev Registers an operator with specific fee destination
-     * @param _feeDestination Where operator fees should be sent
-     * @notice This simulates the real protocol's operator registration process
+     * @dev Mock check if operator is registered
+     * @param operator The operator address
+     * @return registered Whether the operator is registered
      */
-    function registerOperatorWithFeeDestination(address _feeDestination) external override {
-        registerOperatorCalls++;
-
-        if (shouldFailRegistration) {
-            revert("MockCommerceProtocol: Registration failed");
-        }
-
-        registeredOperators[msg.sender] = true;
-        operatorFeeDestinationsMap[msg.sender] = _feeDestination;
-
-        emit OperatorRegistered(msg.sender, _feeDestination);
-    }
-
-    /**
-     * @dev Unregisters an operator
-     * @notice This simulates the real protocol's operator unregistration
-     */
-    function unregisterOperator() external override {
-        registeredOperators[msg.sender] = false;
-        operatorFeeDestinationsMap[msg.sender] = address(0);
-    }
-
-    /**
-     * @dev Mock implementation of native currency transfer
-     * @param intent The transfer intent to execute
-     * @notice This simulates ETH payments being processed by the protocol
-     */
-    function transferNative(TransferIntent calldata intent) external payable override {
-        transferCalls++;
-        _executeTransfer(intent);
-    }
-
-    /**
-     * @dev Mock implementation of token transfer with Permit2
-     * @param intent The transfer intent to execute
-     * @param signatureTransferData The Permit2 signature data
-     * @notice This validates permit data and executes transfers
-     */
-    function transferToken(TransferIntent calldata intent, Permit2SignatureTransferData calldata signatureTransferData)
-        external
-        override
-    {
-        transferCalls++;
-
-        // Validate permit data (basic checks)
-        require(signatureTransferData.permit.deadline >= block.timestamp, "Permit expired");
-        require(signatureTransferData.transferDetails.to == address(this), "Invalid transfer destination");
-        require(signatureTransferData.permit.permitted.amount >= signatureTransferData.transferDetails.requestedAmount, "Insufficient permit amount");
-
-        // Validate intent data
-        require(intent.recipient != address(0), "Invalid recipient");
-        require(intent.recipientCurrency != address(0), "Invalid recipient currency");
-        require(intent.sender != address(0), "Invalid sender");
-
-        _executeTransfer(intent);
-    }
-
-    /**
-     * @dev Mock implementation of pre-approved token transfer
-     * @param intent The transfer intent to execute
-     */
-    function transferTokenPreApproved(TransferIntent calldata intent) external override {
-        transferCalls++;
-        _executeTransfer(intent);
-    }
-
-    /**
-     * @dev Mock implementation of ETH to token swap and transfer
-     * @param intent The transfer intent to execute
-     * @param poolFeesTier The Uniswap pool fee tier
-     */
-    function swapAndTransferUniswapV3Native(TransferIntent calldata intent, uint24 poolFeesTier)
-        external
-        payable
-        override
-    {
-        swapCalls++;
-        _executeTransfer(intent);
-    }
-
-    /**
-     * @dev Mock implementation of token to token swap and transfer
-     * @param intent The transfer intent to execute
-     * @param signatureTransferData The Permit2 signature data
-     * @param poolFeesTier The Uniswap pool fee tier
-     */
-    function swapAndTransferUniswapV3Token(
-        TransferIntent calldata intent,
-        Permit2SignatureTransferData calldata signatureTransferData,
-        uint24 poolFeesTier
-    ) external override {
-        swapCalls++;
-        _executeTransfer(intent);
-    }
-
-    /**
-     * @dev Mock implementation of pre-approved token swap and transfer
-     * @param intent The transfer intent to execute
-     * @param poolFeesTier The Uniswap pool fee tier
-     */
-    function swapAndTransferUniswapV3TokenPreApproved(TransferIntent calldata intent, uint24 poolFeesTier)
-        external
-        override
-    {
-        swapCalls++;
-        _executeTransfer(intent);
-    }
-
-    /**
-     * @dev Mock implementation of ETH wrapping and transfer
-     * @param intent The transfer intent to execute
-     */
-    function wrapAndTransfer(TransferIntent calldata intent) external payable override {
-        transferCalls++;
-        _executeTransfer(intent);
-    }
-
-    /**
-     * @dev Mock implementation of WETH unwrapping and transfer
-     * @param intent The transfer intent to execute
-     */
-    function unwrapAndTransfer(
-        TransferIntent calldata intent,
-        Permit2SignatureTransferData calldata signatureTransferData
-    ) external override {
-        transferCalls++;
-        _executeTransfer(intent);
-    }
-
-    /**
-     * @dev Mock implementation of pre-approved WETH unwrapping and transfer
-     * @param intent The transfer intent to execute
-     */
-    function unwrapAndTransferPreApproved(TransferIntent calldata intent) external override {
-        transferCalls++;
-        _executeTransfer(intent);
-    }
-
-    /**
-     * @dev Checks if an operator is registered
-     * @param operator The operator address to check
-     * @return Whether the operator is registered
-     */
-    function isOperatorRegistered(address operator) external view override returns (bool) {
+    function isOperatorRegistered(address operator) external view returns (bool) {
         return registeredOperators[operator];
     }
 
     /**
-     * @dev Gets the fee destination for an operator
-     * @param operator The operator address
-     * @return The fee destination address
+     * @dev Mock get operator fee destination
+     * @return destination The fee destination address for the caller
+     * @notice Uses msg.sender to determine the operator
      */
-    function getOperatorFeeDestination(address operator) external view override returns (address) {
-        return operatorFeeDestinationsMap[operator];
+    function operatorFeeDestination() external view returns (address) {
+        return operatorFeeDestinations[msg.sender];
     }
 
     /**
-     * @dev New interface function - checks if operator is registered
-     * @param operator The operator address to check
-     * @return Whether the operator is registered
+     * @dev Mock execute escrow payment
+     * @param params The payment parameters
+     * @return paymentHash The payment hash
      */
-    function operators(address operator) external view override returns (bool) {
-        return registeredOperators[operator];
-    }
+    function executeEscrowPayment(IBaseCommerceIntegration.EscrowPaymentParams memory params)
+        external
+        returns (bytes32 paymentHash)
+    {
+        paymentAttempts++;
 
-    /**
-     * @dev New interface function - gets operator fee destinations
-     * @param operator The operator address
-     * @return The fee destination address
-     */
-    function operatorFeeDestinations(address operator) external view override returns (address) {
-        return operatorFeeDestinationsMap[operator];
-    }
-
-    /**
-     * @dev Internal function to execute a transfer
-     * @param intent The transfer intent to execute
-     * @notice This is where we simulate the actual payment processing
-     */
-    function _executeTransfer(TransferIntent calldata intent) internal {
-        // Check if this intent has already been processed
-        if (processedIntents[intent.id]) {
-            revert AlreadyProcessed();
-        }
-
-        // Check if the intent has expired
-        if (block.timestamp > intent.deadline) {
-            revert ExpiredIntent();
-        }
-
-        // Check if the operator is registered
-        if (!registeredOperators[intent.operator]) {
-            revert OperatorNotRegistered();
-        }
-
-        // Simulate failure if configured to do so
         if (shouldFailTransfers) {
+            emit TransferFailed(params.payer, params.receiver, params.amount, "Mock transfer failure");
             revert("MockCommerceProtocol: Transfer failed");
         }
 
-        // Mark intent as processed
-        processedIntents[intent.id] = true;
+        paymentHash = keccak256(abi.encodePacked(
+            params.payer,
+            params.receiver,
+            params.amount,
+            params.paymentType,
+            block.timestamp
+        ));
 
-        // Simulate transfer delay if configured
-        if (transferDelay > 0) {
-            // In a real test, we would advance time here
-            // For now, we just track that a delay should occur
-        }
-
-        // Calculate the spent amount (this would be the actual amount paid)
-        uint256 spentAmount = intent.recipientAmount + intent.feeAmount;
-
-        // Emit the transfer event
-        emit Transferred(
-            intent.operator, intent.id, intent.recipient, msg.sender, spentAmount, intent.recipientCurrency
-        );
+        successfulPayments++;
+        emit PaymentExecuted(params.payer, params.receiver, params.amount, paymentHash);
     }
 
-    // ============ MOCK CONFIGURATION FUNCTIONS ============
+    /**
+     * @dev Mock batch payment execution
+     * @param params Array of payment parameters
+     * @return paymentHashes Array of payment hashes
+     */
+    function executeBatchEscrowPayment(IBaseCommerceIntegration.EscrowPaymentParams[] memory params)
+        external
+        returns (bytes32[] memory paymentHashes)
+    {
+        paymentHashes = new bytes32[](params.length);
+
+        for (uint256 i = 0; i < params.length; i++) {
+            paymentAttempts++;
+
+            if (shouldFailTransfers) {
+                emit TransferFailed(params[i].payer, params[i].receiver, params[i].amount, "Mock batch transfer failure");
+                revert("MockCommerceProtocol: Batch transfer failed");
+            }
+
+            paymentHashes[i] = keccak256(abi.encodePacked(
+                params[i].payer,
+                params[i].receiver,
+                params[i].amount,
+                params[i].paymentType,
+                block.timestamp,
+                i
+            ));
+
+            successfulPayments++;
+            emit PaymentExecuted(params[i].payer, params[i].receiver, params[i].amount, paymentHashes[i]);
+        }
+    }
 
     /**
-     * @dev Configure whether transfers should fail
+     * @dev Mock token transfer
+     * @param token The token address
+     * @param signature The signature data
+     * @return success Whether the transfer was successful
+     */
+    function transferToken(address token, bytes memory signature) external returns (bool success) {
+        paymentAttempts++;
+
+        if (shouldFailTransfers) {
+            return false;
+        }
+
+        successfulPayments++;
+        return true;
+    }
+
+    /**
+     * @dev Mock get protocol fee rate
+     * @return feeRate The protocol fee rate in basis points
+     */
+    function getProtocolFeeRate() external pure returns (uint256 feeRate) {
+        return 50; // 0.5% protocol fee
+    }
+
+    /**
+     * @dev Mock get operator fee
+     * @param operator The operator address
+     * @return feeAmount The operator fee amount
+     */
+    function getOperatorFee(address operator) external view returns (uint256 feeAmount) {
+        return operatorFees[operator];
+    }
+
+    /**
+     * @dev Mock set operator fee
+     * @param operator The operator address
+     * @param amount The fee amount
+     */
+    function setOperatorFee(address operator, uint256 amount) external {
+        operatorFees[operator] = amount;
+    }
+
+    // Configuration functions for testing
+
+    /**
+     * @dev Set whether transfers should fail
      * @param shouldFail Whether transfers should fail
      */
     function setShouldFailTransfers(bool shouldFail) external {
@@ -281,43 +184,40 @@ contract MockCommerceProtocol is ICommercePaymentsProtocol {
     }
 
     /**
-     * @dev Configure whether operator registration should fail
-     * @param shouldFail Whether registration should fail
+     * @dev Set whether registrations should fail
+     * @param shouldFail Whether registrations should fail
      */
-    function setShouldFailRegistration(bool shouldFail) external {
-        shouldFailRegistration = shouldFail;
+    function setShouldFailRegistrations(bool shouldFail) external {
+        shouldFailRegistrations = shouldFail;
     }
 
     /**
-     * @dev Configure transfer delay for testing
-     * @param delay The delay in seconds
+     * @dev Get payment statistics
+     * @return attempts Number of payment attempts
+     * @return successful Number of successful payments
      */
-    function setTransferDelay(uint256 delay) external {
-        transferDelay = delay;
+    function getPaymentStats() external view returns (uint256 attempts, uint256 successful) {
+        return (paymentAttempts, successfulPayments);
     }
 
     /**
-     * @dev Reset all call counters
+     * @dev Reset all mock data
      */
-    function resetCounters() external {
-        registerOperatorCalls = 0;
-        transferCalls = 0;
-        swapCalls = 0;
+    function resetMockData() external {
+        paymentAttempts = 0;
+        successfulPayments = 0;
+        shouldFailTransfers = false;
+        shouldFailRegistrations = false;
+
+        // Clear mappings - simplified for testing
+        registeredOperators[msg.sender] = false;
     }
 
     /**
-     * @dev Reset processed intents (for testing)
+     * @dev Mock domain separator for permit functionality
+     * @return separator The domain separator
      */
-    function resetProcessedIntents() external {
-        // In a real implementation, we'd clear the mapping
-        // For testing, we'll just track that this was called
-    }
-
-    /**
-     * @dev Manually mark an intent as processed (for testing)
-     * @param intentId The intent ID to mark as processed
-     */
-    function markIntentAsProcessed(bytes16 intentId) external {
-        processedIntents[intentId] = true;
+    function getDomainSeparator() external pure returns (bytes32 separator) {
+        return keccak256("MockCommerceProtocolDomain");
     }
 }
