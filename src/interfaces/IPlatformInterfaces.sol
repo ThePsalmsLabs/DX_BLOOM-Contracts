@@ -424,3 +424,25 @@ interface IPaymentMonitor {
     event AccessGranted(address indexed user, uint256 indexed contentId, string accessType);
     event RefundProcessed(bytes16 indexed intentId, address indexed user, uint256 amount);
 }
+
+/**
+ * @dev Interface for Base Commerce Integration
+ */
+interface IBaseCommerceIntegration {
+    struct EscrowPaymentParams {
+        address payer;
+        address receiver;
+        uint256 amount;
+        uint8 paymentType;
+        bytes permit2Data;
+        bool instantCapture;
+    }
+
+    function registerOperator(address feeDestination) external returns (bytes32 operatorId);
+    function isOperatorRegistered(address operator) external view returns (bool);
+    function operatorFeeDestination() external view returns (address);
+    function executeEscrowPayment(EscrowPaymentParams memory params) external returns (bytes32 paymentHash);
+    function executeBatchEscrowPayment(EscrowPaymentParams[] memory params) external returns (bytes32[] memory paymentHashes);
+    function getProtocolFeeRate() external view returns (uint256 feeRate);
+    function getOperatorFee(address operator) external view returns (uint256 feeAmount);
+}
