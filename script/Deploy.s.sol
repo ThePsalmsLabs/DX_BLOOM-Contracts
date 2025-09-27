@@ -33,7 +33,7 @@ contract Deploy is Script {
         address permit2Collector;      // Real Permit2 token collector
         address permit2;               // Uniswap Permit2
         address quoterV2;
-        address weth;
+        address weth;                  // WETH token address for the network
         uint256 chainId;
         string name;
     }
@@ -194,7 +194,7 @@ contract Deploy is Script {
         // 4. Deploy PayPerView
         console.log("4. Deploying PayPerView...");
         payPerView =
-            new PayPerView(address(creatorRegistry), address(contentRegistry), address(priceOracle), config.usdc);
+            new PayPerView(address(creatorRegistry), address(contentRegistry), address(priceOracle), config.usdc, config.weth);
         console.log("   PayPerView deployed at:", address(payPerView));
 
         // 5. Deploy SubscriptionManager
@@ -206,13 +206,14 @@ contract Deploy is Script {
         console.log("6. Deploying AdminManager...");
         adminManager = new AdminManager(
             feeRecipient,
-            operatorSigner
+            operatorSigner,
+            address(baseCommerceIntegration)
         );
         console.log("   AdminManager deployed at:", address(adminManager));
 
         // 7. Deploy ViewManager
         console.log("7. Deploying ViewManager...");
-        viewManager = new ViewManager();
+        viewManager = new ViewManager(address(baseCommerceIntegration));
         console.log("   ViewManager deployed at:", address(viewManager));
 
         // 8. Deploy AccessManager
