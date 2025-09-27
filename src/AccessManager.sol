@@ -112,9 +112,9 @@ contract AccessManager {
                         context.contentId, context.user, intentId, totalUsdcAmount, paymentToken, amountPaid
                     ) {
                         emit ContentAccessGranted(context.user, context.contentId, intentId, paymentToken, amountPaid);
-                    } catch Error(string memory reason) {
+                    } catch Error(string memory /* reason */) {
                         emit PaymentProcessingCompleted(intentId, context.user, address(0), ISharedTypes.PaymentType.PayPerView);
-                    } catch (bytes memory lowLevelData) {
+                    } catch (bytes memory /* lowLevelData */) {
                         emit PaymentProcessingCompleted(intentId, context.user, address(0), ISharedTypes.PaymentType.PayPerView);
                     }
                 }
@@ -129,9 +129,9 @@ contract AccessManager {
                     context.user, context.creator, intentId, totalUsdcAmount, paymentToken, amountPaid
                 ) {
                     emit SubscriptionAccessGranted(context.user, context.creator, intentId, paymentToken, amountPaid);
-                } catch Error(string memory reason) {
+                } catch Error(string memory /* reason */) {
                     emit PaymentProcessingCompleted(intentId, context.user, context.creator, ISharedTypes.PaymentType.Subscription);
-                } catch (bytes memory lowLevelData) {
+                } catch (bytes memory /* lowLevelData */) {
                     emit PaymentProcessingCompleted(intentId, context.user, context.creator, ISharedTypes.PaymentType.Subscription);
                 }
             } else {
