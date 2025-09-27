@@ -79,12 +79,7 @@ contract PermitPaymentManager is Ownable, AccessControl, ReentrancyGuard, Pausab
         address paymentToken,
         uint256 expectedAmount,
         address creator,
-        uint256 creatorAmount,
-        uint256 platformFee,
-        uint256 operatorFee,
-        uint256 deadline,
         ISharedTypes.PaymentType paymentType,
-        bytes memory signature,
         Permit2Data calldata permitData
     ) external nonReentrant whenNotPaused returns (bool success) {
         require(user == msg.sender, "Not intent creator");
@@ -151,16 +146,10 @@ contract PermitPaymentManager is Ownable, AccessControl, ReentrancyGuard, Pausab
     function createAndExecuteWithPermit(
         address user,
         address creator,
-        uint256 contentId,
         ISharedTypes.PaymentType paymentType,
         address paymentToken,
         uint256 expectedAmount,
-        uint256 creatorAmount,
-        uint256 platformFee,
-        uint256 operatorFee,
-        uint256 deadline,
         bytes16 intentId,
-        bytes memory signature,
         Permit2Data calldata permitData
     ) external nonReentrant whenNotPaused returns (bytes16, bool) {
         require(user == msg.sender, "Not intent creator");
@@ -172,12 +161,7 @@ contract PermitPaymentManager is Ownable, AccessControl, ReentrancyGuard, Pausab
             paymentToken,
             expectedAmount,
             creator,
-            creatorAmount,
-            platformFee,
-            operatorFee,
-            deadline,
             paymentType,
-            signature,
             permitData
         );
 
@@ -235,7 +219,7 @@ contract PermitPaymentManager is Ownable, AccessControl, ReentrancyGuard, Pausab
      * @dev Validates that a payment intent can be executed with permit
      */
     function canExecuteWithPermit(
-        bytes16 intentId,
+        bytes16 /* intentId */,
         address user,
         uint256 deadline,
         bool hasSignature,
