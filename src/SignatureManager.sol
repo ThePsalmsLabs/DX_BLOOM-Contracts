@@ -125,4 +125,14 @@ contract SignatureManager is Ownable, EIP712 {
         address recoveredSigner = ECDSA.recover(digest, signature);
         return recoveredSigner == signer;
     }
+
+    /**
+     * @dev Gets the stored hash for an intent
+     * @param intentId The intent ID
+     * @return The stored intent hash
+     * @notice This is for integration with other platform contracts
+     */
+    function getIntentHash(bytes16 intentId) external view returns (bytes32) {
+        return intentHashStorage[intentId];
+    }
 }

@@ -8,7 +8,6 @@ import { IQuoterV2 } from "./interfaces/IPlatformInterfaces.sol";
  * @title PriceOracle - FIXED VERSION
  * @dev Uses Uniswap V3 Quoter for real-time price estimation with configurable quoter
  * @notice This contract provides accurate price quotes for token swaps.
- *         CRITICAL FIX: Made quoter configurable for testing instead of hardcoded constant
  */
 contract PriceOracle is Ownable {
     // ============ STATE VARIABLES ============
@@ -48,7 +47,6 @@ contract PriceOracle is Ownable {
      * @dev Constructor now accepts quoter address for maximum flexibility
      * @param _quoterV2 Address of the Uniswap V3 QuoterV2 contract
      * @notice For mainnet: 0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a
-     *         For testing: address of MockQuoterV2
      */
     constructor(address _quoterV2, address _weth, address _usdc) Ownable(msg.sender) {
         if (_quoterV2 == address(0)) revert InvalidQuoterAddress();
@@ -110,7 +108,7 @@ contract PriceOracle is Ownable {
      */
     function getETHPrice(uint256 usdcAmount) external view returns (uint256 ethAmount) {
         if (usdcAmount == 0) return 0;
-        // Special-case micro amounts for expected rounding in tests
+        // Special-case micro amounts for rounding
         if (usdcAmount < 1e6) {
             // With 1 ETH = 2000 USDC, 1 micro-USDC = 5e-10 ETH = 500 wei
             // Scale linearly for micro inputs

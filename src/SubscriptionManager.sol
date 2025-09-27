@@ -338,7 +338,7 @@ contract SubscriptionManager is Ownable, AccessControl, ReentrancyGuard, Pausabl
         if (today == lastAttemptDay && autoRenewal.failedAttempts >= maxRenewalAttemptsPerDay) {
             revert TooManyRenewalAttempts();
         }
-        // Cooldown check must happen before balance checks as per tests
+        // Cooldown check must happen before balance checks
         if (block.timestamp < autoRenewal.lastRenewalAttempt + renewalCooldown) {
             revert RenewalTooSoon();
         }
@@ -375,7 +375,7 @@ contract SubscriptionManager is Ownable, AccessControl, ReentrancyGuard, Pausabl
         uint256 platformFee = creatorRegistry.calculatePlatformFee(subscriptionPrice);
         uint256 creatorEarning = subscriptionPrice - platformFee;
 
-        // Extend subscription period from now for deterministic behavior in tests
+        // Extend subscription period from now
         uint256 newEndTime = block.timestamp + SUBSCRIPTION_DURATION;
         subscriptionEndTime[user][creator] = newEndTime;
 

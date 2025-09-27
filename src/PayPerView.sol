@@ -33,6 +33,9 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
     PriceOracle public immutable priceOracle;
     IERC20 public immutable usdcToken;
 
+    // WETH address - configurable per chain
+    address public wethToken;
+
     // Payment timeout and refund settings
     uint256 public constant PAYMENT_TIMEOUT = 1 hours; // Payment intent expiry
     uint256 public constant REFUND_WINDOW = 24 hours; // Refund eligibility window
@@ -174,18 +177,26 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
      * @param _priceOracle Address of PriceOracle contract
      * @param _usdcToken Address of USDC token contract
      */
-    constructor(address _creatorRegistry, address _contentRegistry, address _priceOracle, address _usdcToken)
+    constructor(
+        address _creatorRegistry,
+        address _contentRegistry,
+        address _priceOracle,
+        address _usdcToken,
+        address _wethToken
+    )
         Ownable(msg.sender)
     {
         require(_creatorRegistry != address(0), "Invalid creator registry");
         require(_contentRegistry != address(0), "Invalid content registry");
         require(_priceOracle != address(0), "Invalid price oracle");
         require(_usdcToken != address(0), "Invalid USDC token");
+        require(_wethToken != address(0), "Invalid WETH token");
 
         creatorRegistry = CreatorRegistry(_creatorRegistry);
         contentRegistry = ContentRegistry(_contentRegistry);
         priceOracle = PriceOracle(_priceOracle);
         usdcToken = IERC20(_usdcToken);
+        wethToken = _wethToken;
 
         // Set up roles
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -209,7 +220,7 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
         address paymentToken,
         uint256 maxSlippage
     ) external nonReentrant whenNotPaused returns (bytes16 intentId, uint256 expectedAmount, uint256 deadline) {
-        // Fetch content; normalize error messages to match tests
+        // Fetch content
         ContentRegistry.Content memory content;
         try contentRegistry.getContent(contentId) returns (ContentRegistry.Content memory c) {
             content = c;
@@ -651,7 +662,7 @@ contract PayPerView is Ownable, AccessControl, ReentrancyGuard, Pausable {
     function _getPaymentTokenAddress(PaymentMethod method, address providedToken) internal view returns (address) {
         if (method == PaymentMethod.USDC) return address(usdcToken);
         if (method == PaymentMethod.ETH) return address(0); // ETH is address(0)
-        if (method == PaymentMethod.WETH) return 0x4200000000000000000000000000000000000006; // WETH on Base
+        if (method == PaymentMethod.WETH) return wethToken; // Configurable WETH address
         if (method == PaymentMethod.OTHER_TOKEN) return providedToken;
 
         revert InvalidPaymentMethod();

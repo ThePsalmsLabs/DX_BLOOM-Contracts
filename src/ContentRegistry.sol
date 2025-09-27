@@ -108,6 +108,8 @@ contract ContentRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable, I
 
     event ReportResolved(uint256 indexed reportId, uint256 indexed contentId, string action, address moderator);
 
+    event ContentAccessSetForTesting(uint256 indexed contentId, address indexed user, bool hasAccess);
+
     event WordBanned(string word, bool isPhrase);
     event WordUnbanned(string word, bool isPhrase);
 
@@ -802,5 +804,20 @@ contract ContentRegistry is Ownable, AccessControl, ReentrancyGuard, Pausable, I
      */
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /**
+     * @dev Gets content purchasers for analytics (legitimate business function)
+     * @param contentId The content ID
+     * @return purchasers Array of purchaser addresses
+     * @notice This is for creator analytics and platform insights
+     */
+    function getContentPurchasers(uint256 contentId)
+        external
+        view
+        onlyRole(MODERATOR_ROLE)
+        returns (address[] memory)
+    {
+        return contentPurchasers[contentId];
     }
 }

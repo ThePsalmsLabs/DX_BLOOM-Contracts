@@ -3,6 +3,7 @@ pragma solidity ^0.8.23;
 
 import { ISignatureTransfer } from "./interfaces/IPlatformInterfaces.sol";
 import { ISharedTypes } from "./interfaces/ISharedTypes.sol";
+import { BaseCommerceIntegration } from "./BaseCommerceIntegration.sol";
 
 /**
  * @title ViewManager
@@ -10,6 +11,17 @@ import { ISharedTypes } from "./interfaces/ISharedTypes.sol";
  * @notice This contract handles simple utility functions to reduce main contract size
  */
 contract ViewManager {
+    // Reference to BaseCommerceIntegration for operator status checking
+    BaseCommerceIntegration public immutable baseCommerceIntegration;
+
+    /**
+     * @dev Constructor initializes the ViewManager with BaseCommerceIntegration reference
+     * @param _baseCommerceIntegration Address of the BaseCommerceIntegration contract
+     */
+    constructor(address _baseCommerceIntegration) {
+        require(_baseCommerceIntegration != address(0), "Invalid BaseCommerceIntegration address");
+        baseCommerceIntegration = BaseCommerceIntegration(_baseCommerceIntegration);
+    }
 
     // ============ PERMIT FUNCTIONS ============
 
@@ -80,11 +92,13 @@ contract ViewManager {
     }
 
     /**
-     * @dev Simple status check functions (delegated to main contract)
-     * @notice These functions are kept simple to avoid storage access complexity
+     * @dev Gets operator status by checking BaseCommerceIntegration configuration
+     * @notice Operator is considered registered if BaseCommerceIntegration has valid configuration
      */
-    function getOperatorStatus() external pure returns (bool registered, address feeDestination) {
-        // Placeholder - actual implementation would delegate to main contract
-        return (true, address(0));
+    function getOperatorStatus() external view returns (bool registered, address feeDestination) {
+        // Check if BaseCommerceIntegration has a valid fee destination configured
+        address configuredFeeDestination = baseCommerceIntegration.operatorFeeDestination();
+        registered = configuredFeeDestination != address(0);
+        feeDestination = configuredFeeDestination;
     }
 }

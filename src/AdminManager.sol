@@ -9,6 +9,7 @@ import { PayPerView } from "./PayPerView.sol";
 import { SubscriptionManager } from "./SubscriptionManager.sol";
 import { IERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import { BaseCommerceIntegration } from "./BaseCommerceIntegration.sol";
 
 /**
  * @title AdminManager
@@ -35,6 +36,12 @@ contract AdminManager is Ownable, AccessControl, Pausable {
     // Authorized signers mapping
     mapping(address => bool) public authorizedSigners;
 
+    // Reference to BaseCommerceIntegration for operator status and fee tracking
+    BaseCommerceIntegration public immutable baseCommerceIntegration;
+
+    // Fee tracking
+    mapping(address => uint256) public accumulatedFees;
+
     // ============ EVENTS ============
 
     event ContractAddressUpdated(string contractName, address oldAddress, address newAddress);
@@ -53,13 +60,16 @@ contract AdminManager is Ownable, AccessControl, Pausable {
 
     constructor(
         address _operatorFeeDestination,
-        address _operatorSigner
+        address _operatorSigner,
+        address _baseCommerceIntegration
     ) Ownable(msg.sender) {
         require(_operatorFeeDestination != address(0), "Invalid fee destination");
         require(_operatorSigner != address(0), "Invalid operator signer");
+        require(_baseCommerceIntegration != address(0), "Invalid BaseCommerceIntegration address");
 
         operatorFeeDestination = _operatorFeeDestination;
         operatorSigner = _operatorSigner;
+        baseCommerceIntegration = BaseCommerceIntegration(_baseCommerceIntegration);
     }
 
     // ============ CONTRACT MANAGEMENT ============
@@ -179,11 +189,23 @@ contract AdminManager is Ownable, AccessControl, Pausable {
     // ============ FEE WITHDRAWAL ============
 
     /**
-     * @dev Withdraws operator fees (placeholder - would need actual fee tracking)
+     * @dev Tracks operator fees earned from payments
+     * @param token Token address for fee tracking
+     * @param feeAmount Amount of fees earned
+     */
+    function trackOperatorFees(address token, uint256 feeAmount) external {
+        require(msg.sender == address(baseCommerceIntegration), "Only BaseCommerceIntegration can track fees");
+        accumulatedFees[token] += feeAmount;
+    }
+
+    /**
+     * @dev Withdraws operator fees (now uses actual fee tracking)
      */
     function withdrawOperatorFees(address token, uint256 amount) external onlyOwner {
         require(token != address(0), "Invalid token");
-        // This is a placeholder - actual implementation would track operator fees
+        require(accumulatedFees[token] >= amount, "Insufficient accumulated fees");
+
+        accumulatedFees[token] -= amount;
         IERC20(token).safeTransfer(owner(), amount);
         emit OperatorFeesWithdrawn(token, amount);
     }
@@ -216,11 +238,12 @@ contract AdminManager is Ownable, AccessControl, Pausable {
     // ============ VIEW FUNCTIONS ============
 
     /**
-     * @dev Gets operator status information
+     * @dev Gets operator status information from BaseCommerceIntegration
      */
     function getOperatorStatus() external view returns (bool registered, address feeDestination) {
-        // This would need to check with the commerce protocol
-        return (true, operatorFeeDestination); // Placeholder
+        address configuredFeeDestination = baseCommerceIntegration.operatorFeeDestination();
+        registered = configuredFeeDestination != address(0);
+        feeDestination = configuredFeeDestination;
     }
 
     /**
