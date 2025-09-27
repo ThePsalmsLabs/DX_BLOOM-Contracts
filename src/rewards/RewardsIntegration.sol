@@ -54,11 +54,10 @@ contract RewardsIntegration is AccessControl, ReentrancyGuard {
 
     /**
      * @dev Hook called after successful payment to distribute rewards
-     * @param intentId The payment intent ID
      * @param context Payment context information
      */
     function onPaymentSuccess(
-        bytes16 intentId,
+        bytes16 /* intentId */,
         ISharedTypes.PaymentContext memory context
     ) external onlyRole(REWARDS_TRIGGER_ROLE) nonReentrant {
         require(context.processed && context.paymentToken == address(rewardsTreasury.usdcToken()),
@@ -186,7 +185,7 @@ contract RewardsIntegration is AccessControl, ReentrancyGuard {
     function processReferralBonus(
         address referrer,
         address newUser,
-        uint256 firstPurchaseAmount
+        uint256 /* firstPurchaseAmount */
     ) external onlyRole(REWARDS_TRIGGER_ROLE) {
         loyaltyManager.awardReferralPoints(referrer, newUser);
     }
