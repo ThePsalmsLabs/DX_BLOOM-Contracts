@@ -119,7 +119,6 @@ library PaymentValidatorLib {
 
     /**
      * @dev Validates intent execution context
-     * @param intentId The intent ID
      * @param user The calling user
      * @param contextUser The intent creator
      * @param deadline The intent deadline
@@ -129,7 +128,7 @@ library PaymentValidatorLib {
      * @return errorCode Error code if invalid
      */
     function validateExecutionContext(
-        bytes16 intentId,
+        bytes16 /* intentId */,
         address user,
         address contextUser,
         uint256 deadline,
