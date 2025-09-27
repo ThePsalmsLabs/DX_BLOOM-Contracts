@@ -2,14 +2,14 @@
 pragma solidity ^0.8.23;
 
 import "forge-std/Test.sol";
-import { IBaseCommerceIntegration } from "../../src/interfaces/IPlatformInterfaces.sol";
+import { IBaseCommerceIntegration, ISignatureTransfer } from "../../src/interfaces/IPlatformInterfaces.sol";
 
 /**
  * @title MockCommerceProtocol
  * @dev Mock implementation of BaseCommerceProtocol for testing
  * @notice This contract simulates the BaseCommerceIntegration contract functionality
  */
-contract MockCommerceProtocol is IBaseCommerceIntegration {
+contract MockCommerceProtocol is IBaseCommerceIntegration, ISignatureTransfer {
     using stdStorage for StdStorage;
 
     // Mock state
@@ -25,6 +25,7 @@ contract MockCommerceProtocol is IBaseCommerceIntegration {
     // Mock data
     bool public shouldFailTransfers = false;
     bool public shouldFailRegistrations = false;
+    bool public escrowPaymentSuccess = true;
 
     // Track payment attempts
     uint256 public paymentAttempts;
@@ -80,7 +81,7 @@ contract MockCommerceProtocol is IBaseCommerceIntegration {
     {
         paymentAttempts++;
 
-        if (shouldFailTransfers) {
+        if (shouldFailTransfers || !escrowPaymentSuccess) {
             emit TransferFailed(params.payer, params.receiver, params.amount, "Mock transfer failure");
             revert("MockCommerceProtocol: Transfer failed");
         }
@@ -111,7 +112,7 @@ contract MockCommerceProtocol is IBaseCommerceIntegration {
         for (uint256 i = 0; i < params.length; i++) {
             paymentAttempts++;
 
-            if (shouldFailTransfers) {
+            if (shouldFailTransfers || !escrowPaymentSuccess) {
                 emit TransferFailed(params[i].payer, params[i].receiver, params[i].amount, "Mock batch transfer failure");
                 revert("MockCommerceProtocol: Batch transfer failed");
             }
@@ -192,6 +193,14 @@ contract MockCommerceProtocol is IBaseCommerceIntegration {
     }
 
     /**
+     * @dev Set escrow payment success state
+     * @param success Whether escrow payments should succeed
+     */
+    function setEscrowPaymentSuccess(bool success) external {
+        escrowPaymentSuccess = success;
+    }
+
+    /**
      * @dev Get payment statistics
      * @return attempts Number of payment attempts
      * @return successful Number of successful payments
@@ -208,9 +217,11 @@ contract MockCommerceProtocol is IBaseCommerceIntegration {
         successfulPayments = 0;
         shouldFailTransfers = false;
         shouldFailRegistrations = false;
+        escrowPaymentSuccess = true;
 
         // Clear mappings - simplified for testing
         registeredOperators[msg.sender] = false;
+        nonces[msg.sender] = 0;
     }
 
     /**
@@ -219,5 +230,57 @@ contract MockCommerceProtocol is IBaseCommerceIntegration {
      */
     function getDomainSeparator() external pure returns (bytes32 separator) {
         return keccak256("MockCommerceProtocolDomain");
+    }
+
+    // Mock nonce for ISignatureTransfer interface
+    mapping(address => uint256) public nonces;
+
+    /**
+     * @dev Mock nonce getter for ISignatureTransfer interface
+     * @param owner The owner address
+     * @return nonce The nonce for the owner
+     */
+    function nonce(address owner) external view returns (uint256) {
+        return nonces[owner];
+    }
+
+    /**
+     * @dev Mock set nonce for testing
+     * @param owner The owner address
+     * @param _nonce The nonce value
+     */
+    function setNonce(address owner, uint256 _nonce) external {
+        nonces[owner] = _nonce;
+    }
+
+    // Mock Permit2 functionality for ISignatureTransfer interface
+    struct MockTokenPermissions {
+        address token;
+        uint256 amount;
+    }
+
+    struct MockPermitTransferFrom {
+        MockTokenPermissions permitted;
+        uint256 nonce;
+        uint256 deadline;
+    }
+
+    struct MockSignatureTransferDetails {
+        address to;
+        uint256 requestedAmount;
+    }
+
+    bytes32 public constant DOMAIN_SEPARATOR = keccak256("MockCommerceProtocolDomain");
+
+    /**
+     * @dev Mock permitTransferFrom for ISignatureTransfer interface
+     */
+    function permitTransferFrom(
+        ISignatureTransfer.PermitTransferFrom calldata /* permit */,
+        ISignatureTransfer.SignatureTransferDetails calldata /* transferDetails */,
+        address /* owner */,
+        bytes calldata /* signature */
+    ) external {
+        // Mock implementation - always succeeds
     }
 }

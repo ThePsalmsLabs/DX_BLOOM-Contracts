@@ -24,10 +24,16 @@ import { PriceOracle } from "../../src/PriceOracle.sol";
 import { PayPerView } from "../../src/PayPerView.sol";
 import { SubscriptionManager } from "../../src/SubscriptionManager.sol";
 import { IntentIdManager } from "../../src/IntentIdManager.sol";
+import { RewardsTreasury } from "../../src/rewards/RewardsTreasury.sol";
 
 // Interfaces and types
 import { ISharedTypes } from "../../src/interfaces/ISharedTypes.sol";
 import { IBaseCommerceIntegration } from "../../src/interfaces/IPlatformInterfaces.sol";
+
+// Test helper contracts
+import { SignatureManagerTestHelper } from "./SignatureManagerTestHelper.sol";
+import { ContentRegistryTestHelper } from "./ContentRegistryTestHelper.sol";
+import { RewardsTreasuryTestHelper } from "./RewardsTreasuryTestHelper.sol";
 
 // Mock contracts
 import { MockERC20 } from "../mocks/MockERC20.sol";
@@ -61,6 +67,7 @@ abstract contract TestSetup is Test {
     PriceOracle public priceOracle;
     PayPerView public payPerView;
     SubscriptionManager public subscriptionManager;
+    RewardsTreasury public rewardsTreasury;
 
     // ============ MOCK CONTRACTS ============
 
@@ -87,6 +94,12 @@ abstract contract TestSetup is Test {
 
     address public paymentMonitor = address(0xB000);
 
+    // ============ TEST HELPER CONTRACTS ============
+
+    SignatureManagerTestHelper public signatureTestHelper;
+    ContentRegistryTestHelper public contentTestHelper;
+    RewardsTreasuryTestHelper public rewardsTestHelper;
+
     // ============ TEST CONSTANTS ============
 
     uint256 public constant INITIAL_USDC_BALANCE = 1000000e6; // 1M USDC
@@ -109,6 +122,9 @@ abstract contract TestSetup is Test {
 
         // Deploy core contracts
         _deployCoreContracts();
+
+        // Deploy test helpers
+        _deployTestHelpers();
 
         // Set up initial state
         _setupInitialState();
@@ -163,7 +179,8 @@ abstract contract TestSetup is Test {
             address(creatorRegistry),
             address(contentRegistry),
             address(priceOracle),
-            address(mockUSDC)
+            address(mockUSDC),
+            address(mockWETH)
         );
 
         // Deploy Subscription Manager
@@ -173,8 +190,11 @@ abstract contract TestSetup is Test {
             address(mockUSDC)
         );
 
+        // Deploy Rewards Treasury
+        rewardsTreasury = new RewardsTreasury(address(mockUSDC));
+
         // Deploy View Manager
-        viewManager = new ViewManager();
+        viewManager = new ViewManager(address(mockCommerceProtocol)); // Use mock for testing
     }
 
     function _deployManagerContracts() internal {
@@ -205,8 +225,16 @@ abstract contract TestSetup is Test {
         // Deploy Admin Manager
         adminManager = new AdminManager(
             operatorFeeDestination,
-            operatorSigner
+            operatorSigner,
+            address(mockCommerceProtocol) // Use mock for testing
         );
+    }
+
+    function _deployTestHelpers() internal {
+        // Deploy test helper contracts
+        signatureTestHelper = new SignatureManagerTestHelper(address(signatureManager));
+        contentTestHelper = new ContentRegistryTestHelper(address(contentRegistry));
+        rewardsTestHelper = new RewardsTreasuryTestHelper(address(rewardsTreasury));
     }
 
     function _deployCoreContracts() internal {
@@ -459,5 +487,61 @@ abstract contract TestSetup is Test {
 
     function setNextBlockTimestamp(uint256 timestamp) internal {
         vm.warp(timestamp);
+    }
+
+    // ============ TEST HELPER UTILITIES ============
+
+    /**
+     * @dev Helper function to set up test intent with signature
+     * @param intentId The intent ID
+     * @param hash The intent hash
+     */
+    function setupTestIntent(bytes16 intentId, bytes32 hash) internal {
+        signatureTestHelper.setIntentHashForTesting(intentId, hash);
+    }
+
+    /**
+     * @dev Helper function to create test content
+     * @param creator Creator address
+     * @param title Content title
+     * @param description Content description
+     * @param category Content category
+     * @param price Content price
+     * @return contentId The registered content ID
+     */
+    function createTestContent(
+        address creator,
+        string memory title,
+        string memory description,
+        ISharedTypes.ContentCategory category,
+        uint256 price
+    ) internal returns (uint256 contentId) {
+        string[] memory tags = new string[](0); // No tags for test content
+        contentId = contentRegistry.registerContent(
+            "QmTestIPFSHash",
+            title,
+            description,
+            category,
+            price,
+            tags
+        );
+    }
+
+    /**
+     * @dev Helper function to set up test treasury scenario
+     * @param customerRewards Customer rewards pool balance
+     * @param creatorIncentives Creator incentives pool balance
+     * @param operational Operational pool balance
+     * @param reserve Reserve pool balance
+     */
+    function setupTestTreasury(
+        uint256 customerRewards,
+        uint256 creatorIncentives,
+        uint256 operational,
+        uint256 reserve
+    ) internal {
+        // Note: Direct pool balance setting is not available in production
+        // Tests should use proper deposit and allocation functions instead
+        // This is a placeholder for demonstration
     }
 }
