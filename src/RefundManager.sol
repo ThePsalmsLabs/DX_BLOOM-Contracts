@@ -90,7 +90,6 @@ contract RefundManager is Ownable, AccessControl {
         uint256 creatorAmount,
         uint256 platformFee,
         uint256 operatorFee,
-        ISharedTypes.PaymentType paymentType,
         string memory reason
     ) external {
         require(user == msg.sender, "Not payment creator");
@@ -181,11 +180,9 @@ contract RefundManager is Ownable, AccessControl {
     function handleFailedPayment(
         bytes16 intentId,
         address user,
-        address creator,
         uint256 creatorAmount,
         uint256 platformFee,
         uint256 operatorFee,
-        ISharedTypes.PaymentType paymentType,
         string memory reason
     ) external {
         // Calculate refund amount
