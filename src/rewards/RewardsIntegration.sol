@@ -8,7 +8,7 @@ import { SafeERC20 } from "lib/openzeppelin-contracts/contracts/token/ERC20/util
 import "./RewardsTreasury.sol";
 import "./LoyaltyManager.sol";
 import "../interfaces/ISharedTypes.sol";
-import "../CommerceProtocolCore.sol";
+import "../interfaces/ICommerceProtocolCore.sol";
 
 /**
  * @title RewardsIntegration
@@ -25,7 +25,7 @@ contract RewardsIntegration is AccessControl, ReentrancyGuard {
     // ============ CONTRACT REFERENCES ============
     RewardsTreasury public immutable rewardsTreasury;
     LoyaltyManager public immutable loyaltyManager;
-    CommerceProtocolCore public immutable commerceProtocol;
+    ICommerceProtocolCore public immutable commerceProtocol;
 
     // ============ CONFIGURATION ============
     bool public autoDistributeRevenue = true;
@@ -45,7 +45,7 @@ contract RewardsIntegration is AccessControl, ReentrancyGuard {
     ) {
         rewardsTreasury = RewardsTreasury(_rewardsTreasury);
         loyaltyManager = LoyaltyManager(_loyaltyManager);
-        commerceProtocol = CommerceProtocolCore(_commerceProtocol);
+        commerceProtocol = ICommerceProtocolCore(_commerceProtocol);
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(INTEGRATION_MANAGER_ROLE, msg.sender);

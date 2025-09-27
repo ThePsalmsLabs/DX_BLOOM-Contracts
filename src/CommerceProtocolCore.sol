@@ -119,126 +119,153 @@ contract CommerceProtocolCore is CommerceProtocolBase {
         whenNotPaused
         returns (bool success)
     {
+        ISharedTypes.PaymentContext memory context = _validatePaymentIntent(intentId);
+        return _executeValidatedPayment(intentId, context);
+    }
+
+    /**
+     * @dev Internal function to validate payment intent
+     */
+    function _validatePaymentIntent(bytes16 intentId) 
+        internal 
+        view 
+        returns (ISharedTypes.PaymentContext memory context) 
+    {
         require(signatureManager.hasSignature(intentId), "No signature provided");
-        ISharedTypes.PaymentContext memory context = paymentContexts[intentId];
+        context = paymentContexts[intentId];
         require(context.user == msg.sender, "Not intent creator");
         require(block.timestamp <= intentDeadlines[intentId], "Intent expired");
         require(!processedIntents[intentId], "Intent already processed");
+    }
 
-
+    /**
+     * @dev Internal function to execute validated payment
+     */
+    function _executeValidatedPayment(bytes16 intentId, ISharedTypes.PaymentContext memory context)
+        internal
+        returns (bool success)
+    {
         // Execute the payment through Base Commerce Protocol with enhanced validation
         if (context.paymentToken == address(usdcToken) || context.paymentToken == address(0)) {
-            // Validate quote freshness before executing swap (for non-USDC payments)
-            if (context.paymentToken != address(usdcToken)) {
-                (bool isValid, uint256 currentQuote) = priceOracle.validateQuoteBeforeSwap(
-                    context.paymentToken,
-                    address(usdcToken),
-                    context.expectedAmount,
-                    context.expectedAmount, // Expected from original quote
-                    500, // 5% tolerance
-                    priceOracle.getOptimalPoolFeeForSwap(context.paymentToken, address(usdcToken))
-                );
-                
-                require(isValid, "Quote validation failed - price moved beyond tolerance");
-                
-                // Check price impact for large trades
-                (uint256 priceImpactBps, bool impactAcceptable) = priceOracle.checkPriceImpact(
-                    context.paymentToken,
-                    address(usdcToken), 
-                    context.expectedAmount,
-                    1000 // Max 10% price impact
-                );
-                
-                require(impactAcceptable, "Price impact too high");
-            }
-            
-            // Use new BaseCommerceIntegration escrow flow
-            try baseCommerceIntegration.executeEscrowPayment(
-                BaseCommerceIntegration.EscrowPaymentParams({
-                    payer: context.user,
-                    receiver: context.creator,
-                    amount: context.expectedAmount,
-                    paymentType: context.paymentType,
-                    permit2Data: "", // Empty for signature-based payments (non-permit)
-                    instantCapture: true // Authorize + capture in one transaction
-                })
-            ) returns (bytes32 paymentHash) {
-                // Mark as processed and handle success
-                _markIntentAsProcessed(intentId);
-
-                // Handle successful payment through AccessManager
-                accessManager.handleSuccessfulPayment(
-                    _convertToAccessManagerContext(context),
-                    intentId,
-                    context.paymentToken,
-                    context.expectedAmount,
-                    context.operatorFee
-                );
-
-                // Distribute funds to rewards treasury and trigger loyalty points
-                _distributeFunds(context, intentId, context.paymentToken, context.expectedAmount, context.operatorFee);
-
-                // Log successful payment
-                emit PaymentCompleted(
-                    intentId,
-                    context.user,
-                    context.creator,
-                    context.paymentType,
-                    context.contentId,
-                    context.paymentToken,
-                    context.expectedAmount,
-                    true
-                );
-
-                return true;
-            } catch Error(string memory reason) {
-                refundManager.handleFailedPayment(
-                    intentId,
-                    context.user,
-                    context.creatorAmount,
-                    context.platformFee,
-                    context.operatorFee,
-                    reason
-                );
-                
-                emit PaymentCompleted(
-                    intentId,
-                    context.user,
-                    context.creator,
-                    context.paymentType,
-                    context.contentId,
-                    context.paymentToken,
-                    0,
-                    false
-                );
-                return false;
-            } catch (bytes memory lowLevelData) {
-                string memory reason = lowLevelData.length > 0 ? string(lowLevelData) : "Unknown error";
-                refundManager.handleFailedPayment(
-                    intentId,
-                    context.user,
-                    context.creatorAmount,
-                    context.platformFee,
-                    context.operatorFee,
-                    reason
-                );
-                
-                emit PaymentCompleted(
-                    intentId,
-                    context.user,
-                    context.creator,
-                    context.paymentType,
-                    context.contentId,
-                    context.paymentToken,
-                    0,
-                    false
-                );
-                return false;
-            }
-        } else {
-            // For other tokens, require permit data
-            revert("Non-USDC payments require permit data. Use CommerceProtocolPermit contract instead.");
+            _validatePriceQuoteIfNeeded(context);
+            return _processEscrowPayment(intentId, context);
         }
+
+        return false;
+    }
+
+    /**
+     * @dev Internal function to validate price quotes for non-USDC payments
+     */
+    function _validatePriceQuoteIfNeeded(ISharedTypes.PaymentContext memory context) internal view {
+        if (context.paymentToken != address(usdcToken)) {
+            // Validate quote freshness before executing swap
+            (bool isValid,) = priceOracle.validateQuoteBeforeSwap(
+                context.paymentToken,
+                address(usdcToken),
+                context.expectedAmount,
+                context.expectedAmount,
+                500,
+                priceOracle.getOptimalPoolFeeForSwap(context.paymentToken, address(usdcToken))
+            );
+            require(isValid, "Quote validation failed - price moved beyond tolerance");
+            
+            // Check price impact for large trades
+            (, bool impactAcceptable) = priceOracle.checkPriceImpact(
+                context.paymentToken,
+                address(usdcToken), 
+                context.expectedAmount,
+                1000
+            );
+            require(impactAcceptable, "Price impact too high");
+        }
+    }
+
+    /**
+     * @dev Internal function to process escrow payment
+     */
+    function _processEscrowPayment(bytes16 intentId, ISharedTypes.PaymentContext memory context)
+        internal
+        returns (bool success)
+    {
+        try baseCommerceIntegration.executeEscrowPayment(
+            BaseCommerceIntegration.EscrowPaymentParams({
+                payer: context.user,
+                receiver: context.creator,
+                amount: context.expectedAmount,
+                paymentType: context.paymentType,
+                permit2Data: "",
+                instantCapture: true
+            })
+        ) returns (bytes32) {
+            return _handleSuccessfulPayment(intentId, context);
+        } catch Error(string memory reason) {
+            return _handleFailedPayment(intentId, context, reason);
+        } catch (bytes memory lowLevelData) {
+            string memory reason = lowLevelData.length > 0 ? string(lowLevelData) : "Unknown error";
+            return _handleFailedPayment(intentId, context, reason);
+        }
+    }
+
+    /**
+     * @dev Internal function to handle successful payment
+     */
+    function _handleSuccessfulPayment(bytes16 intentId, ISharedTypes.PaymentContext memory context)
+        internal
+        returns (bool)
+    {
+        _markIntentAsProcessed(intentId);
+
+        accessManager.handleSuccessfulPayment(
+            _convertToAccessManagerContext(context),
+            intentId,
+            context.paymentToken,
+            context.expectedAmount,
+            context.operatorFee
+        );
+
+        _distributeFunds(context, intentId, context.paymentToken, context.expectedAmount, context.operatorFee);
+
+        emit PaymentCompleted(
+            intentId,
+            context.user,
+            context.creator,
+            context.paymentType,
+            context.contentId,
+            context.paymentToken,
+            context.expectedAmount,
+            true
+        );
+        return true;
+    }
+
+    /**
+     * @dev Internal function to handle failed payment
+     */
+    function _handleFailedPayment(bytes16 intentId, ISharedTypes.PaymentContext memory context, string memory reason)
+        internal
+        returns (bool)
+    {
+        refundManager.handleFailedPayment(
+            intentId,
+            context.user,
+            context.creatorAmount,
+            context.platformFee,
+            context.operatorFee,
+            reason
+        );
+        
+        emit PaymentCompleted(
+            intentId,
+            context.user,
+            context.creator,
+            context.paymentType,
+            context.contentId,
+            context.paymentToken,
+            0,
+            false
+        );
+        return false;
     }
 
     /**

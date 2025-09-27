@@ -91,7 +91,7 @@ contract SignatureManagerTestHelper is EIP712 {
         bytes memory signature,
         bytes32 messageHash,
         address expectedSigner
-    ) external pure testOnly returns (bool isValid) {
+    ) external view testOnly returns (bool isValid) {
         address recoveredSigner = ECDSA.recover(messageHash, signature);
         return recoveredSigner == expectedSigner;
     }
