@@ -123,12 +123,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
             context.paymentToken,
             context.expectedAmount,
             context.creator,
-            context.creatorAmount,
-            context.platformFee,
-            context.operatorFee,
-            intentDeadlines[intentId],
             context.paymentType,
-            signatureManager.getIntentSignature(intentId),
             permitData
         );
 
@@ -162,11 +157,9 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
             refundManager.handleFailedPayment(
                 intentId,
                 context.user,
-                context.creator,
                 context.creatorAmount,
                 context.platformFee,
                 context.operatorFee,
-                context.paymentType,
                 "Permit payment execution failed"
             );
 
@@ -249,12 +242,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
             request.paymentToken,
             amounts.expectedAmount,
             request.creator,
-            amounts.adjustedCreatorAmount,
-            amounts.platformFee,
-            amounts.operatorFee,
-            request.deadline,
             request.paymentType,
-            signatureManager.getIntentSignature(intentId),
             permitData
         );
 
@@ -284,12 +272,10 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
             // Handle failed payment
             refundManager.handleFailedPayment(
                 intentId,
-                context.user,
-                context.creator,
-                context.creatorAmount,
-                context.platformFee,
-                context.operatorFee,
-                context.paymentType,
+                msg.sender,
+                amounts.adjustedCreatorAmount,
+                amounts.platformFee,
+                amounts.operatorFee,
                 "Permit payment creation and execution failed"
             );
 
@@ -462,12 +448,7 @@ contract CommerceProtocolPermit is CommerceProtocolBase {
                     context.paymentToken,
                     context.expectedAmount,
                     context.creator,
-                    context.creatorAmount,
-                    context.platformFee,
-                    context.operatorFee,
-                    intentDeadlines[intentId],
                     context.paymentType,
-                    signatureManager.getIntentSignature(intentId),
                     permitDataArray[i]
                 );
 
