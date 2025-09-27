@@ -370,6 +370,59 @@ contract LoyaltyManager is AccessControl, ReentrancyGuard {
             benefits.freeTransactionFees
         );
     }
+
+    /**
+     * @dev Gets user's current loyalty tier
+     * @param user The user address
+     * @return tier The user's current tier
+     * @notice This is a legitimate business function for tier-based features
+     */
+    function getUserTier(address user) external view returns (LoyaltyTier tier) {
+        return userLoyalty[user].currentTier;
+    }
+
+    /**
+     * @dev Gets user's loyalty points
+     * @param user The user address
+     * @return totalPoints The user's total points
+     * @return availablePoints The user's available points
+     * @notice This is a legitimate business function for points display
+     */
+    function getUserPoints(address user) external view returns (uint256 totalPoints, uint256 availablePoints) {
+        UserLoyalty storage loyalty = userLoyalty[user];
+        return (loyalty.totalPoints, loyalty.availablePoints);
+    }
+
+    /**
+     * @dev Gets complete user loyalty data
+     * @param user The user address
+     * @return loyalty The complete loyalty data structure
+     * @notice This is a legitimate business function for user profile display
+     */
+    function getUserLoyalty(address user) external view returns (UserLoyalty memory loyalty) {
+        return userLoyalty[user];
+    }
+
+    /**
+     * @dev Gets tier benefits configuration
+     * @param tier The loyalty tier
+     * @return benefits The tier benefits structure
+     * @notice This is a legitimate business function for tier benefits display
+     */
+    function getTierBenefits(LoyaltyTier tier) external view returns (TierBenefits memory benefits) {
+        return tierBenefits[tier];
+    }
+
+    /**
+     * @dev Checks if user has early access to content
+     * @param user The user address
+     * @param contentId The content ID
+     * @return hasAccess Whether user has early access
+     * @notice This is a legitimate business function for content access control
+     */
+    function hasEarlyAccessToContent(address user, uint256 contentId) external view returns (bool hasAccess) {
+        return hasEarlyAccess[user][contentId];
+    }
 }
 
 // Library for additional loyalty functionality
