@@ -195,11 +195,9 @@ contract CommerceProtocolCore is CommerceProtocolBase {
                 refundManager.handleFailedPayment(
                     intentId,
                     context.user,
-                    context.creator,
                     context.creatorAmount,
                     context.platformFee,
                     context.operatorFee,
-                    context.paymentType,
                     reason
                 );
                 
@@ -219,11 +217,9 @@ contract CommerceProtocolCore is CommerceProtocolBase {
                 refundManager.handleFailedPayment(
                     intentId,
                     context.user,
-                    context.creator,
                     context.creatorAmount,
                     context.platformFee,
                     context.operatorFee,
-                    context.paymentType,
                     reason
                 );
                 
@@ -279,11 +275,9 @@ contract CommerceProtocolCore is CommerceProtocolBase {
             refundManager.handleFailedPayment(
                 intentId,
                 context.user,
-                context.creator,
                 context.creatorAmount,
                 context.platformFee,
                 context.operatorFee,
-                context.paymentType,
                 failureReason
             );
         }
@@ -478,7 +472,6 @@ contract CommerceProtocolCore is CommerceProtocolBase {
             context.creatorAmount,
             context.platformFee,
             context.operatorFee,
-            context.paymentType,
             reason
         );
     }
